@@ -3,7 +3,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 
-import { env, allowedOrigins } from './env.js'
+import { env, allowedOrigins, isOriginAllowed } from './env.js'
 import { meRouter } from './routes/me.js'
 import { plansRouter } from './routes/plans.js'
 import { billingRouter } from './routes/billing.js'
@@ -26,12 +26,16 @@ app.use(
     origin(origin, cb) {
       // No Origin header: server-to-server, curl, health checks.
       if (!origin) return cb(null, true)
-      if (allowedOrigins.includes(origin)) return cb(null, true)
+      if (isOriginAllowed(origin)) return cb(null, true)
       // Deny by omitting the header rather than throwing. Throwing turns a
       // routine cross-origin probe into a 500 and a stack trace in the logs,
       // while the browser-visible outcome is identical: no allow-origin header,
       // request blocked.
-      console.warn(`[cors] blocked origin ${origin}`)
+      //
+      // Logged with the allowlist alongside it, because the usual cause is a
+      // near-miss (trailing slash, http vs https, wrong subdomain) and seeing
+      // both strings together makes it obvious.
+      console.warn(`[cors] blocked ${origin} — allowed: ${allowedOrigins.join(', ') || '(none)'}`)
       cb(null, false)
     },
     credentials: true,
@@ -40,8 +44,21 @@ app.use(
   })
 )
 
-app.get('/health', (_req, res) =>
-  res.json({ ok: true, service: 'reelmint-api', env: env.nodeEnv, time: new Date().toISOString() })
+// The allowlist and integration flags are reported here deliberately. None of
+// it is secret — the origins are public URLs and the flags are booleans — and
+// having it one curl away turns "the API is unreachable" from a guessing game
+// into a diff between two strings.
+app.get('/health', (req, res) =>
+  res.json({
+    ok: true,
+    service: 'reelmint-api',
+    env: env.nodeEnv,
+    time: new Date().toISOString(),
+    allowedOrigins,
+    yourOrigin: req.get('origin') || null,
+    originAllowed: req.get('origin') ? isOriginAllowed(req.get('origin')) : null,
+    integrations: { razorpay: env.razorpay.configured, googleVeo: env.google.configured },
+  })
 )
 
 // Webhooks mount before the JSON parser: the signature is computed over the raw

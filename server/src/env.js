@@ -61,7 +61,41 @@ env.razorpay.configured = Boolean(
 )
 env.google.configured = Boolean(env.google.apiKey)
 
+/**
+ * Browsers send an Origin with no trailing slash and in lower case. A URL
+ * pasted from an address bar or a dashboard usually has the slash, and an
+ * exact-string comparison then silently rejects the one origin you meant to
+ * allow — which looks to the user like the API being down.
+ */
+export function normalizeOrigin(value) {
+  return String(value || '').trim().replace(/\/+$/, '').toLowerCase()
+}
+
 export const allowedOrigins = [env.webOrigin, ...env.extraOrigins]
+  .map(normalizeOrigin)
+  .filter(Boolean)
+
+/**
+ * Exact match, or a single-level wildcard such as https://*.vercel.app.
+ *
+ * The wildcard exists because Vercel gives every preview deployment its own
+ * hostname; without it, only production would ever be able to call the API.
+ */
+export function isOriginAllowed(origin) {
+  const o = normalizeOrigin(origin)
+  if (!o) return false
+
+  return allowedOrigins.some((pattern) => {
+    if (pattern === o) return true
+    if (!pattern.includes('*')) return false
+
+    const [scheme, rest] = pattern.split('://')
+    if (!rest?.startsWith('*.')) return false
+
+    const suffix = rest.slice(1) // ".vercel.app"
+    return o.startsWith(`${scheme}://`) && o.endsWith(suffix) && o.length > `${scheme}://`.length + suffix.length
+  })
+}
 
 if (missing.length) {
   console.error(
