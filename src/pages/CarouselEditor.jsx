@@ -3,7 +3,7 @@ import { toPng } from 'html-to-image'
 import JSZip from 'jszip'
 import { useStore } from '../lib/store.jsx'
 import { pickRandom } from '../lib/library.js'
-import { resolveImage, useSetImages } from '../lib/useImages.js'
+import { resolveImage, useSetImages, displayThumb } from '../lib/useImages.js'
 import { regenerateHook, buildPreset } from '../lib/copygen.js'
 import { newTextLayer } from './Carousels.jsx'
 import { uid } from '../lib/ids.js'
@@ -48,7 +48,7 @@ function TextLayer({ layer, selected, onSelect, onDrag, stageRef }) {
   const pillStyle = layer.pill === 'dark'
     ? { background: 'rgba(8,10,8,0.82)', padding: '8px 16px', borderRadius: 10 }
     : layer.pill === 'accent'
-      ? { background: 'var(--pill-accent, #d6f65c)', padding: '8px 16px', borderRadius: 999 }
+      ? { background: 'var(--pill-accent, #c9a4ff)', padding: '8px 16px', borderRadius: 999 }
       : {}
 
   return (
@@ -87,7 +87,7 @@ export default function CarouselEditor({ id }) {
   const stageRef = useRef(null)
   const bgs = useResolvedBgs(proj?.slides)
 
-  if (!proj) return <div className="empty mt-6">Carousel not found. <a href="#/carousels" style={{ color: 'var(--mint)' }}>Back to carousels</a></div>
+  if (!proj) return <div className="empty mt-6">Carousel not found. <a href="#/carousels" style={{ color: 'var(--brand)' }}>Back to carousels</a></div>
 
   const slide = proj.slides[Math.min(cur, proj.slides.length - 1)]
   const layer = slide.texts.find((t) => t.id === selText)
@@ -232,7 +232,7 @@ export default function CarouselEditor({ id }) {
         {/* ── stage ── */}
         <div className="stage-wrap">
           <div className="row" style={{ gap: 8 }}>
-            <span className="chip mint">{ROLE_LABEL[slide.role]} slide</span>
+            <span className="chip brand">{ROLE_LABEL[slide.role]} slide</span>
             <span className="chip">{cur + 1} / {proj.slides.length}</span>
           </div>
           <div
@@ -401,7 +401,7 @@ function ImagePicker({ store, proj, slide, onClose, onAssignSet, onPick, onShuff
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="row between">
           <div>
-            <h3>Backgrounds for the <span style={{ color: 'var(--mint)' }}>{slide.role}</span> section</h3>
+            <h3>Backgrounds for the <span style={{ color: 'var(--brand)' }}>{slide.role}</span> section</h3>
             <div className="sub">Pick a set for this section, then shuffle within it or choose an exact image.</div>
           </div>
           <button className="btn ghost sm" onClick={onClose}>✕</button>
@@ -420,7 +420,9 @@ function ImagePicker({ store, proj, slide, onClose, onAssignSet, onPick, onShuff
         </div>
         <div className="grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
           {(set?.images || []).map((img, i) => (
-            <button key={i} className="img-cell" style={{ backgroundImage: `url(${urls[i]})` }} onClick={() => onPick(img)} />
+            // The thumbnail is display-only — onPick still receives the original
+            // reference, so the slide keeps its full-resolution background.
+            <button key={i} className="img-cell" style={{ backgroundImage: `url("${displayThumb(urls[i])}")` }} onClick={() => onPick(img)} />
           ))}
           {urls.length === 0 && <div className="small muted" style={{ gridColumn: '1/-1' }}>This set has no images — upload some in Image Sets.</div>}
         </div>

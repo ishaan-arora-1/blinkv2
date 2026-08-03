@@ -64,7 +64,7 @@ export async function subscribeToPlan(planId, { user } = {}) {
         name: user?.fullName || undefined,
         email: user?.email || undefined,
       },
-      theme: { color: '#d6f65c' },
+      theme: { color: '#c9a4ff' },
       handler: async (response) => {
         settled = true
         try {

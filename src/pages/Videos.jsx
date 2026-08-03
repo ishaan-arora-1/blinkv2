@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
-import { CREATORS } from '../lib/creators.js'
+import { CREATORS, hookPoster } from '../lib/creators.js'
 import { newId } from '../lib/ids.js'
+import HookPreview from '../components/HookPreview.jsx'
 
 export default function Videos() {
   const store = useStore()
@@ -17,7 +18,7 @@ export default function Videos() {
           <div className="page-kicker">Create</div>
           <h1 className="page-title">Hook <em>videos</em></h1>
           <p className="page-sub">
-            A real AI creator reacts to your app in a 3-second hook, then your screen-recorded demo plays.
+            A real AI creator reacts to your product in a 3-second hook, then your screen recording plays.
             Trim it, score it, caption it, export it.
           </p>
         </div>
@@ -31,28 +32,80 @@ export default function Videos() {
           <div className="small mt-2">Pick a creator, pick their hook, upload your demo. Done in minutes.</div>
         </div>
       ) : (
-        <div className="grid cols-3">
-          {[...valid].sort((a, b) => b.createdAt - a.createdAt).map((p) => {
-            const char = store.getCharacter(p.characterId)
-            return (
-              <div key={p.id} className="tile" style={{ cursor: 'pointer' }} onClick={() => (window.location.hash = `/video/${p.id}`)}>
-                <div style={{ aspectRatio: '16/10', overflow: 'hidden', background: '#0b0f0d' }}>
-                  <img src={char.img} alt={char.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'top' }} />
-                </div>
-                <div className="tile-body">
-                  <div className="tile-title">{p.name}</div>
-                  <div className="row between mt-2">
-                    <span className="tile-sub">{char.name} · {p.demoPath ? 'demo attached' : 'no demo yet'}</span>
-                    <button className="btn xs danger" onClick={(e) => { e.stopPropagation(); if (confirm('Delete this video?')) store.deleteVideo(p.id) }}>Delete</button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+        <div className="grid portrait">
+          {[...valid].sort((a, b) => b.createdAt - a.createdAt).map((p) => (
+            <VideoCard key={p.id} proj={p} char={store.getCharacter(p.characterId)} store={store} />
+          ))}
         </div>
       )}
 
       {wizard && <NewVideoWizard store={store} onClose={() => setWizard(false)} />}
+    </div>
+  )
+}
+
+/**
+ * A project tile that previews the actual hook, at the ratio it exports at.
+ *
+ * It used to show the creator's portrait in a 16:10 letterbox — a landscape crop
+ * of a portrait photo, standing in for a 9:16 video. Nothing about it told you
+ * what the video looked like.
+ *
+ * The still is the clip's poster frame, and `preload="none"` means the 5 MB clip
+ * is not fetched until the pointer is actually on the tile. A grid of these
+ * costs ~30 KB per tile instead of ~5 MB.
+ */
+function VideoCard({ proj, char, store }) {
+  const vidRef = useRef(null)
+  const poster = hookPoster(proj.hook) || char.img
+
+  function play() {
+    const v = vidRef.current
+    if (!v) return
+    // A rejected play() is normal — the tab may be backgrounded, or the pointer
+    // left again before the video was ready. It is not worth an unhandled
+    // rejection in the console.
+    v.play().catch(() => {})
+  }
+
+  function stop() {
+    const v = vidRef.current
+    if (!v) return
+    v.pause()
+    v.currentTime = 0
+  }
+
+  return (
+    <div
+      className="tile"
+      style={{ cursor: 'pointer' }}
+      onClick={() => (window.location.hash = `/video/${proj.id}`)}
+      onMouseEnter={play}
+      onMouseLeave={stop}
+    >
+      <div className="thumb-9x16">
+        {proj.hook?.src ? (
+          <video ref={vidRef} src={proj.hook.src} poster={poster} muted loop playsInline preload="none" />
+        ) : (
+          <img src={char.img} alt={char.name} />
+        )}
+        <span className="chip brand">{proj.demoPath ? 'hook + demo' : 'hook only'}</span>
+      </div>
+      <div className="tile-body">
+        <div className="tile-title">{proj.name}</div>
+        <div className="row between mt-2">
+          <span className="tile-sub">{char.name}</span>
+          <button
+            className="btn xs danger"
+            onClick={(e) => {
+              e.stopPropagation()
+              if (confirm('Delete this video?')) store.deleteVideo(proj.id)
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -93,7 +146,7 @@ function NewVideoWizard({ store, onClose }) {
             <div className="sub">
               {step === 0
                 ? 'Real AI creators, one consistent look. They deliver the first 3 seconds.'
-                : 'Two premade reactions per creator — pick the one that fits your app.'}
+                : 'Two premade reactions per creator — pick the one that fits your product.'}
             </div>
           </div>
           <button className="btn ghost sm" onClick={onClose}>✕</button>
@@ -114,7 +167,7 @@ function NewVideoWizard({ store, onClose }) {
                 </button>
               ))}
               <div className="tile" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 200, gap: 8, opacity: 0.55, cursor: 'default' }}>
-                <div style={{ fontSize: 30, color: 'var(--mint)' }}>◇</div>
+                <div style={{ fontSize: 30, color: 'var(--brand)' }}>◇</div>
                 <b>Custom creators</b>
                 <span className="small muted" style={{ textAlign: 'center', padding: '0 10px' }}>Design your own — coming soon</span>
               </div>
@@ -131,23 +184,20 @@ function NewVideoWizard({ store, onClose }) {
             <div className="grid cols-3" style={{ gap: 14 }}>
               {char.hooks.map((h) => (
                 <button key={h.id} className="tile" onClick={() => createProject(h)}>
-                  <div style={{ aspectRatio: '9/13', overflow: 'hidden', background: '#000' }}>
-                    <video
-                      src={h.src} muted loop playsInline autoPlay
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  </div>
+                  {/* 9:16, matching the export, so the framing shown is the
+                      framing delivered. Hover to play. */}
+                  <HookPreview hook={h} alt={h.label} />
                   <div className="tile-body" style={{ padding: '10px 12px' }}>
                     <div className="tile-title">{h.label}</div>
                     <div className="row between mt-2">
                       <span className="chip">{h.maxDuration}s</span>
-                      <span className="chip mint">premade</span>
+                      <span className="chip brand">premade</span>
                     </div>
                   </div>
                 </button>
               ))}
               <div className="tile" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 220, gap: 8, opacity: 0.55, cursor: 'default' }}>
-                <div style={{ fontSize: 30, color: 'var(--sea)' }}>✦</div>
+                <div style={{ fontSize: 30, color: 'var(--accent)' }}>✦</div>
                 <b>Generate a hook</b>
                 <span className="small muted" style={{ textAlign: 'center', padding: '0 10px' }}>Custom reactions for {char.name} — coming soon</span>
               </div>
@@ -163,7 +213,7 @@ function NewVideoWizard({ store, onClose }) {
 }
 
 function defaultCaption(brand) {
-  const app = brand.appName || 'this app'
+  const app = brand.appName || 'this product'
   const pool = [
     `Wait… ${app} does WHAT?!`,
     `Nobody told me about ${app}`,

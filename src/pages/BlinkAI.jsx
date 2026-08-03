@@ -124,7 +124,7 @@ export default function BlinkAI() {
         </div>
 
         <div className="card upsell" style={{ maxWidth: 620 }}>
-          <div className="row"><span className="chip sea">{planFor('blink')} plan</span></div>
+          <div className="row"><span className="chip accent">{planFor('blink')} plan</span></div>
           <h3 style={{ margin: '12px 0 8px' }}>Blink AI is part of {planFor('blink')}</h3>
           <p className="small muted">
             {onLowerPaidPlan
@@ -178,7 +178,7 @@ export default function BlinkAI() {
             {creator ? (
               <div className="row" style={{ gap: 8 }}>
                 <img src={creator.img} alt={creator.name} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--line)' }} />
-                <span className="chip sea">{creator.name}</span>
+                <span className="chip accent">{creator.name}</span>
                 <button className="btn xs" onClick={() => setPicking(true)}>Change</button>
                 <button className="btn xs" onClick={() => setCreator(null)}>Remove</button>
               </div>
@@ -270,7 +270,7 @@ export default function BlinkAI() {
           {result?.status === 'ready' && result.url && (
             <>
               <div className="row between" style={{ marginBottom: 12 }}>
-                <h4 style={{ color: 'var(--sea)' }}>Your video</h4>
+                <h4 style={{ color: 'var(--accent)' }}>Your video</h4>
                 <a className="btn sm" href={result.url} download="blink-ai.mp4">⬇ Download</a>
               </div>
               <video src={result.url} controls autoPlay loop playsInline
@@ -279,8 +279,8 @@ export default function BlinkAI() {
                 <span className="chip">{duration}s</span>
                 <span className="chip">{aspect}</span>
                 <span className="chip">{resolution}</span>
-                <span className="chip sea">audio</span>
-                <a className="chip mint" href="#/library" style={{ textDecoration: 'none' }}>
+                <span className="chip accent">audio</span>
+                <a className="chip brand" href="#/library" style={{ textDecoration: 'none' }}>
                   saved to library ↗
                 </a>
               </div>

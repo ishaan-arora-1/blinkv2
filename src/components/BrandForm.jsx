@@ -1,6 +1,13 @@
 import React from 'react'
 
-const CATEGORIES = ['productivity', 'fitness', 'finance', 'health', 'social', 'education', 'photo & video', 'utilities', 'lifestyle', 'games']
+// Not just app categories — Blink UGC markets products, so the list covers
+// physical goods, storefronts and B2B software as well as apps.
+const CATEGORIES = [
+  'productivity', 'saas / b2b', 'fitness', 'health', 'finance', 'education',
+  'social', 'photo & video', 'utilities', 'lifestyle', 'games',
+  'ecommerce', 'beauty & skincare', 'fashion & apparel', 'food & drink',
+  'home & living', 'pets', 'gadgets & tech',
+]
 
 export default function BrandForm({ brand, onChange }) {
   const set = (k) => (e) => onChange({ [k]: e.target.value })
@@ -8,7 +15,10 @@ export default function BrandForm({ brand, onChange }) {
     <div>
       <div className="grid cols-2">
         <div className="field">
-          <label>App name</label>
+          {/* The field is still stored as app_name — renaming a column that
+              every row depends on buys nothing here. The label is what users
+              read. */}
+          <label>Product name</label>
           <input className="input" value={brand.appName} onChange={set('appName')} placeholder="e.g. Sunrise" />
         </div>
         <div className="field">

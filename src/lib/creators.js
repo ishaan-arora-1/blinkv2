@@ -2,9 +2,16 @@
 // generated with Seedream 4 (portraits) and Seedance 1.0 Pro (hooks),
 // shipped as local assets under /public/creators and /public/hooks.
 
+// Each clip ships with a 405×720 poster frame extracted from it.
+//
+// The clips are ~5 MB each, so anywhere we show a *grid* of hooks — the picker,
+// the project list, the landing page — loading the video just to see what it
+// looks like costs tens of megabytes. The poster is ~30 KB and is the same
+// frame, so previews are instant and the video is only fetched on hover.
 const hook = (creatorSlug, ab, emotion, label) => ({
   id: `hk_${creatorSlug}_${ab}`,
   src: `/hooks/${creatorSlug}-${ab}.mp4`,
+  poster: `/hooks/posters/${creatorSlug}-${ab}.jpg`,
   emotion,
   label,
   maxDuration: 3,
@@ -59,4 +66,18 @@ export function getCreator(id) {
 
 export function getHook(creatorId, hookId) {
   return getCreator(creatorId)?.hooks.find((h) => h.id === hookId)
+}
+
+/**
+ * The poster frame for a hook.
+ *
+ * Saved video projects store a copy of the hook they were created with, and
+ * projects created before posters existed have no `poster` field. Deriving it
+ * from the clip filename means those keep working without a data migration.
+ */
+export function hookPoster(hook) {
+  if (!hook) return null
+  if (hook.poster) return hook.poster
+  const match = /\/hooks\/([^/]+)\.mp4(?:[?#].*)?$/.exec(hook.src || '')
+  return match ? `/hooks/posters/${match[1]}.jpg` : null
 }

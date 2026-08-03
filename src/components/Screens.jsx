@@ -45,7 +45,7 @@ export function SetupNeeded({ missing }) {
         <div className="grid mt-4" style={{ gap: 6 }}>
           {missing.map((m) => (
             <div key={m.name} className="row between" style={{ gap: 12 }}>
-              <span className="mono small" style={{ color: 'var(--mint)' }}>{m.name}</span>
+              <span className="mono small" style={{ color: 'var(--brand)' }}>{m.name}</span>
               <span className="small muted" style={{ textAlign: 'right' }}>{m.hint}</span>
             </div>
           ))}

@@ -3,7 +3,7 @@ import { useStore } from '../lib/store.jsx'
 import { buildPreset, blankCopy, presetOptions } from '../lib/copygen.js'
 import { pickRandom, suggestedSetId } from '../lib/library.js'
 import { newId, uid } from '../lib/ids.js'
-import { useSetImages } from '../lib/useImages.js'
+import { useSetImages, useResolvedImage, displayThumb } from '../lib/useImages.js'
 
 export function newTextLayer(patch) {
   return {
@@ -60,17 +60,24 @@ export function buildCarousel(store, setId, presetId) {
 }
 
 function CarouselCard({ proj, store }) {
-  const set0 = store.getSet(proj.setAssignment.hook)
-  const urls = useSetImages(set0)
-  const bg = typeof proj.slides[0]?.bg === 'string' ? proj.slides[0].bg : urls[0]
+  // The slide's own background, resolved the same way the editor resolves it.
+  // The previous version used proj.slides[0].bg raw whenever it was a string,
+  // which silently broke every carousel built from the Gradient Studio set:
+  // those refs are "gradient:N", not URLs, so the tile painted nothing at all.
+  const hook = proj.slides[0]
+  const slideBg = useResolvedImage(hook?.bg)
+
+  // Only reached for a carousel whose slide has no background of its own.
+  const set0 = store.getSet(proj.setAssignment?.hook)
+  const fallback = useSetImages(set0)[0]
+  const bg = slideBg || fallback
+
   return (
     <div className="tile" style={{ cursor: 'pointer' }} onClick={() => (window.location.hash = `/carousel/${proj.id}`)}>
-      <div style={{
-        aspectRatio: '4/3', backgroundImage: bg ? `url(${bg})` : undefined, backgroundSize: 'cover',
-        backgroundPosition: 'center', display: 'flex', alignItems: 'flex-end', padding: 14,
-        background: bg ? undefined : 'linear-gradient(120deg,#1a221c,#0f1411)',
-      }}>
-        <span className="chip mint">{proj.slides.length} slides</span>
+      {/* 4:5 — the ratio these actually export at (1080 × 1350), so the crop in
+          the preview is the crop the user will get. */}
+      <div className="thumb-4x5" style={{ backgroundImage: bg ? `url("${bg}")` : undefined }}>
+        <span className="chip brand">{proj.slides.length} slides</span>
       </div>
       <div className="tile-body">
         <div className="tile-title">{proj.name}</div>
@@ -125,9 +132,11 @@ function SetTile({ set, selected, suggested, onSelect }) {
   const urls = useSetImages(set)
   return (
     <button className={`tile ${selected ? 'selected' : ''}`} onClick={onSelect}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, aspectRatio: '4/3', background: '#0b0f0d' }}>
+      {/* 4:5 overall, so each of the four cells is also 4:5 and the photos are
+          cropped the way a slide would crop them. */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, aspectRatio: '4/5', background: '#0b0f0d' }}>
         {urls.slice(0, 4).map((u, i) => (
-          <div key={i} style={{ backgroundImage: `url(${u})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+          <div key={i} style={{ backgroundImage: `url("${displayThumb(u)}")`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
         ))}
         {urls.length === 0 && (
           <div style={{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -138,7 +147,7 @@ function SetTile({ set, selected, suggested, onSelect }) {
       <div className="tile-body" style={{ padding: '10px 12px' }}>
         <div className="row between">
           <span className="tile-title">{set.name}</span>
-          {!set.builtin ? <span className="chip mint">yours</span> : suggested ? <span className="chip sea">for you</span> : null}
+          {!set.builtin ? <span className="chip brand">yours</span> : suggested ? <span className="chip accent">for you</span> : null}
         </div>
         <div className="tile-sub">{set.desc || `${urls.length} images`}</div>
       </div>
@@ -178,7 +187,7 @@ function NewCarouselWizard({ store, onClose }) {
             <div className="sub">
               {step === 0
                 ? 'The look and feel of your carousel. Your own sets skip straight to a blank carousel.'
-                : `Each option writes a different full carousel for ${store.state.brand.appName || 'your app'}. Here’s the hook you’d open with.`}
+                : `Each option writes a different full carousel for ${store.state.brand.appName || 'your product'}. Here’s the hook you’d open with.`}
             </div>
           </div>
           <button className="btn ghost sm" onClick={onClose}>✕</button>

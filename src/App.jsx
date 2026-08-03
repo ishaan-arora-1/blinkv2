@@ -16,10 +16,11 @@ import VideoEditor from './pages/VideoEditor.jsx'
 import BlinkAI from './pages/BlinkAI.jsx'
 import Library from './pages/Library.jsx'
 import Onboarding from './pages/Onboarding.jsx'
-import Login from './pages/Login.jsx'
+import Landing from './pages/Landing.jsx'
 import Pricing from './pages/Pricing.jsx'
 import Account from './pages/Account.jsx'
 import { Splash, ErrorScreen, SetupNeeded } from './components/Screens.jsx'
+import Logo from './components/Logo.jsx'
 
 export { go }
 
@@ -61,7 +62,7 @@ export default function App() {
 
   // ── session ──
   if (auth.authStatus === 'loading') return <Splash label="Checking your session…" />
-  if (auth.authStatus !== 'authenticated') return <Login />
+  if (auth.authStatus !== 'authenticated') return <Landing />
 
   // ── account + entitlement ──
   if (auth.accountStatus === 'loading' || auth.accountStatus === 'idle') {
@@ -154,8 +155,8 @@ function Shell({ route, auth, children, minimal = false }) {
     <div className="shell">
       {!isEditor && (
         <aside className="sidebar">
-          <a className="logo" href="#/dashboard">Blink UGC<span className="dot">●</span></a>
-          <div className="logo-sub">social studio for iOS apps</div>
+          <a href="#/dashboard" style={{ textDecoration: 'none' }}><Logo size={26} /></a>
+          <div className="logo-sub">ugc studio for your product</div>
 
           {NAV.map((n) => {
             const locked = n.feature && !auth.can[n.feature]
@@ -181,7 +182,7 @@ function Shell({ route, auth, children, minimal = false }) {
 
           <div className="small muted" style={{ padding: '0 12px' }}>
             {brand.appName ? (
-              <>Marketing <b style={{ color: 'var(--mint)' }}>{brand.appName}</b></>
+              <>Marketing <b style={{ color: 'var(--brand)' }}>{brand.appName}</b></>
             ) : (
               'No brand set'
             )}
@@ -247,8 +248,8 @@ function LegacyOffer({ store }) {
   if (!bits.length) return null
 
   return (
-    <div className="card" style={{ borderColor: 'rgba(111,240,184,0.35)', marginBottom: 20 }}>
-      <div className="row"><span className="chip sea">found on this device</span></div>
+    <div className="card" style={{ borderColor: 'rgba(243, 164, 230,0.35)', marginBottom: 20 }}>
+      <div className="row"><span className="chip accent">found on this device</span></div>
       <div className="small mt-2">
         This browser still has {bits.join(', ')} from before Blink UGC had accounts
         {found.appName ? <> (for <b>{found.appName}</b>)</> : null}. Move it into your account?
@@ -280,9 +281,9 @@ function ImportNotice({ store }) {
   ].filter(Boolean)
 
   return (
-    <div className="card" style={{ borderColor: 'rgba(214,246,92,0.4)', marginBottom: 20 }}>
+    <div className="card" style={{ borderColor: 'rgba(168, 120, 255,0.4)', marginBottom: 20 }}>
       <div className="row between">
-        <div className="row"><span className="chip mint">imported</span></div>
+        <div className="row"><span className="chip brand">imported</span></div>
         <button className="btn ghost xs" onClick={store.dismissImportNotice}>Dismiss</button>
       </div>
       <div className="small mt-2">

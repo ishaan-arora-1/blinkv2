@@ -83,7 +83,7 @@ export default function Account() {
         <div className="card">
           <div className="row between">
             <h4>Plan</h4>
-            {entitlement.onTrial && <span className="chip sea">trial</span>}
+            {entitlement.onTrial && <span className="chip accent">trial</span>}
           </div>
 
           {entitlement.onTrial && !sub && (

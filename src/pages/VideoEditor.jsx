@@ -61,7 +61,7 @@ function drawPlaceholder(ctx) {
   ctx.fillStyle = '#8fa196'
   ctx.font = `600 22px "Familjen Grotesk", sans-serif`
   ctx.textAlign = 'center'
-  ctx.fillText('Upload your app demo', W / 2, H / 2 - 10)
+  ctx.fillText('Upload your product demo', W / 2, H / 2 - 10)
   ctx.font = `400 15px "Familjen Grotesk", sans-serif`
   ctx.fillText('(screen recording — it plays after the hook)', W / 2, H / 2 + 20)
 }
@@ -207,7 +207,7 @@ export default function VideoEditor({ id }) {
     return (
       <div className="empty mt-6">
         {proj ? 'This project was made with the old character system — create a new video.' : 'Video not found.'}{' '}
-        <a href="#/videos" style={{ color: 'var(--mint)' }}>Back to videos</a>
+        <a href="#/videos" style={{ color: 'var(--brand)' }}>Back to videos</a>
       </div>
     )
   }
@@ -342,7 +342,7 @@ export default function VideoEditor({ id }) {
         <div className="row">
           <button className="btn ghost sm" onClick={() => { stopPlayback(); window.location.hash = '/videos' }}>← Back</button>
           <input className="input" style={{ width: 300, fontWeight: 700 }} value={proj.name} onChange={(e) => save({ name: e.target.value })} />
-          <span className="chip sea">{char.name} — {proj.hook.label}</span>
+          <span className="chip accent">{char.name} — {proj.hook.label}</span>
         </div>
         <button className="btn primary sm" onClick={exportVideo} disabled={!!exporting}>⬇ Export video</button>
       </div>
@@ -450,7 +450,7 @@ export default function VideoEditor({ id }) {
                 </div>
               </>
             ) : (
-              <div className="small muted mt-2">Screen-record your app on iPhone, then upload it here.</div>
+              <div className="small muted mt-2">Screen-record or film your product, then upload it here.</div>
             )}
           </div>
 

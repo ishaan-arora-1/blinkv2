@@ -104,8 +104,8 @@ export default function Pricing() {
       )}
 
       {!loading && !loadError && !billingEnabled && (
-        <div className="card" style={{ borderColor: 'rgba(111,240,184,0.35)', marginBottom: 20, maxWidth: 760 }}>
-          <div className="row"><span className="chip sea">coming soon</span></div>
+        <div className="card" style={{ borderColor: 'rgba(243, 164, 230,0.35)', marginBottom: 20, maxWidth: 760 }}>
+          <div className="row"><span className="chip accent">coming soon</span></div>
           <div className="small mt-2">
             Checkout isn't switched on yet. These are the plans we'll launch with — for now
             everything is unlocked on your trial.
@@ -155,7 +155,7 @@ export default function Pricing() {
                 {plan.tier === 'growth' && <span className="plan-flag">Includes Blink AI</span>}
                 <div className="row between">
                   <h3 style={{ fontSize: 20 }}>{plan.name}</h3>
-                  {isCurrent && <span className="chip mint">current</span>}
+                  {isCurrent && <span className="chip brand">current</span>}
                 </div>
                 <div className="plan-price">
                   {money(plan.price, plan.currency)}
@@ -164,7 +164,7 @@ export default function Pricing() {
                 {plan.period === 'yearly' && monthlyTwin && (
                   <div className="small muted" style={{ marginTop: -2 }}>
                     {perMonth(plan.price, plan.currency)}/month, billed yearly
-                    {saving > 0 && <> — <b style={{ color: 'var(--mint)' }}>save {saving}%</b></>}
+                    {saving > 0 && <> — <b style={{ color: 'var(--brand)' }}>save {saving}%</b></>}
                   </div>
                 )}
                 <p className="small muted" style={{ minHeight: 38, marginTop: 8 }}>{plan.blurb}</p>

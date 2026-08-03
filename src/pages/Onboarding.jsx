@@ -11,17 +11,17 @@ export default function Onboarding() {
   if (step === 0) {
     return (
       <div className="hero">
-        <div className="chip mint" style={{ marginBottom: 22 }}>Blink UGC — beta</div>
-        <h1>Your iOS app deserves <em>louder</em> marketing.</h1>
+        <div className="chip brand" style={{ marginBottom: 22 }}>Blink UGC — beta</div>
+        <h1>Your product deserves <em>louder</em> marketing.</h1>
         <p>
-          Mint scroll-stopping carousels and character-led hook videos for your app —
+          Mint scroll-stopping carousels and creator-led hook videos for your product —
           designed, written and exported in minutes, not weekends.
         </p>
         <div className="cta-row">
           <button className="btn primary" onClick={() => setStep(1)}>Set up my brand →</button>
         </div>
         <div className="mono small muted" style={{ marginTop: 40, zIndex: 1, letterSpacing: '0.1em' }}>
-          CAROUSELS ✕ HOOK VIDEOS ✕ IMAGE SETS ✕ CHARACTERS
+          CAROUSELS ✕ HOOK VIDEOS ✕ AI CREATORS ✕ PHOTO SETS
         </div>
       </div>
     )
@@ -31,7 +31,7 @@ export default function Onboarding() {
     <div className="hero" style={{ justifyContent: 'center' }}>
       <div className="card" style={{ width: 'min(640px, 94vw)', textAlign: 'left', zIndex: 1, padding: 28 }}>
         <div className="page-kicker">Step 1 of 1 — brand intel</div>
-        <h2 style={{ marginBottom: 6 }}>Tell us about your app</h2>
+        <h2 style={{ marginBottom: 6 }}>Tell us about your product</h2>
         <p className="muted small" style={{ marginBottom: 20 }}>
           Everything we generate — hooks, slides, CTAs — is written from this. You can change it anytime.
         </p>

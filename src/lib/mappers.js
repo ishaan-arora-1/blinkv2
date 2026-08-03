@@ -12,7 +12,7 @@ export function brandFromRow(row) {
     category: row?.category ?? 'productivity',
     verb: row?.verb ?? 'get things done',
     tone: row?.tone ?? 'bold',
-    accent: row?.accent ?? '#d6f65c',
+    accent: row?.accent ?? '#c9a4ff',
     onboarded: row?.onboarded ?? false,
   }
 }
@@ -24,7 +24,7 @@ export function brandToRow(brand) {
     category: brand.category ?? 'productivity',
     verb: brand.verb ?? 'get things done',
     tone: brand.tone ?? 'bold',
-    accent: brand.accent ?? '#d6f65c',
+    accent: brand.accent ?? '#c9a4ff',
     onboarded: brand.onboarded ?? false,
   }
 }

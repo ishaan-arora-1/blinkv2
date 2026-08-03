@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { builtinSets } from '../lib/library.js'
-import { useSetImages } from '../lib/useImages.js'
+import { useSetImages, displayThumb } from '../lib/useImages.js'
 
 function SetCard({ set, busy, onDelete, onAddImages, onRemoveImage }) {
   const urls = useSetImages(set)
@@ -13,7 +13,7 @@ function SetCard({ set, busy, onDelete, onAddImages, onRemoveImage }) {
         <div>
           <div className="row">
             <b>{set.name}</b>
-            {set.builtin ? <span className="chip">built-in</span> : <span className="chip mint">custom</span>}
+            {set.builtin ? <span className="chip">built-in</span> : <span className="chip brand">custom</span>}
           </div>
           <div className="small muted">{set.desc || `${set.images?.length ?? 0} images`}</div>
         </div>
@@ -32,7 +32,7 @@ function SetCard({ set, busy, onDelete, onAddImages, onRemoveImage }) {
       </div>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', marginTop: 14, gap: 8 }}>
         {urls.map((u, i) => (
-          <div key={set.images[i]?.id ?? i} className="img-cell" style={{ backgroundImage: `url(${u})`, position: 'relative', cursor: 'default' }}>
+          <div key={set.images[i]?.id ?? i} className="img-cell" style={{ backgroundImage: `url("${displayThumb(u)}")`, position: 'relative', cursor: 'default' }}>
             {!set.builtin && (
               <button
                 className="btn xs danger"

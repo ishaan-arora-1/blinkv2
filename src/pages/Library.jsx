@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { resolveImage } from '../lib/useImages.js'
+import { hookPoster } from '../lib/creators.js'
 import { GENERATIONS, signedUrl } from '../lib/storage.js'
 
 const FILTERS = [
@@ -32,16 +33,50 @@ function useThumbs(items) {
   return map
 }
 
+// Carousels export at 4:5, hook videos and Blink AI clips at 9:16.
+const RATIO = { carousel: 'r-4x5', video: 'r-9x16', blink: 'r-9x16' }
+
 function LibCard({ item, thumb }) {
   const open = () => { if (item.href) window.location.hash = item.href }
+  const vidRef = useRef(null)
+
+  // Play on hover rather than autoplay. The library now previews real video for
+  // hook projects as well as Blink AI clips, and a page of simultaneously
+  // playing clips costs far more than it communicates.
+  const play = () => vidRef.current?.play().catch(() => {})
+  const stop = () => {
+    const v = vidRef.current
+    if (!v) return
+    v.pause()
+    v.currentTime = 0
+  }
+
   return (
-    <div className="tile" style={{ cursor: item.href ? 'pointer' : 'default' }} onClick={open}>
+    <div
+      className="tile"
+      style={{ cursor: item.href ? 'pointer' : 'default' }}
+      onClick={open}
+      onMouseEnter={item.motion ? play : undefined}
+      onMouseLeave={item.motion ? stop : undefined}
+    >
       <div
-        className="lib-media"
-        style={!item.motion && thumb ? { backgroundImage: `url(${thumb})` } : undefined}
+        className={`lib-media ${RATIO[item.kind] || 'r-4x5'}`}
+        style={!item.motion && thumb ? { backgroundImage: `url("${thumb}")` } : undefined}
       >
         <span className={`lib-tag ${item.kind}`}>{TAG[item.kind]}</span>
-        {item.motion && thumb && <video src={thumb} muted loop playsInline autoPlay />}
+        {item.motion && thumb && (
+          <video
+            ref={vidRef}
+            src={thumb}
+            poster={item.poster || undefined}
+            muted
+            loop
+            playsInline
+            // Blink AI clips have no poster, so they need enough of the file to
+            // show a frame. Hook clips have one and can stay at zero bytes.
+            preload={item.poster ? 'none' : 'metadata'}
+          />
+        )}
         {!thumb && (
           <span className="small muted">
             {item.status === 'failed'
@@ -101,7 +136,12 @@ export default function Library() {
           title: v.name,
           sub: `${char.name} · ${v.hook?.label || 'hook'} · ${v.demoPath ? 'demo attached' : 'no demo yet'}`,
           href: `/video/${v.id}`,
-          thumb: async () => char.img,
+          // The hook itself, not the creator's headshot — the headshot is a
+          // portrait photo standing in for a video and tells you nothing about
+          // the clip. Falls back to the portrait only if the hook is missing.
+          motion: Boolean(v.hook?.src),
+          poster: hookPoster(v.hook) || char.img,
+          thumb: async () => v.hook?.src || char.img,
           remove: () => store.deleteVideo(v.id),
         }
       }),
@@ -177,7 +217,7 @@ export default function Library() {
           <div className="small mt-2">No {FILTERS.find((f) => f.id === filter)?.noun} in your library so far.</div>
         </div>
       ) : (
-        <div className="grid cols-3">
+        <div className="grid portrait">
           {shown.map((item) => <LibCard key={item.id} item={item} thumb={thumbs[item.id]} />)}
         </div>
       )}

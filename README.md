@@ -1,15 +1,18 @@
 # Blink UGC
 
-Social content studio for iOS apps. Feed it your app's name, pitch and tone, and
+UGC studio for your product. Feed it your product's name, pitch and tone, and
 mint scroll-stopping carousels and creator-led hook videos — designed, written
 and exported in the browser.
+
+Not app-specific: the copy engine and category list cover physical goods,
+storefronts and B2B software as well as apps.
 
 ## What's in it
 
 - **Carousels** — pick a photo set and a copy angle, get a full hook → body → CTA
   carousel. Every text layer is draggable and restyleable. Exports 1080 × 1350
   PNGs, one at a time or the whole set as a ZIP.
-- **Hook videos** — an AI creator reacts to your app for 3 seconds, then your
+- **Hook videos** — an AI creator reacts to your product for 3 seconds, then your
   screen recording plays. Trim both, score it with a synthesized track, add
   timed text overlays, export as video.
 - **Blink AI** — describe a video and generate it with Google Veo. Optionally

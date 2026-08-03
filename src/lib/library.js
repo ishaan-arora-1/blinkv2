@@ -91,8 +91,14 @@ export function builtinSets() {
 export function suggestedSetId(category = '') {
   const c = category.toLowerCase()
   if (c.includes('fitness') || c.includes('health')) return 'lib_gym'
-  if (c.includes('finance') || c.includes('productivity') || c.includes('education') || c.includes('utilities')) return 'lib_work'
-  if (c.includes('lifestyle') || c.includes('social') || c.includes('photo')) return 'lib_girl'
+  if (
+    c.includes('finance') || c.includes('productivity') || c.includes('education') ||
+    c.includes('utilities') || c.includes('saas') || c.includes('b2b')
+  ) return 'lib_work'
+  if (
+    c.includes('lifestyle') || c.includes('social') || c.includes('photo') ||
+    c.includes('beauty') || c.includes('skincare') || c.includes('fashion') || c.includes('apparel')
+  ) return 'lib_girl'
   return 'lib_boy'
 }
 
