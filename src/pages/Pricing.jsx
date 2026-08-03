@@ -30,6 +30,33 @@ export default function Pricing() {
 
   const currentPlanId = entitlement.subscription?.planId || null
 
+  // Monthly first, and only offer the toggle if there is actually something to
+  // toggle between — a single-period plan list should not grow a dead control.
+  const periods = [...new Set(plans.map((p) => p.period))].sort((a, b) =>
+    a === 'monthly' ? -1 : b === 'monthly' ? 1 : 0
+  )
+  const [period, setPeriod] = useState('monthly')
+
+  // Land people on the period they are already paying for, so their current
+  // plan is the one showing when the page opens.
+  useEffect(() => {
+    const current = plans.find((p) => p.id === currentPlanId)
+    if (current) setPeriod(current.period)
+    else if (periods.length && !periods.includes(period)) setPeriod(periods[0])
+  }, [currentPlanId, plans.length])
+
+  const shownPlans = plans.filter((p) => p.period === period)
+
+  const bestSaving = Math.max(
+    0,
+    ...plans
+      .filter((p) => p.period === 'yearly')
+      .map((p) => {
+        const monthly = plans.find((m) => m.tier === p.tier && m.period === 'monthly')
+        return monthly ? Math.round((1 - p.price / (monthly.price * 12)) * 100) : 0
+      })
+  )
+
   async function subscribe(plan) {
     setBusyPlan(plan.id)
     setError(null)
@@ -94,10 +121,34 @@ export default function Pricing() {
       ) : loading ? (
         <div className="empty"><span className="tick">Loading plans…</span></div>
       ) : (
+        <>
+          {periods.length > 1 && (
+            <div className="row" style={{ marginBottom: 22 }}>
+              <div className="seg">
+                {periods.map((p) => (
+                  <button key={p} className={period === p ? 'on' : ''} onClick={() => setPeriod(p)}>
+                    {p === 'yearly' ? 'Yearly' : 'Monthly'}
+                    {p === 'yearly' && bestSaving > 0 && (
+                      <span className="save-pill">save {bestSaving}%</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
         <div className="grid cols-2" style={{ maxWidth: 860, alignItems: 'start' }}>
-          {plans.map((plan) => {
+          {shownPlans.map((plan) => {
             const isCurrent = plan.id === currentPlanId
             const isUpgrade = currentPlanId && plan.rank > (plans.find((p) => p.id === currentPlanId)?.rank ?? 0)
+            // Compare against the same tier billed monthly, which is the number
+            // a yearly price only means anything next to.
+            const monthlyTwin = plans.find((p) => p.tier === plan.tier && p.period === 'monthly')
+            const saving =
+              plan.period === 'yearly' && monthlyTwin
+                ? Math.round((1 - plan.price / (monthlyTwin.price * 12)) * 100)
+                : 0
+
             return (
               <div key={plan.id} className={`card plan ${plan.tier === 'studio' ? 'featured' : ''}`}>
                 {plan.tier === 'studio' && <span className="plan-flag">Includes Blink AI</span>}
@@ -107,9 +158,15 @@ export default function Pricing() {
                 </div>
                 <div className="plan-price">
                   ₹{plan.price.toLocaleString('en-IN')}
-                  <span className="small muted"> /month</span>
+                  <span className="small muted"> /{plan.period === 'yearly' ? 'year' : 'month'}</span>
                 </div>
-                <p className="small muted" style={{ minHeight: 38 }}>{plan.blurb}</p>
+                {plan.period === 'yearly' && monthlyTwin && (
+                  <div className="small muted" style={{ marginTop: -2 }}>
+                    ₹{Math.round(plan.price / 12).toLocaleString('en-IN')}/month, billed yearly
+                    {saving > 0 && <> — <b style={{ color: 'var(--mint)' }}>save {saving}%</b></>}
+                  </div>
+                )}
+                <p className="small muted" style={{ minHeight: 38, marginTop: 8 }}>{plan.blurb}</p>
 
                 <ul className="plan-features">
                   {plan.features.map((f) => (
@@ -139,6 +196,7 @@ export default function Pricing() {
             )
           })}
         </div>
+        </>
       )}
 
       <div className="small muted mt-6" style={{ maxWidth: 760 }}>

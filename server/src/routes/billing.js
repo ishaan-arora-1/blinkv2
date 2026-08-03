@@ -25,11 +25,41 @@ billingRouter.use((_req, _res, next) => {
   next()
 })
 
-// Razorpay requires a finite cycle count. Ten years of monthly billing is
-// effectively "until cancelled" while still satisfying the API.
-const TOTAL_COUNT = 120
+// Razorpay requires a finite cycle count, so "until cancelled" is expressed as
+// roughly ten years of whichever cycle the plan bills on.
+const TOTAL_COUNT = { monthly: 120, yearly: 10 }
+const cyclesFor = (period) => TOTAL_COUNT[period] ?? 120
 
 const LIVE_STATUSES = ['active', 'authenticated', 'pending']
+
+// Razorpay rejects a start_at that is not comfortably in the future, and a
+// trial with minutes left is not worth deferring for anyway.
+const MIN_DEFERRAL_MS = 60 * 60 * 1000
+
+/**
+ * When the first charge should land.
+ *
+ * Someone who subscribes on day 3 of a 7-day trial was promised 7 free days, so
+ * the mandate is authorised now and billing starts when the trial actually
+ * ends. Razorpay holds the subscription in 'authenticated' until then, which
+ * entitled_tier() already treats as granting access — so they keep working
+ * throughout and simply start paying on the day they expected to.
+ *
+ * Returns null when there is no trial left, in which case billing starts now.
+ */
+async function firstChargeAt(userId) {
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('trial_ends_at')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (!profile?.trial_ends_at) return null
+  const endsAt = new Date(profile.trial_ends_at).getTime()
+  if (endsAt - Date.now() < MIN_DEFERRAL_MS) return null
+
+  return Math.floor(endsAt / 1000) // Razorpay wants unix seconds
+}
 
 /** Reuse one Razorpay customer per user across every subscription they create. */
 async function ensureCustomer(userId) {
@@ -102,14 +132,20 @@ billingRouter.post(
 
     const customerId = await ensureCustomer(req.user.id)
 
+    // Only honour the remaining trial on a first subscription. Someone changing
+    // plans is already a customer, and deferring that charge would hand them
+    // free time they have not earned.
+    const startAt = replaces ? null : await firstChargeAt(req.user.id)
+
     let sub
     try {
       sub = await razorpay.subscriptions.create({
         plan_id: plan.razorpay_plan_id,
         customer_id: customerId,
-        total_count: TOTAL_COUNT,
+        total_count: cyclesFor(plan.period),
         quantity: 1,
         customer_notify: 1,
+        ...(startAt ? { start_at: startAt } : {}),
         notes: {
           user_id: req.user.id,
           plan_id: plan.id,
@@ -130,8 +166,16 @@ billingRouter.post(
       subscriptionId: sub.id,
       razorpayKeyId: env.razorpay.keyId,
       shortUrl: sub.short_url,
-      plan: { id: plan.id, name: plan.name, price: plan.price_paise / 100, currency: plan.currency },
+      plan: {
+        id: plan.id,
+        name: plan.name,
+        price: plan.price_paise / 100,
+        currency: plan.currency,
+        period: plan.period,
+      },
       isPlanChange: Boolean(replaces),
+      // So checkout can tell the user they are authorising now but paying later.
+      firstChargeAt: startAt ? new Date(startAt * 1000).toISOString() : null,
     })
   })
 )

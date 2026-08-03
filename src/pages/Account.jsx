@@ -98,10 +98,17 @@ export default function Account() {
 
           {sub && (
             <div className="mt-4">
-              <div style={{ fontFamily: 'var(--display)', fontSize: 18 }}>{sub.planName}</div>
+              <div className="row" style={{ gap: 8 }}>
+                <span style={{ fontFamily: 'var(--display)', fontSize: 18 }}>{sub.planName}</span>
+                {sub.period && <span className="chip">{sub.period === 'yearly' ? 'yearly' : 'monthly'}</span>}
+              </div>
               <div className="small muted mt-2">
                 {sub.cancelAtCycleEnd ? (
                   <>Cancelled — access continues until {fmtDate(sub.currentEnd)}.</>
+                ) : sub.status === 'authenticated' ? (
+                  // Deferred first charge: card authorised, billing starts when
+                  // the trial they were promised actually runs out.
+                  <>Card authorised. First charge {fmtDate(sub.chargeAt || sub.currentEnd)}, when your trial ends.</>
                 ) : (
                   <>Renews {fmtDate(sub.currentEnd)}.</>
                 )}

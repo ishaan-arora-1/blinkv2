@@ -72,7 +72,11 @@ export async function resolveEntitlement(userId) {
           status: live.status,
           planId: live.plan_id,
           planName: live.plan?.name ?? live.plan_id,
+          period: live.plan?.period ?? 'monthly',
           currentEnd: live.current_end,
+          // When the first charge was deferred to the end of a trial, this is
+          // the date that actually matters to the customer.
+          chargeAt: live.charge_at,
           cancelAtCycleEnd: live.cancel_at_cycle_end,
           shortUrl: live.short_url,
         }

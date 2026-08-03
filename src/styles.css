@@ -437,3 +437,17 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 }
 .data-table td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
 .data-table tr:last-child td { border-bottom: none; }
+
+/* Savings badge inside the monthly/yearly toggle */
+.seg .save-pill {
+  margin-left: 7px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--sea);
+  border: 1px solid rgba(111, 240, 184, 0.35);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+.seg button.on .save-pill { color: var(--ink); border-color: rgba(10, 13, 11, 0.35); }
