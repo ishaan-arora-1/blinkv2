@@ -16,13 +16,31 @@ const LEGACY_STORE = 'blobs'
 // happened, and why a brand-new account arrived with work already in it.
 const CLAIM_KEY = 'reelmint-legacy-import'
 
+// The first version of this keyed the flag per user (`reelmint-cloud-import:<uid>`),
+// which is the bug that let a second account re-import the same data. Anyone who
+// already ran that version has those keys; treat them as a claim so nobody is
+// offered an import of work they demonstrably already have.
+const OLD_CLAIM_PREFIX = 'reelmint-cloud-import:'
+
+function adoptOldClaim() {
+  if (localStorage.getItem(CLAIM_KEY)) return true
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (k?.startsWith(OLD_CLAIM_PREFIX)) {
+      localStorage.setItem(CLAIM_KEY, 'claimed-by-earlier-version')
+      return true
+    }
+  }
+  return false
+}
+
 /**
  * What is sitting in this browser from the local-only era, if anything.
  * Read-only — it imports nothing, so the user can be asked first.
  */
 export function detectLegacyData() {
   if (!supabase) return null
-  if (localStorage.getItem(CLAIM_KEY)) return null
+  if (adoptOldClaim()) return null
 
   const legacy = readLegacyState()
   if (!legacy) return null
@@ -55,7 +73,7 @@ export async function runLegacyImport({ userId }) {
   // be interleaved by another tab within a single JS turn. Setting the flag
   // afterwards instead let two tabs both pass the check and both import, which
   // is how every carousel ended up duplicated.
-  if (localStorage.getItem(CLAIM_KEY)) return null
+  if (adoptOldClaim()) return null
   localStorage.setItem(CLAIM_KEY, `importing:${new Date().toISOString()}`)
 
   const legacy = readLegacyState()
