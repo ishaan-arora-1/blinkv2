@@ -201,7 +201,7 @@ export default function Pricing() {
       )}
 
       <div className="small muted mt-6" style={{ maxWidth: 760 }}>
-        Payments are handled by Razorpay — reelmint never sees your card. Switching plans cancels the
+        Payments are handled by Razorpay — Blink UGC never sees your card. Switching plans cancels the
         previous subscription once the new one is active.
         {lapsed && (
           <>

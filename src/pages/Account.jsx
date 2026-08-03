@@ -70,7 +70,7 @@ export default function Account() {
               />
             )}
             <div>
-              <div style={{ fontWeight: 600 }}>{user?.fullName || 'reelmint user'}</div>
+              <div style={{ fontWeight: 600 }}>{user?.fullName || 'Blink UGC user'}</div>
               <div className="small muted">{user?.email}</div>
             </div>
           </div>

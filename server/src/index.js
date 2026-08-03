@@ -4,6 +4,7 @@ import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 
 import { env, allowedOrigins, isOriginAllowed } from './env.js'
+import { razorpayMode } from './planMode.js'
 import { meRouter } from './routes/me.js'
 import { plansRouter } from './routes/plans.js'
 import { billingRouter } from './routes/billing.js'
@@ -51,13 +52,18 @@ app.use(
 app.get('/health', (req, res) =>
   res.json({
     ok: true,
-    service: 'reelmint-api',
+    service: 'blink-ugc-api',
     env: env.nodeEnv,
     time: new Date().toISOString(),
     allowedOrigins,
     yourOrigin: req.get('origin') || null,
     originAllowed: req.get('origin') ? isOriginAllowed(req.get('origin')) : null,
     integrations: { razorpay: env.razorpay.configured, googleVeo: env.google.configured },
+    // Which Razorpay mode the deployed key belongs to. Not secret — it is a
+    // property of the key's prefix — and it is the one thing worth checking
+    // after a deploy, because a test key in production takes no money and a live
+    // key in staging takes real money.
+    razorpayMode: env.razorpay.configured ? razorpayMode : null,
   })
 )
 
@@ -114,8 +120,15 @@ app.use(notFoundHandler)
 app.use(errorHandler)
 
 const server = app.listen(env.port, () => {
-  console.log(`reelmint-api listening on :${env.port} (${env.nodeEnv})`)
+  console.log(`blink-ugc-api listening on :${env.port} (${env.nodeEnv})`)
   console.log(`  allowed origins: ${allowedOrigins.join(', ')}`)
+  if (env.razorpay.configured) {
+    // Stated at boot because the two modes are indistinguishable at a glance
+    // afterwards, and the cost of assuming wrong runs in both directions: a test
+    // key in production silently collects nothing, a live key in a sandbox
+    // charges people for real.
+    console.log(`  razorpay: ${razorpayMode.toUpperCase()} mode`)
+  }
 })
 
 // Railway sends SIGTERM on redeploy. Finish in-flight requests first — one of

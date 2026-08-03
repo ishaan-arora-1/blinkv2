@@ -63,12 +63,22 @@ export async function syncSubscription(rzpSub, { userId = null } = {}) {
   return data
 }
 
+/**
+ * Map a Razorpay plan id back to ours.
+ *
+ * Both the live and the test column are searched, rather than only the one for
+ * the current mode. This lookup is what decides whether a paying customer gets a
+ * subscription row at all: syncSubscription gives up when it returns null, so a
+ * miss means the charge went through and the account was granted nothing. Being
+ * strict about mode here buys no safety — the key already guarantees which mode
+ * the webhook came from — and costs an outage the customer pays for.
+ */
 async function planIdForRazorpayPlan(razorpayPlanId) {
   if (!razorpayPlanId) return null
   const { data } = await admin
     .from('plans')
     .select('id')
-    .eq('razorpay_plan_id', razorpayPlanId)
+    .or(`razorpay_plan_id.eq.${razorpayPlanId},razorpay_plan_id_test.eq.${razorpayPlanId}`)
     .maybeSingle()
   return data?.id || null
 }

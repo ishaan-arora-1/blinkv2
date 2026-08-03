@@ -11,7 +11,7 @@ export default function Onboarding() {
   if (step === 0) {
     return (
       <div className="hero">
-        <div className="chip mint" style={{ marginBottom: 22 }}>reelmint — beta</div>
+        <div className="chip mint" style={{ marginBottom: 22 }}>Blink UGC — beta</div>
         <h1>Your iOS app deserves <em>louder</em> marketing.</h1>
         <p>
           Mint scroll-stopping carousels and character-led hook videos for your app —

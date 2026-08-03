@@ -38,7 +38,7 @@ export default function Login() {
 
   return (
     <div className="hero">
-      <div className="chip mint" style={{ marginBottom: 22 }}>reelmint</div>
+      <div className="chip mint" style={{ marginBottom: 22 }}>Blink UGC</div>
       <h1>
         Your iOS app deserves <em>louder</em> marketing.
       </h1>

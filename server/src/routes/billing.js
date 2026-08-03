@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { admin } from '../supabase.js'
 import { env } from '../env.js'
 import { razorpay, verifySubscriptionSignature, razorpayMessage } from '../razorpay.js'
+import { planBilling, razorpayMode } from '../planMode.js'
 import { syncSubscription, refreshSubscription } from '../subscriptionSync.js'
 import { resolveEntitlement } from '../entitlements.js'
 import { wrap, badRequest, notFound, ApiError } from '../middleware/errors.js'
@@ -74,7 +75,7 @@ async function ensureCustomer(userId) {
   let customer
   try {
     customer = await razorpay.customers.create({
-      name: profile?.full_name || profile?.email || 'reelmint user',
+      name: profile?.full_name || profile?.email || 'Blink UGC user',
       email: profile?.email || undefined,
       fail_existing: 0, // return the existing customer instead of erroring
       notes: { user_id: userId },
@@ -107,11 +108,17 @@ billingRouter.post(
       .maybeSingle()
 
     if (!plan) throw notFound('That plan does not exist.')
-    if (!plan.razorpay_plan_id) {
+
+    // Resolved for the mode this process's key belongs to. Handing Razorpay a
+    // plan id from the other mode fails at the payment step, in front of the
+    // customer, so the mismatch is caught here instead.
+    const { razorpayPlanId, priceMinor } = planBilling(plan)
+    if (!razorpayPlanId) {
       throw new ApiError(
         503,
         'plan_not_configured',
-        `The ${plan.name} plan is not connected to Razorpay yet. Set plans.razorpay_plan_id — see DEPLOY.md.`
+        `The ${plan.name} plan is not connected to a Razorpay ${razorpayMode} plan yet. ` +
+          `Set plans.${razorpayMode === 'test' ? 'razorpay_plan_id_test' : 'razorpay_plan_id'} — see DEPLOY.md.`
       )
     }
 
@@ -140,7 +147,7 @@ billingRouter.post(
     let sub
     try {
       sub = await razorpay.subscriptions.create({
-        plan_id: plan.razorpay_plan_id,
+        plan_id: razorpayPlanId,
         customer_id: customerId,
         total_count: cyclesFor(plan.period),
         quantity: 1,
@@ -169,7 +176,7 @@ billingRouter.post(
       plan: {
         id: plan.id,
         name: plan.name,
-        price: plan.price_minor / 100,
+        price: priceMinor / 100,
         currency: plan.currency,
         period: plan.period,
       },

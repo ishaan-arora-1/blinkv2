@@ -1,4 +1,4 @@
-# Deploying reelmint
+# Deploying Blink UGC
 
 Three pieces, deployed independently:
 
@@ -41,15 +41,25 @@ supabase db push
 1. `supabase/migrations/0001_init.sql` — profiles, brands, carousels, videos, blinks, image sets, RLS
 2. `supabase/migrations/0002_billing.sql` — plans, subscriptions, payments, webhook idempotency, `entitled_tier()`
 3. `supabase/migrations/0003_storage.sql` — the `uploads` and `generations` buckets and their policies
+4. `supabase/migrations/0004_annual_plans.sql` — annual plan rows (removed again by 0005)
+5. `supabase/migrations/0005_usd_plans.sql` — INR → USD, Creator/Studio → Starter/Growth
+6. `supabase/migrations/0006_razorpay_plan_ids.sql` — the real Razorpay plan ids and amounts
+
+Run them in order and all six of them. 0005 and 0006 rename columns that the API
+reads (`price_paise` → `price_minor`, `amount_paise` → `amount_minor`), so a
+database stopped at 0004 will fail every billing request rather than degrade.
 
 Verify afterwards:
 
 ```sql
-select id, name, tier, price_paise/100 as inr from plans order by sort;
+select id, name, tier, razorpay_plan_id, price_minor / 100.0 as usd, currency
+from plans order by sort;
+
 select count(*) from storage.buckets where id in ('uploads','generations');
 ```
 
-You should see two plans and two buckets.
+You should see two plans — Starter at 7.99 USD and Growth at 14.99 USD, each with
+a non-null `razorpay_plan_id` — and two buckets.
 
 ### 1.3 Google sign-in
 
@@ -75,13 +85,13 @@ ID and secret.
 
 **In Supabase** → **Authentication → URL Configuration**:
 
-- **Site URL** — your production web app URL, e.g. `https://reelmint.app`
+- **Site URL** — your production web app URL, e.g. `https://blinkugc.app`
 - **Redirect URLs** — add every origin the app is served from:
   ```
   http://localhost:5199
   http://localhost:5199/
-  https://reelmint.app
-  https://reelmint.app/
+  https://blinkugc.app
+  https://blinkugc.app/
   ```
 
 While the consent screen is in *Testing*, only accounts listed under **Test users** can
@@ -103,34 +113,86 @@ checkout time, so it is not a build-time variable. The secret never leaves Railw
 
 ### 2.2 Create the two plans
 
-**Subscriptions → Plans → Create Plan**, twice. Billing cycle **Monthly**, interval **1**:
+Pricing is in **USD**, which requires **international payments** to be enabled on the
+Razorpay account (Account & Settings → Payment methods). Without it, a USD plan can be
+created but the charge is declined at checkout.
+
+**Subscriptions → Plans → Create Plan**, twice. Currency **USD**, billing cycle
+**Monthly**, interval **1**:
 
 | Plan | Amount | Matches |
 |---|---|---|
-| Creator | ₹999 | `plans.id = 'creator'` |
-| Studio | ₹2,499 | `plans.id = 'studio'` |
+| Starter | $7.99 | `plans.id = 'starter'` |
+| Growth | $14.99 | `plans.id = 'growth'` |
 
-Copy each `plan_xxxxxxxxxxxx` id back into Postgres:
+**Test and live are two separate sets of plans.** Razorpay isolates the modes
+completely: different keys, different plan ids, and here different prices too. A live key
+cannot see a test plan, or the reverse — it fails with `The ID provided is invalid or
+could not be found` at the moment the customer tries to pay.
+
+So the `plans` table holds both, and the server picks by the prefix of
+`RAZORPAY_KEY_ID` (`rzp_test_` → test). Nothing else needs setting; see
+`server/src/planMode.js`.
+
+| Column | Mode |
+|---|---|
+| `razorpay_plan_id`, `price_minor` | live (canonical) |
+| `razorpay_plan_id_test`, `price_minor_test` | test (null = same as live) |
 
 ```sql
-update plans set razorpay_plan_id = 'plan_XXXXXXXXXXXX' where id = 'creator';
-update plans set razorpay_plan_id = 'plan_YYYYYYYYYYYY' where id = 'studio';
+-- live
+update plans set razorpay_plan_id = 'plan_LIVE_STARTER', price_minor = 799  where id = 'starter';
+update plans set razorpay_plan_id = 'plan_LIVE_GROWTH',  price_minor = 2599 where id = 'growth';
+-- test
+update plans set razorpay_plan_id_test = 'plan_TEST_STARTER', price_minor_test = 799  where id = 'starter';
+update plans set razorpay_plan_id_test = 'plan_TEST_GROWTH',  price_minor_test = 1499 where id = 'growth';
 ```
 
-Until this is done, checkout returns a clear `plan_not_configured` error rather than
-failing obscurely.
+Until the column for the deployed mode is set, checkout returns a clear
+`plan_not_configured` naming the missing column, rather than failing obscurely.
+
+### 2.2b Always verify the ids against the keys
+
+**Do this after every billing change.** It is the one check that catches both failures
+that have already happened here — an id belonging to the other mode, and an id written
+into the wrong row:
+
+```bash
+curl -s -u "$RAZORPAY_KEY_ID:$RAZORPAY_KEY_SECRET" https://api.razorpay.com/v1/plans \
+  | python3 -m json.tool
+```
+
+Every id the database references for that mode must appear in the output **against the
+plan of the same name and amount**. Matching only the id is not enough. Migration 0005
+wrote two real live ids into the wrong rows, so `starter` pointed at the Growth plan:
+checkout succeeded, the webhook arrived, the mirror row said `starter`, and the only thing
+that disagreed was the customer's card being charged $25.99 for a plan advertised at
+$7.99. Nothing in the app could have detected it — only this comparison can.
 
 To change prices later, update **both** the Razorpay plan (create a new one — Razorpay
-plans are immutable) and `plans.price_paise`. The database value is what the pricing page
-displays; Razorpay's is what actually gets charged. Letting them drift means quoting one
-price and charging another.
+plans are immutable) and the matching `price_minor` column. The database value is what the
+pricing page displays; Razorpay's is what actually gets charged. Letting them drift means
+quoting one price and charging another.
 
 ### 2.3 Webhook
 
-**Settings → Webhooks → Add New Webhook**:
+**Webhooks are per-mode too.** A webhook created in test mode never fires for a live
+payment. Going live therefore means creating a *second* webhook in the live dashboard —
+and if you skip it, live checkout will appear to succeed while no subscription is ever
+allocated, because the webhook is what grants access. Nothing in the UI will say so.
+
+Use a **long random secret** in live mode, not a placeholder. The secret is the only thing
+standing between the internet and a forged `subscription.activated`, which grants a paid
+tier for free:
+
+```bash
+openssl rand -hex 32
+```
+
+**Settings → Webhooks → Add New Webhook** (once per mode you intend to take money in):
 
 - **URL** — `https://YOUR-API.up.railway.app/api/webhooks/razorpay`
-- **Secret** — generate a long random string → `RAZORPAY_WEBHOOK_SECRET`
+- **Secret** — the generated string → `RAZORPAY_WEBHOOK_SECRET`
 - **Active events**:
   - `subscription.authenticated`
   - `subscription.activated`
@@ -169,8 +231,8 @@ Set these variables under **Variables**:
 
 ```
 NODE_ENV=production
-WEB_ORIGIN=https://reelmint.app
-EXTRA_ORIGINS=https://staging.reelmint.app     # optional, comma separated
+WEB_ORIGIN=https://blinkugc.app
+EXTRA_ORIGINS=https://staging.blinkugc.app     # optional, comma separated
 SUPABASE_URL=https://YOUR-PROJECT.supabase.co
 SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...

@@ -1,9 +1,9 @@
 {
-  "name": "reelmint-api",
+  "name": "blink-ugc-api",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "reelmint API — auth-gated Veo proxy, Razorpay subscriptions, entitlement enforcement",
+  "description": "Blink UGC API — auth-gated Veo proxy, Razorpay subscriptions, entitlement enforcement",
   "engines": {
     "node": ">=20"
   },

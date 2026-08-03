@@ -136,14 +136,22 @@ async function recordPayment(payment, subscriptionRow) {
     subscriptionId = data?.id || null
   }
 
+  // Razorpay always reports the currency it charged in. If it ever doesn't, the
+  // key is left off entirely so the column default stands — labelling a payment
+  // with a guessed currency is worse than leaving it to the default, because the
+  // account page would then render the wrong symbol in front of a real amount.
+  if (!payment.currency) {
+    console.warn(`[webhook] payment ${payment.id} arrived with no currency`)
+  }
+
   const { error } = await admin.from('payments').upsert(
     {
       user_id: userId,
       subscription_id: subscriptionId,
       razorpay_payment_id: payment.id,
       razorpay_invoice_id: payment.invoice_id || null,
-      amount_paise: payment.amount ?? 0,
-      currency: payment.currency || 'INR',
+      amount_minor: payment.amount ?? 0,
+      ...(payment.currency ? { currency: payment.currency } : {}),
       status: payment.status || null,
       method: payment.method || null,
       raw: payment,

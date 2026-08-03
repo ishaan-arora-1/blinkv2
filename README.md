@@ -1,4 +1,4 @@
-# reelmint
+# Blink UGC
 
 Social content studio for iOS apps. Feed it your app's name, pitch and tone, and
 mint scroll-stopping carousels and creator-led hook videos — designed, written
@@ -22,7 +22,7 @@ and exported in the browser.
 Sign-in is Google, via Supabase Auth. Every account starts with a **7-day trial**
 at the top tier, no card required.
 
-| | Creator — ₹999/mo | Studio — ₹2,499/mo |
+| | Starter — $7.99/mo | Growth — $14.99/mo |
 |---|---|---|
 | Carousels | ✓ | ✓ |
 | Hook videos | ✓ | ✓ |
@@ -30,8 +30,14 @@ at the top tier, no card required.
 | Cloud sync | ✓ | ✓ |
 | Blink AI | — | ✓ |
 
-Billing is Razorpay subscriptions, monthly. Prices live in the `plans` table, not
-in code.
+Billing is Razorpay subscriptions, monthly, charged in **USD** (the Razorpay
+account has international payments enabled).
+
+Prices live in the `plans` table, never in code — but the table is a mirror, not
+the source. Razorpay bills whatever its own plan says, so `plans.price_minor` and
+`plans.currency` have to match the linked Razorpay plan exactly. If they drift,
+the pricing page quotes one number and the customer's card is charged another.
+Change the price in Razorpay first, then follow it here with a migration.
 
 ## How it's built
 

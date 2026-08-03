@@ -18,7 +18,7 @@ export class ApiError extends Error {
 }
 
 /**
- * Call the reelmint API with the current Supabase session attached.
+ * Call the Blink UGC API with the current Supabase session attached.
  *
  * Every route except /api/plans needs the bearer token, so it is attached
  * unconditionally rather than per call.

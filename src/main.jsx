@@ -20,7 +20,7 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('[reelmint] render failed', error, info)
+    console.error('[blink-ugc] render failed', error, info)
   }
 
   render() {

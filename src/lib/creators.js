@@ -1,4 +1,4 @@
-// Reelmint's AI creator roster — real portraits + premade 3s hook clips,
+// Blink UGC's AI creator roster — real portraits + premade 3s hook clips,
 // generated with Seedream 4 (portraits) and Seedance 1.0 Pro (hooks),
 // shipped as local assets under /public/creators and /public/hooks.
 

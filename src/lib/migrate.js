@@ -3,7 +3,12 @@ import { UPLOADS, uploadFile, setImagePath, demoPath } from './storage.js'
 import { newId } from './ids.js'
 import { brandToRow, carouselToRow, videoToRow } from './mappers.js'
 
-// Everything reelmint stored before it had accounts.
+// Everything the app stored back when it was local-only, before accounts.
+//
+// These keys keep the old "reelmint-" prefix on purpose. They name data already
+// sitting in people's browsers, so renaming them to match the Blink UGC brand
+// would simply stop finding it — the import would silently offer nothing and the
+// work it was meant to rescue would be stranded.
 const LEGACY_STATE_KEY = 'reelmint-state-v1'
 const LEGACY_DB = 'reelmint-blobs'
 const LEGACY_STORE = 'blobs'

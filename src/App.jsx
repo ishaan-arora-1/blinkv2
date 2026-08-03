@@ -46,7 +46,7 @@ function missingConfig() {
     )
   }
   if (!isApiConfigured) {
-    missing.push({ name: 'VITE_API_URL', hint: 'Your Railway API URL, e.g. https://reelmint-api.up.railway.app' })
+    missing.push({ name: 'VITE_API_URL', hint: 'Your Railway API URL, e.g. https://blink-ugc-api.up.railway.app' })
   }
   return missing
 }
@@ -73,7 +73,7 @@ export default function App() {
         title="We couldn't load your account"
         message={
           auth.accountError?.code === 'network'
-            ? 'The reelmint API is unreachable. If you just deployed, give it a moment and try again.'
+            ? 'The Blink UGC API is unreachable. If you just deployed, give it a moment and try again.'
             : auth.accountError?.message
         }
         onRetry={auth.refreshAccount}
@@ -154,7 +154,7 @@ function Shell({ route, auth, children, minimal = false }) {
     <div className="shell">
       {!isEditor && (
         <aside className="sidebar">
-          <a className="logo" href="#/dashboard">reelmint<span className="dot">●</span></a>
+          <a className="logo" href="#/dashboard">Blink UGC<span className="dot">●</span></a>
           <div className="logo-sub">social studio for iOS apps</div>
 
           {NAV.map((n) => {
@@ -250,7 +250,7 @@ function LegacyOffer({ store }) {
     <div className="card" style={{ borderColor: 'rgba(111,240,184,0.35)', marginBottom: 20 }}>
       <div className="row"><span className="chip sea">found on this device</span></div>
       <div className="small mt-2">
-        This browser still has {bits.join(', ')} from before reelmint had accounts
+        This browser still has {bits.join(', ')} from before Blink UGC had accounts
         {found.appName ? <> (for <b>{found.appName}</b>)</> : null}. Move it into your account?
       </div>
       <div className="row mt-4">

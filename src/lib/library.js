@@ -1,4 +1,4 @@
-// Built-in image library: Reelmint's AI-generated photo sets (local assets)
+// Built-in image library: Blink UGC's AI-generated photo sets (local assets)
 // plus an always-offline "Gradient Studio" set generated locally as data URLs.
 
 // Locally generated gradient backgrounds — always work offline
@@ -68,7 +68,7 @@ export function gradientImages() {
   return gradientSetCache
 }
 
-// Reelmint's own AI-generated photo sets, shipped as local assets in /public/sets.
+// Blink UGC's own AI-generated photo sets, shipped as local assets in /public/sets.
 // Cached so object identities are stable across calls — components use these
 // as effect dependencies, and fresh identities every render would loop forever.
 const setImages = (folder) =>

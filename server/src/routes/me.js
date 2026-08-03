@@ -42,7 +42,7 @@ meRouter.get(
   wrap(async (req, res) => {
     const { data, error } = await admin
       .from('payments')
-      .select('razorpay_payment_id, amount_paise, currency, status, method, created_at')
+      .select('razorpay_payment_id, amount_minor, currency, status, method, created_at')
       .eq('user_id', req.user.id)
       .order('created_at', { ascending: false })
       .limit(50)
@@ -52,7 +52,7 @@ meRouter.get(
     res.json({
       payments: (data || []).map((p) => ({
         id: p.razorpay_payment_id,
-        amount: p.amount_paise / 100,
+        amount: p.amount_minor / 100,
         currency: p.currency,
         status: p.status,
         method: p.method,

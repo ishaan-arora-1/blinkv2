@@ -53,7 +53,7 @@ export async function subscribeToPlan(planId, { user } = {}) {
     const rzp = new Razorpay({
       key: created.razorpayKeyId,
       subscription_id: created.subscriptionId,
-      name: 'reelmint',
+      name: 'Blink UGC',
       // Shown inside the Razorpay checkout modal, so it must match what the
       // customer is actually about to be charged, currency and all.
       description: `${created.plan.name} — ${money(created.plan.price, created.plan.currency)}/${

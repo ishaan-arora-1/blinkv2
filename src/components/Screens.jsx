@@ -36,7 +36,7 @@ export function SetupNeeded({ missing }) {
     <div className="hero" style={{ justifyContent: 'center' }}>
       <div className="card" style={{ width: 'min(640px, 94vw)', textAlign: 'left', zIndex: 1, padding: 28 }}>
         <div className="row"><span className="chip hot">setup</span></div>
-        <h2 style={{ margin: '12px 0 8px' }}>reelmint isn't configured yet</h2>
+        <h2 style={{ margin: '12px 0 8px' }}>Blink UGC isn't configured yet</h2>
         <p className="small muted">
           These environment variables are missing from this build. Add them to{' '}
           <span className="mono">.env</span> and restart the dev server (or set them in your
