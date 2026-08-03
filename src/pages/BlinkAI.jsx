@@ -1,11 +1,14 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import CreatorPicker from '../components/CreatorPicker.jsx'
-import { generate, hasKey, LIMITS } from '../lib/blink.js'
+import { LIMITS, startGeneration, awaitGeneration } from '../lib/blink.js'
 import { useStore } from '../lib/store.jsx'
-import { putBlob, uid } from '../lib/idb.js'
+import { useAuth } from '../lib/auth.jsx'
+import { go } from '../lib/router.js'
 
 export default function BlinkAI() {
   const store = useStore()
+  const { can, entitlement } = useAuth()
+
   const [prompt, setPrompt] = useState('')
   const [product, setProduct] = useState(null)
   const [productURL, setProductURL] = useState(null)
@@ -15,16 +18,28 @@ export default function BlinkAI() {
   const [status, setStatus] = useState('')
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
-  const [saved, setSaved] = useState(false)
   const fileRef = useRef(null)
+  const abortRef = useRef(null)
 
   // generation settings
   const [duration, setDuration] = useState(LIMITS.duration.default)
   const [aspect, setAspect] = useState('9:16')
   const [resolution, setResolution] = useState('1080p')
-
   const [negative, setNegative] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
+
+  // Leaving the page must not leave a poll running.
+  useEffect(() => () => abortRef.current?.abort(), [])
+
+  // A render that was in flight when the tab was closed is still running on the
+  // server. Pick the newest one back up rather than stranding it.
+  useEffect(() => {
+    const pending = store.state.blinks.find((b) => b.status === 'rendering' || b.status === 'pending')
+    if (!pending || busy) return
+    resume(pending.id)
+    // Only ever re-attach once per mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function onProduct(file) {
     if (!file) return
@@ -32,56 +47,93 @@ export default function BlinkAI() {
     setProductURL(URL.createObjectURL(file))
   }
 
-  // Veo's file URI is temporary, so pull the bytes into IndexedDB and keep only
-  // metadata in the store — that's what the Library reads back.
-  async function archive(media, usedPrompt) {
-    const entry = {
-      id: uid('blink'),
-      kind: media.kind || 'video',
-      prompt: usedPrompt,
-      creatorId: creator?.id || null,
-      creatorName: creator?.name || null,
-      durationSeconds: duration,
-      aspectRatio: aspect,
-      resolution,
-      createdAt: Date.now(),
-      blobKey: null,
-      url: null,
-    }
+  async function resume(blinkId) {
+    setBusy(true)
+    setError(null)
+    setResult(null)
+    setStatus('Picking up where you left off…')
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
     try {
-      const src = media.dataUrl || media.url
-      if (!src) return
-      const blob = await (await fetch(src)).blob()
-      const key = uid('blinkv')
-      await putBlob(key, blob)
-      entry.blobKey = key
-    } catch {
-      // couldn't cache it locally — fall back to the remote URI while it lasts
-      entry.url = media.dataUrl || media.url || null
+      const done = await awaitGeneration(blinkId, { onStatus: setStatus, signal: ctrl.signal })
+      setResult(done)
+      await store.refreshBlinks()
+    } catch (err) {
+      if (err.name !== 'AbortError') setError(err.message)
+      await store.refreshBlinks()
+    } finally {
+      setBusy(false)
+      setStatus('')
     }
-    store.saveBlink(entry)
-    setSaved(true)
   }
 
   async function run() {
     if (!prompt.trim() || busy) return
-    const usedPrompt = prompt.trim()
-    setBusy(true); setError(null); setResult(null); setSaved(false); setStatus('Starting…')
+    setBusy(true)
+    setError(null)
+    setResult(null)
+    setStatus('Sending to Veo…')
+
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+
     try {
-      const media = await generate(usedPrompt, product, creator, setStatus, {
-        durationSeconds: duration,
-        aspectRatio: aspect,
-        resolution,
-        negativePrompt: negative,
+      const { blinkId } = await startGeneration({
+        prompt: prompt.trim(),
+        productFile: product,
+        creator,
+        options: {
+          durationSeconds: duration,
+          aspectRatio: aspect,
+          resolution,
+          negativePrompt: negative,
+        },
       })
-      setResult(media)
-      setStatus('Saving to your library…')
-      await archive(media, usedPrompt)
-    } catch (e) {
-      setError(e.message)
+
+      // The row exists now, so the library shows it rendering straight away.
+      await store.refreshBlinks()
+
+      const done = await awaitGeneration(blinkId, { onStatus: setStatus, signal: ctrl.signal })
+      setResult(done)
+      await store.refreshBlinks()
+    } catch (err) {
+      if (err.name !== 'AbortError') setError(err.message)
+      await store.refreshBlinks()
     } finally {
-      setBusy(false); setStatus('')
+      setBusy(false)
+      setStatus('')
     }
+  }
+
+  // ── gated ────────────────────────────────────────────────────────────────
+  if (!can.blink) {
+    return (
+      <div>
+        <div className="page-head">
+          <div className="page-kicker">Blink AI</div>
+          <h1 className="page-title">Say it, and <em>blink</em> it into a video</h1>
+          <p className="page-sub">
+            Describe the video you want and Google Veo renders it — optionally anchored to one of
+            our creators and your own product photo.
+          </p>
+        </div>
+
+        <div className="card upsell" style={{ maxWidth: 620 }}>
+          <div className="row"><span className="chip sea">Studio plan</span></div>
+          <h3 style={{ margin: '12px 0 8px' }}>Blink AI is part of Studio</h3>
+          <p className="small muted">
+            {entitlement.tier === 'creator'
+              ? 'Your Creator plan covers carousels and hook videos. Upgrade to Studio to generate video from a prompt.'
+              : 'Pick the Studio plan to generate video from a prompt.'}
+          </p>
+          <div className="row mt-4">
+            <button className="btn primary" onClick={() => go('/pricing')}>
+              {entitlement.tier === 'creator' ? 'Upgrade to Studio →' : 'See plans →'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -93,16 +145,6 @@ export default function BlinkAI() {
           Describe the video you want. Attach your product and pick a creator if it helps — both are optional.
         </p>
       </div>
-
-      {!hasKey() && (
-        <div className="card" style={{ borderColor: 'rgba(255,122,89,0.4)', marginBottom: 18 }}>
-          <div className="row"><span className="chip hot">setup</span></div>
-          <div className="small mt-2">
-            No Google AI key found. Create <span className="mono">reelmint/.env</span> with{' '}
-            <span className="mono">VITE_GOOGLE_AI_KEY=your-key</span> and restart the dev server.
-          </div>
-        </div>
-      )}
 
       {/* ── composer ── */}
       <div className="card" style={{ maxWidth: 780, padding: 22 }}>
@@ -117,7 +159,6 @@ export default function BlinkAI() {
 
         <div className="row between mt-4" style={{ alignItems: 'flex-end' }}>
           <div className="row wrap">
-            {/* product */}
             {productURL ? (
               <div className="row" style={{ gap: 8 }}>
                 <img src={productURL} alt="product" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--line)' }} />
@@ -129,7 +170,6 @@ export default function BlinkAI() {
             <input ref={fileRef} type="file" accept="image/*" hidden
               onChange={(e) => { onProduct(e.target.files[0]); e.target.value = '' }} />
 
-            {/* creator */}
             {creator ? (
               <div className="row" style={{ gap: 8 }}>
                 <img src={creator.img} alt={creator.name} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--line)' }} />
@@ -200,12 +240,18 @@ export default function BlinkAI() {
       {(busy || result || error) && (
         <div className="card mt-6" style={{ maxWidth: 780 }}>
           {busy && (
-            <div className="row" style={{ gap: 12 }}>
-              <span className="tick" style={{ fontSize: 22 }}>✦</span>
-              <div>
-                <b>{status || 'Working…'}</b>
-                <div className="small muted">Video generation usually takes 1–3 minutes.</div>
+            <div className="row between">
+              <div className="row" style={{ gap: 12 }}>
+                <span className="tick" style={{ fontSize: 22 }}>✦</span>
+                <div>
+                  <b>{status || 'Working…'}</b>
+                  <div className="small muted">
+                    Video generation usually takes 1–3 minutes. You can leave this page — it keeps
+                    rendering and lands in your library.
+                  </div>
+                </div>
               </div>
+              <button className="btn ghost xs" onClick={() => abortRef.current?.abort()}>Stop watching</button>
             </div>
           )}
 
@@ -216,42 +262,23 @@ export default function BlinkAI() {
             </>
           )}
 
-          {result?.kind === 'video' && (
+          {result?.status === 'ready' && result.url && (
             <>
               <div className="row between" style={{ marginBottom: 12 }}>
                 <h4 style={{ color: 'var(--sea)' }}>Your video</h4>
-                <a className="btn sm" href={result.dataUrl || result.url} download="blink-ai.mp4">⬇ Download</a>
+                <a className="btn sm" href={result.url} download="blink-ai.mp4">⬇ Download</a>
               </div>
-              <video src={result.dataUrl || result.url} controls autoPlay loop playsInline
+              <video src={result.url} controls autoPlay loop playsInline
                 style={{ width: aspect === '16:9' ? 460 : 300, borderRadius: 14, display: 'block', border: '1px solid var(--line)' }} />
               <div className="row mt-4 wrap">
                 <span className="chip">{duration}s</span>
                 <span className="chip">{aspect}</span>
                 <span className="chip">{resolution}</span>
                 <span className="chip sea">audio</span>
-                {saved && (
-                  <a className="chip mint" href="#/library" style={{ textDecoration: 'none' }}>
-                    saved to library ↗
-                  </a>
-                )}
+                <a className="chip mint" href="#/library" style={{ textDecoration: 'none' }}>
+                  saved to library ↗
+                </a>
               </div>
-            </>
-          )}
-
-          {result?.kind === 'image' && (
-            <>
-              <div className="row between" style={{ marginBottom: 12 }}>
-                <h4 style={{ color: 'var(--sea)' }}>Your result</h4>
-                <a className="btn sm" href={result.dataUrl} download="blink-ai.png">⬇ Download</a>
-              </div>
-              <img src={result.dataUrl} alt="result" style={{ width: 300, borderRadius: 14, display: 'block', border: '1px solid var(--line)' }} />
-            </>
-          )}
-
-          {result?.kind === 'text' && (
-            <>
-              <div className="row"><span className="chip">model replied with text</span></div>
-              <div className="small mt-2" style={{ whiteSpace: 'pre-wrap' }}>{result.text}</div>
             </>
           )}
         </div>

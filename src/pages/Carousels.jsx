@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { buildPreset, blankCopy, presetOptions } from '../lib/copygen.js'
 import { pickRandom, suggestedSetId } from '../lib/library.js'
-import { uid } from '../lib/idb.js'
+import { newId, uid } from '../lib/ids.js'
 import { useSetImages } from '../lib/useImages.js'
 
 export function newTextLayer(patch) {
@@ -48,7 +48,9 @@ export function buildCarousel(store, setId, presetId) {
   })
 
   return {
-    id: uid('car'),
+    // A row id, so it must be a real UUID. The slide and text-layer ids above
+    // stay short — they only ever live inside the slides jsonb.
+    id: newId(),
     name: copy.hook.length > 34 ? copy.hook.slice(0, 34) + '…' : copy.hook,
     createdAt: Date.now(),
     presetId: copy.presetId,

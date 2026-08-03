@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { resolveImage } from '../lib/useImages.js'
-import { blobURL, deleteBlob } from '../lib/idb.js'
+import { GENERATIONS, signedUrl } from '../lib/storage.js'
 
 const FILTERS = [
   { id: 'all', label: 'Everything', noun: 'anything' },
@@ -14,11 +14,15 @@ const TAG = { carousel: 'Carousel', video: 'Hook video', blink: 'Blink AI' }
 
 // Resolve each item's thumbnail once per set of ids. Depending on the items
 // array itself would re-run every render — same trap as in useImages.js.
+//
+// Status is part of the signature because a Blink AI clip has no thumbnail
+// while it renders and gains one when it finishes; keying on id alone would
+// leave it showing "rendering…" until a manual reload.
 function useThumbs(items) {
   const [map, setMap] = useState({})
   const ref = useRef(items)
   ref.current = items
-  const sig = items.map((i) => i.id).join('|')
+  const sig = items.map((i) => `${i.id}:${i.status || ''}`).join('|')
   useEffect(() => {
     let alive = true
     Promise.all(ref.current.map(async (it) => [it.id, await it.thumb()]))
@@ -38,7 +42,15 @@ function LibCard({ item, thumb }) {
       >
         <span className={`lib-tag ${item.kind}`}>{TAG[item.kind]}</span>
         {item.motion && thumb && <video src={thumb} muted loop playsInline autoPlay />}
-        {!thumb && <span className="small muted">no preview</span>}
+        {!thumb && (
+          <span className="small muted">
+            {item.status === 'failed'
+              ? 'failed'
+              : item.status && item.status !== 'ready'
+                ? <span className="tick">rendering…</span>
+                : 'no preview'}
+          </span>
+        )}
       </div>
       <div className="tile-body">
         <div className="tile-title lib-title" title={item.title}>{item.title}</div>
@@ -87,7 +99,7 @@ export default function Library() {
           id: v.id,
           createdAt: v.createdAt,
           title: v.name,
-          sub: `${char.name} · ${v.hook?.label || 'hook'} · ${v.demoKey ? 'demo attached' : 'no demo yet'}`,
+          sub: `${char.name} · ${v.hook?.label || 'hook'} · ${v.demoPath ? 'demo attached' : 'no demo yet'}`,
           href: `/video/${v.id}`,
           thumb: async () => char.img,
           remove: () => store.deleteVideo(v.id),
@@ -98,14 +110,18 @@ export default function Library() {
         id: b.id,
         createdAt: b.createdAt,
         title: b.prompt.length > 52 ? b.prompt.slice(0, 52) + '…' : b.prompt,
-        sub: [b.creatorName, `${b.durationSeconds}s`, b.aspectRatio, b.resolution].filter(Boolean).join(' · '),
-        motion: true,
-        download: `blink-ai-${b.id}.mp4`,
-        thumb: async () => (b.blobKey ? blobURL(b.blobKey) : b.url),
-        remove: async () => {
-          if (b.blobKey) await deleteBlob(b.blobKey).catch(() => {})
-          store.deleteBlink(b.id)
-        },
+        sub:
+          b.status === 'ready'
+            ? [b.creatorName, `${b.durationSeconds}s`, b.aspectRatio, b.resolution].filter(Boolean).join(' · ')
+            : b.status === 'failed'
+              ? b.error || 'Generation failed'
+              : 'Rendering…',
+        status: b.status,
+        // Only a finished generation has anything to play or download.
+        motion: b.status === 'ready',
+        download: b.status === 'ready' ? `blink-ai-${b.id}.mp4` : null,
+        thumb: async () => (b.status === 'ready' ? signedUrl(GENERATIONS, b.storagePath) : null),
+        remove: () => store.deleteBlink(b.id),
       })),
     ]
     return all.sort((a, b) => b.createdAt - a.createdAt)

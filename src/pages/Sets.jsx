@@ -1,12 +1,12 @@
 import React, { useRef, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { builtinSets } from '../lib/library.js'
-import { putBlob, deleteBlob, uid } from '../lib/idb.js'
 import { useSetImages } from '../lib/useImages.js'
 
-function SetCard({ set, onDelete, onAddImages, onRemoveImage }) {
+function SetCard({ set, busy, onDelete, onAddImages, onRemoveImage }) {
   const urls = useSetImages(set)
   const fileRef = useRef(null)
+
   return (
     <div className="card">
       <div className="row between">
@@ -15,12 +15,14 @@ function SetCard({ set, onDelete, onAddImages, onRemoveImage }) {
             <b>{set.name}</b>
             {set.builtin ? <span className="chip">built-in</span> : <span className="chip mint">custom</span>}
           </div>
-          <div className="small muted">{set.desc || `${urls.length} images`}</div>
+          <div className="small muted">{set.desc || `${set.images?.length ?? 0} images`}</div>
         </div>
         {!set.builtin && (
           <div className="row">
-            <button className="btn sm" onClick={() => fileRef.current?.click()}>+ Add images</button>
-            <button className="btn sm danger" onClick={onDelete}>Delete</button>
+            <button className="btn sm" disabled={busy} onClick={() => fileRef.current?.click()}>
+              {busy ? 'Uploading…' : '+ Add images'}
+            </button>
+            <button className="btn sm danger" disabled={busy} onClick={onDelete}>Delete</button>
             <input
               ref={fileRef} type="file" accept="image/*" multiple hidden
               onChange={(e) => { onAddImages([...e.target.files]); e.target.value = '' }}
@@ -30,12 +32,12 @@ function SetCard({ set, onDelete, onAddImages, onRemoveImage }) {
       </div>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', marginTop: 14, gap: 8 }}>
         {urls.map((u, i) => (
-          <div key={i} className="img-cell" style={{ backgroundImage: `url(${u})`, position: 'relative', cursor: 'default' }}>
+          <div key={set.images[i]?.id ?? i} className="img-cell" style={{ backgroundImage: `url(${u})`, position: 'relative', cursor: 'default' }}>
             {!set.builtin && (
               <button
                 className="btn xs danger"
                 style={{ position: 'absolute', top: 4, right: 4, padding: '1px 7px' }}
-                onClick={() => onRemoveImage(i)}
+                onClick={() => onRemoveImage(set.images[i])}
               >✕</button>
             )}
           </div>
@@ -50,40 +52,31 @@ export default function Sets() {
   const store = useStore()
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
+  const [busySet, setBusySet] = useState(null)
+  const [error, setError] = useState(null)
 
-  async function addImagesTo(setId, files) {
-    const entries = []
-    for (const f of files) {
-      const key = uid('img')
-      await putBlob(key, f)
-      entries.push({ key })
+  async function addImages(setId, files) {
+    if (!files.length) return
+    setBusySet(setId)
+    setError(null)
+    try {
+      await store.addImagesToSet(setId, files)
+    } catch (err) {
+      setError(`Upload failed: ${err.message}`)
+    } finally {
+      setBusySet(null)
     }
-    store.update((s) => ({
-      customSets: s.customSets.map((cs) => (cs.id === setId ? { ...cs, images: [...cs.images, ...entries] } : cs)),
-    }))
   }
 
-  function createSet() {
-    const id = uid('set')
-    store.update((s) => ({ customSets: [...s.customSets, { id, name: name.trim() || 'My set', images: [] }] }))
-    setName('')
-    setCreating(false)
-  }
-
-  async function deleteSet(set) {
-    for (const img of set.images) if (img.key) await deleteBlob(img.key).catch(() => {})
-    store.update((s) => ({ customSets: s.customSets.filter((cs) => cs.id !== set.id) }))
-  }
-
-  function removeImage(setId, idx) {
-    store.update((s) => ({
-      customSets: s.customSets.map((cs) => {
-        if (cs.id !== setId) return cs
-        const img = cs.images[idx]
-        if (img?.key) deleteBlob(img.key).catch(() => {})
-        return { ...cs, images: cs.images.filter((_, i) => i !== idx) }
-      }),
-    }))
+  async function createSet() {
+    setError(null)
+    try {
+      await store.createSet(name)
+      setName('')
+      setCreating(false)
+    } catch (err) {
+      setError(`Could not create the set: ${err.message}`)
+    }
   }
 
   return (
@@ -100,14 +93,22 @@ export default function Sets() {
         <button className="btn primary" onClick={() => setCreating(true)}>+ New custom set</button>
       </div>
 
+      {error && (
+        <div className="card" style={{ borderColor: 'rgba(255,122,89,0.4)', marginBottom: 18 }}>
+          <div className="row"><span className="chip hot">error</span></div>
+          <div className="small mt-2">{error}</div>
+        </div>
+      )}
+
       <div className="grid" style={{ gap: 18 }}>
         {store.state.customSets.map((set) => (
           <SetCard
             key={set.id}
             set={set}
-            onDelete={() => deleteSet(set)}
-            onAddImages={(files) => addImagesTo(set.id, files)}
-            onRemoveImage={(i) => removeImage(set.id, i)}
+            busy={busySet === set.id}
+            onDelete={() => { if (confirm(`Delete “${set.name}” and its images?`)) store.deleteSet(set) }}
+            onAddImages={(files) => addImages(set.id, files)}
+            onRemoveImage={(image) => store.removeSetImage(set.id, image)}
           />
         ))}
         {builtinSets().map((set) => <SetCard key={set.id} set={set} />)}

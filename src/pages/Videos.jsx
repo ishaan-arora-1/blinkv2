@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { CREATORS } from '../lib/creators.js'
-import { uid } from '../lib/idb.js'
+import { newId } from '../lib/ids.js'
 
 export default function Videos() {
   const store = useStore()
@@ -42,7 +42,7 @@ export default function Videos() {
                 <div className="tile-body">
                   <div className="tile-title">{p.name}</div>
                   <div className="row between mt-2">
-                    <span className="tile-sub">{char.name} · {p.demoKey ? 'demo attached' : 'no demo yet'}</span>
+                    <span className="tile-sub">{char.name} · {p.demoPath ? 'demo attached' : 'no demo yet'}</span>
                     <button className="btn xs danger" onClick={(e) => { e.stopPropagation(); if (confirm('Delete this video?')) store.deleteVideo(p.id) }}>Delete</button>
                   </div>
                 </div>
@@ -65,7 +65,7 @@ function NewVideoWizard({ store, onClose }) {
 
   function createProject(h) {
     const proj = {
-      id: uid('vid'),
+      id: newId(),
       name: `${char.name} × ${brand.appName || 'demo'}`,
       createdAt: Date.now(),
       characterId: charId,
@@ -74,7 +74,7 @@ function NewVideoWizard({ store, onClose }) {
         duration: h.maxDuration, maxDuration: h.maxDuration,
         caption: defaultCaption(brand),
       },
-      demoKey: null,
+      demoPath: null,
       demoDuration: 0,
       demoTrim: { start: 0, end: 0 },
       audio: { trackId: 'hype', volume: 0.8 },

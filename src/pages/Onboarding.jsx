@@ -6,6 +6,7 @@ export default function Onboarding() {
   const store = useStore()
   const [step, setStep] = useState(0)
   const [draft, setDraft] = useState(store.state.brand)
+  const [saving, setSaving] = useState(false)
 
   if (step === 0) {
     return (
@@ -38,10 +39,18 @@ export default function Onboarding() {
         <div className="row" style={{ justifyContent: 'flex-end', marginTop: 10 }}>
           <button
             className="btn primary"
-            disabled={!draft.appName.trim()}
-            onClick={() => { store.setBrand({ ...draft, onboarded: true }); window.location.hash = '/dashboard' }}
+            disabled={!draft.appName.trim() || saving}
+            onClick={async () => {
+              setSaving(true)
+              try {
+                await store.setBrand({ ...draft, onboarded: true }, { immediate: true })
+                window.location.hash = '/dashboard'
+              } finally {
+                setSaving(false)
+              }
+            }}
           >
-            Enter the studio →
+            {saving ? 'Setting up…' : 'Enter the studio →'}
           </button>
         </div>
       </div>

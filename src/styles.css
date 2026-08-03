@@ -361,3 +361,79 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 999px; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ─── Auth ─── */
+.btn.google {
+  background: var(--paper);
+  color: #1f1f1f;
+  border-color: var(--paper);
+  padding: 13px 26px;
+  font-size: 15px;
+}
+.btn.google:hover {
+  background: #fff;
+  color: #1f1f1f;
+  border-color: #fff;
+  box-shadow: 0 8px 30px rgba(238, 243, 232, 0.18);
+}
+
+/* ─── Plans & billing ─── */
+.plan { display: flex; flex-direction: column; position: relative; }
+.plan.featured { border-color: rgba(111, 240, 184, 0.35); background: linear-gradient(180deg, rgba(111,240,184,0.05), var(--ink-2) 55%); }
+
+.plan-flag {
+  position: absolute; top: -10px; right: 18px;
+  background: var(--sea); color: var(--ink);
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 999px; font-weight: 600;
+}
+
+.plan-price {
+  font-family: var(--display); font-size: 34px; font-weight: 600;
+  margin: 12px 0 4px; letter-spacing: -0.02em;
+}
+.plan-price .small { font-family: var(--body); font-size: 13px; font-weight: 400; }
+
+.plan-features { list-style: none; margin-top: 16px; display: grid; gap: 9px; }
+.plan-features li { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--muted); line-height: 1.45; }
+.plan-features .tickmark { color: var(--mint); flex-shrink: 0; font-weight: 700; }
+
+.upsell { border-color: rgba(111, 240, 184, 0.35); background: linear-gradient(180deg, rgba(111,240,184,0.06), var(--ink-2) 60%); }
+
+/* Sidebar plan status */
+.plan-badge {
+  display: block; margin: 0 12px 14px;
+  padding: 11px 13px; border-radius: 11px;
+  text-decoration: none; line-height: 1.35;
+  border: 1px solid rgba(214, 246, 92, 0.28);
+  background: var(--mint-soft);
+  transition: all 0.15s;
+}
+.plan-badge:hover { border-color: var(--mint); }
+.plan-badge b { display: block; font-size: 12.5px; color: var(--mint); }
+.plan-badge span { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.plan-badge.warn { border-color: rgba(255, 122, 89, 0.35); background: rgba(255, 122, 89, 0.1); }
+.plan-badge.warn b { color: var(--hot); }
+
+/* A locked nav item stays clickable — it routes to the upsell, not nowhere. */
+.nav-item.locked { opacity: 0.55; }
+.nav-item.locked:hover { opacity: 1; }
+.nav-item .lock {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--sea); border: 1px solid rgba(111, 240, 184, 0.3);
+  padding: 2px 6px; border-radius: 999px;
+}
+
+/* ─── Tables ─── */
+.table-scroll { overflow-x: auto; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  text-align: left; padding: 8px 12px 8px 0;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); font-weight: 500;
+  border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap;
+}
+.data-table td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+.data-table tr:last-child td { border-bottom: none; }

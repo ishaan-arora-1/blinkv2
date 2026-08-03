@@ -14,31 +14,85 @@ and exported in the browser.
   timed text overlays, export as video.
 - **Blink AI** — describe a video and generate it with Google Veo. Optionally
   anchor it to a creator and your product photo.
-- **Library** — everything you've generated, in one place.
+- **Library** — everything you've generated, in one place, synced across devices.
 - **Image sets** — four built-in lifestyle collections plus your own uploads.
+
+## Plans
+
+Sign-in is Google, via Supabase Auth. Every account starts with a **7-day trial**
+at the top tier, no card required.
+
+| | Creator — ₹999/mo | Studio — ₹2,499/mo |
+|---|---|---|
+| Carousels | ✓ | ✓ |
+| Hook videos | ✓ | ✓ |
+| Custom image sets | ✓ | ✓ |
+| Cloud sync | ✓ | ✓ |
+| Blink AI | — | ✓ |
+
+Billing is Razorpay subscriptions, monthly. Prices live in the `plans` table, not
+in code.
+
+## How it's built
+
+```
+/                 React 18 + Vite SPA        → any static host
+/server           Express                    → Railway
+/supabase         Postgres schema + RLS      → Supabase
+```
+
+- **Auth** — Supabase Auth with the Google provider. The session lives in the
+  browser; the API verifies the JWT on every request.
+- **Data** — Postgres, with row level security on every table. Editor documents
+  (slides, overlays) are `jsonb`; everything else is columns. Writes are optimistic
+  locally and debounced before they hit the database, because the carousel editor
+  saves on every pointer move.
+- **Media** — private Supabase Storage buckets, read through short-lived signed
+  URLs. `uploads` is the user's; `generations` is written only by the server.
+- **Money and secrets** — the API owns the Razorpay secret, the webhook secret and
+  the Google Veo key. Entitlement is enforced server-side; the client only hides
+  what you can't use.
+- **Routing** — a hash router in `src/lib/router.js`, so the app is deployable as
+  plain static files.
+
+Carousel export renders the live DOM stage with `html-to-image`; video export
+records the compositor canvas in real time with `MediaRecorder`.
+
+### Where things are
+
+- `src/pages` — one file per screen, editors included
+- `src/lib/store.jsx` — Supabase-backed store with debounced writes
+- `src/lib/auth.jsx` — session, profile and entitlement
+- `src/lib/copygen.js` — the carousel copy presets
+- `src/lib/creators.js` — the creator roster and their premade hook clips
+- `src/lib/audio.js` — the music tracks, synthesized with WebAudio
+- `server/src/routes` — `me`, `plans`, `billing`, `webhooks`, `veo`
+- `supabase/migrations` — schema, RLS, entitlement function, storage policies
 
 ## Running it
 
 ```bash
 npm install
-cp .env.example .env   # add your Google AI key for Blink AI
-npm run dev            # http://localhost:5199
+cd server && npm install && cd ..
+cp .env.example .env
+cp server/.env.example server/.env
 ```
 
-Blink AI is the only feature that needs a key — carousels, hook videos and the
-library all work offline.
+Fill both `.env` files in — see **[DEPLOY.md](DEPLOY.md)** for where each value
+comes from. Then, in two terminals:
 
-## How it's built
+```bash
+npm run dev
+```
 
-React 18 + Vite, no backend. State lives in `localStorage`; uploaded images and
-videos go to IndexedDB (`src/lib/idb.js`) so only metadata is persisted in the
-store. Routing is a hash router in `src/App.jsx`.
+```bash
+cd server && npm run dev
+```
 
-- `src/pages` — one file per screen, editors included
-- `src/lib/copygen.js` — the carousel copy presets
-- `src/lib/creators.js` — the creator roster and their premade hook clips
-- `src/lib/audio.js` — the music tracks, synthesized with WebAudio
-- `public/creators`, `public/hooks`, `public/sets` — generated image and video assets
+Web on `http://localhost:5199`, API on `http://localhost:8080`.
 
-Carousel export renders the live DOM stage with `html-to-image`; video export
-records the compositor canvas in real time with `MediaRecorder`.
+## Deploying
+
+See **[DEPLOY.md](DEPLOY.md)** — Supabase project and migrations, Google OAuth
+consent screen, Razorpay plans and webhook, Railway service, static hosting, and
+a smoke test to run afterwards.

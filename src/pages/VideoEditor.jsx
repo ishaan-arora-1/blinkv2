@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
 import { TRACKS, scheduleTrack } from '../lib/audio.js'
-import { putBlob, blobURL, uid } from '../lib/idb.js'
+import { UPLOADS, signedUrl, removeFile } from '../lib/storage.js'
+import { uid } from '../lib/ids.js'
 
 const W = 540, H = 960
 
@@ -95,6 +96,8 @@ export default function VideoEditor({ id }) {
   const [playing, setPlaying] = useState(false)
   const [t, setT] = useState(0)
   const [exporting, setExporting] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(null)
   const [selOverlay, setSelOverlay] = useState(null)
 
   const tRef = useRef(0)
@@ -103,15 +106,15 @@ export default function VideoEditor({ id }) {
   projRef.current = proj
 
   const hookDur = Math.min(proj?.hook.duration ?? 3, proj?.hook.maxDuration ?? 3)
-  const demoSeg = proj?.demoKey ? Math.max(0, (proj.demoTrim.end || 0) - (proj.demoTrim.start || 0)) : 0
+  const demoSeg = proj?.demoPath ? Math.max(0, (proj.demoTrim.end || 0) - (proj.demoTrim.start || 0)) : 0
   const total = hookDur + demoSeg
 
   useEffect(() => {
     let alive = true
-    if (proj?.demoKey) blobURL(proj.demoKey).then((u) => alive && setDemoURL(u))
+    if (proj?.demoPath) signedUrl(UPLOADS, proj.demoPath).then((u) => alive && setDemoURL(u))
     else setDemoURL(null)
     return () => { alive = false }
-  }, [proj?.demoKey])
+  }, [proj?.demoPath])
 
   // ── render loop ──────────────────────────────────────────
   useEffect(() => {
@@ -127,7 +130,7 @@ export default function VideoEditor({ id }) {
       const p = projRef.current
       if (!p) return
       const hd = Math.min(p.hook.duration, p.hook.maxDuration ?? 3)
-      const dSeg = p.demoKey ? Math.max(0, p.demoTrim.end - p.demoTrim.start) : 0
+      const dSeg = p.demoPath ? Math.max(0, p.demoTrim.end - p.demoTrim.start) : 0
       const tot = hd + dSeg
 
       if (playingRef.current) {
@@ -143,12 +146,12 @@ export default function VideoEditor({ id }) {
       const inHook = tt < hd
 
       syncVideo(hookRef.current, Math.min(tt, hd), playingRef.current, inHook)
-      syncVideo(demoRef.current, p.demoTrim.start + Math.max(0, tt - hd), playingRef.current, !inHook && !!p.demoKey)
+      syncVideo(demoRef.current, p.demoTrim.start + Math.max(0, tt - hd), playingRef.current, !inHook && !!p.demoPath)
 
       if (inHook) {
         drawVideoFrame(ctx, hookRef.current)
         if (p.hook.caption) drawOverlay(ctx, { text: p.hook.caption, y: 13, size: 58, color: '#eaffd0', pill: true })
-      } else if (p.demoKey) {
+      } else if (p.demoPath) {
         drawVideoFrame(ctx, demoRef.current)
       } else {
         drawPlaceholder(ctx)
@@ -174,7 +177,7 @@ export default function VideoEditor({ id }) {
     const actx = new AudioContext()
     audioCtxRef.current = actx
     const hd = Math.min(p.hook.duration, p.hook.maxDuration ?? 3)
-    const dSeg = p.demoKey ? Math.max(0, p.demoTrim.end - p.demoTrim.start) : 0
+    const dSeg = p.demoPath ? Math.max(0, p.demoTrim.end - p.demoTrim.start) : 0
     const remaining = hd + dSeg - fromT
     scheduleTrack(actx, dest || actx.destination, p.audio.trackId, actx.currentTime + 0.05, Math.max(0.1, remaining), p.audio.volume)
     return actx
@@ -217,29 +220,61 @@ export default function VideoEditor({ id }) {
   }
 
   // ── demo upload ──────────────────────────────────────────
-  async function onDemoFile(file) {
-    if (!file) return
-    const key = uid('demo')
-    await putBlob(key, file)
-    const url = URL.createObjectURL(file)
-    const meta = document.createElement('video')
-    meta.preload = 'metadata'
-    meta.src = url
-    meta.onloadedmetadata = () => {
-      if (!isFinite(meta.duration)) {
-        meta.onloadedmetadata = null
+
+  /**
+   * Read a recording's duration locally, before uploading.
+   *
+   * Some screen recordings (anything written by a streaming muxer, which is
+   * what iOS produces) report Infinity until the whole file has been walked.
+   * Seeking far past the end forces the browser to resolve the real duration.
+   */
+  function readDuration(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file)
+      const meta = document.createElement('video')
+      const done = (value) => {
+        URL.revokeObjectURL(url)
+        resolve(value)
+      }
+      meta.preload = 'metadata'
+      meta.onerror = () => {
+        URL.revokeObjectURL(url)
+        reject(new Error('That file could not be read as a video.'))
+      }
+      meta.onloadedmetadata = () => {
+        if (isFinite(meta.duration) && meta.duration > 0) return done(meta.duration)
         meta.ondurationchange = () => {
           if (isFinite(meta.duration) && meta.duration > 0) {
             meta.ondurationchange = null
-            const dur = meta.duration
-            save({ demoKey: key, demoDuration: dur, demoTrim: { start: 0, end: Math.min(dur, 20) } })
+            done(meta.duration)
           }
         }
         meta.currentTime = 1e10
-        return
       }
-      const dur = meta.duration
-      save({ demoKey: key, demoDuration: dur, demoTrim: { start: 0, end: Math.min(dur, 20) } })
+      meta.src = url
+    })
+  }
+
+  async function onDemoFile(file) {
+    if (!file) return
+    setUploading(true)
+    setUploadError(null)
+    const previous = proj.demoPath
+
+    try {
+      const dur = await readDuration(file)
+      const path = await store.uploadDemo(file)
+      save({
+        demoPath: path,
+        demoDuration: dur,
+        demoTrim: { start: 0, end: Math.min(dur, 20) },
+      })
+      // Replacing a demo leaves the old object behind otherwise.
+      if (previous) removeFile(UPLOADS, previous)
+    } catch (err) {
+      setUploadError(err.message)
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -343,9 +378,9 @@ export default function VideoEditor({ id }) {
             <div
               className={`seg-block demo ${t >= hookDur ? 'on' : ''}`}
               style={{ flex: Math.max(demoSeg, 0.5) }}
-              onClick={() => (proj.demoKey ? seek(hookDur + 0.01) : fileRef.current?.click())}
+              onClick={() => (proj.demoPath ? seek(hookDur + 0.01) : fileRef.current?.click())}
             >
-              {proj.demoKey ? `Demo · ${demoSeg.toFixed(1)}s` : '+ upload demo'}
+              {proj.demoPath ? `Demo · ${demoSeg.toFixed(1)}s` : '+ upload demo'}
             </div>
           </div>
         </div>
@@ -381,11 +416,21 @@ export default function VideoEditor({ id }) {
           <div className="card">
             <div className="row between">
               <h4>App demo</h4>
-              <button className="btn xs" onClick={() => fileRef.current?.click()}>{proj.demoKey ? 'Replace' : 'Upload'}</button>
+              <button className="btn xs" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                {uploading ? 'Uploading…' : proj.demoPath ? 'Replace' : 'Upload'}
+              </button>
               <input ref={fileRef} type="file" accept="video/*" hidden
                 onChange={(e) => { onDemoFile(e.target.files[0]); e.target.value = '' }} />
             </div>
-            {proj.demoKey ? (
+            {uploadError && (
+              <div className="small mt-2" style={{ color: 'var(--hot)' }}>{uploadError}</div>
+            )}
+            {uploading && (
+              <div className="small muted mt-2">
+                Uploading your recording to your library — large files take a moment.
+              </div>
+            )}
+            {proj.demoPath ? (
               <>
                 <div className="field mt-2">
                   <label>Trim start — {proj.demoTrim.start.toFixed(1)}s</label>

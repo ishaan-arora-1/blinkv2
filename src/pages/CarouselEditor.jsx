@@ -6,7 +6,7 @@ import { pickRandom } from '../lib/library.js'
 import { resolveImage, useSetImages } from '../lib/useImages.js'
 import { regenerateHook, buildPreset } from '../lib/copygen.js'
 import { newTextLayer } from './Carousels.jsx'
-import { uid } from '../lib/idb.js'
+import { uid } from '../lib/ids.js'
 
 const STAGE_W = 380
 const FONTS = { display: 'var(--display)', body: 'var(--body)', serif: 'var(--serif)' }

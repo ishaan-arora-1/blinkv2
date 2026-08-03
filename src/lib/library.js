@@ -27,6 +27,26 @@ function gradientDataURL(stops, angleDeg = 30, w = 540, h = 675) {
   return c.toDataURL('image/jpeg', 0.85)
 }
 
+// Gradients are referenced as "gradient:N", not as the data URL itself.
+//
+// A generated gradient is ~50 KB of base64. Storing that string in a slide's
+// background would put a quarter of a megabyte into every carousel row, and
+// carousels are written on every drag. The reference is resolved to pixels at
+// render time by resolveImage() instead.
+export const GRADIENT_COUNT = 12
+export const gradientRefs = () =>
+  Array.from({ length: GRADIENT_COUNT }, (_, i) => `gradient:${i}`)
+
+export function isGradientRef(ref) {
+  return typeof ref === 'string' && ref.startsWith('gradient:')
+}
+
+export function gradientByRef(ref) {
+  const i = Number(String(ref).slice('gradient:'.length))
+  const all = gradientImages()
+  return all[i] ?? all[0] ?? null
+}
+
 let gradientSetCache = null
 export function gradientImages() {
   if (gradientSetCache) return gradientSetCache
@@ -62,7 +82,7 @@ export function builtinSets() {
     { id: 'lib_girl', name: 'Clean Girl', builtin: true, desc: 'Soft pastels, matcha, flatlays, golden hour', images: setImages('girl') },
     { id: 'lib_work', name: 'The Grind', builtin: true, desc: 'Desks, screens, commutes, late nights', images: setImages('work') },
     { id: 'lib_gym', name: 'Gym Era', builtin: true, desc: 'Benches, chalk, sunrise runs, meal prep', images: setImages('gym') },
-    { id: 'lib_gradient', name: 'Gradient Studio', builtin: true, desc: 'Clean generated gradients — always available', images: gradientImages() },
+    { id: 'lib_gradient', name: 'Gradient Studio', builtin: true, desc: 'Clean generated gradients — always available', images: gradientRefs() },
   ]
   return builtinCache
 }
