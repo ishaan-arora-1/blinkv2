@@ -169,7 +169,7 @@ billingRouter.post(
       plan: {
         id: plan.id,
         name: plan.name,
-        price: plan.price_paise / 100,
+        price: plan.price_minor / 100,
         currency: plan.currency,
         period: plan.period,
       },

@@ -4,6 +4,7 @@ import { LIMITS, startGeneration, awaitGeneration } from '../lib/blink.js'
 import { useStore } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { go } from '../lib/router.js'
+import { planFor, PLAN_NAME } from '../lib/tiers.js'
 
 export default function BlinkAI() {
   const store = useStore()
@@ -106,6 +107,10 @@ export default function BlinkAI() {
   }
 
   // ── gated ────────────────────────────────────────────────────────────────
+  // A paying customer on a lower plan gets an upgrade pitch; someone with no
+  // plan at all gets pointed at pricing, since "upgrade" would be nonsense.
+  const onLowerPaidPlan = Boolean(PLAN_NAME[entitlement.tier]) && !can.blink
+
   if (!can.blink) {
     return (
       <div>
@@ -119,16 +124,16 @@ export default function BlinkAI() {
         </div>
 
         <div className="card upsell" style={{ maxWidth: 620 }}>
-          <div className="row"><span className="chip sea">Studio plan</span></div>
-          <h3 style={{ margin: '12px 0 8px' }}>Blink AI is part of Studio</h3>
+          <div className="row"><span className="chip sea">{planFor('blink')} plan</span></div>
+          <h3 style={{ margin: '12px 0 8px' }}>Blink AI is part of {planFor('blink')}</h3>
           <p className="small muted">
-            {entitlement.tier === 'creator'
-              ? 'Your Creator plan covers carousels and hook videos. Upgrade to Studio to generate video from a prompt.'
-              : 'Pick the Studio plan to generate video from a prompt.'}
+            {onLowerPaidPlan
+              ? `Your ${PLAN_NAME[entitlement.tier]} plan covers carousels and hook videos. Upgrade to ${planFor('blink')} to generate video from a prompt.`
+              : `Pick the ${planFor('blink')} plan to generate video from a prompt.`}
           </p>
           <div className="row mt-4">
             <button className="btn primary" onClick={() => go('/pricing')}>
-              {entitlement.tier === 'creator' ? 'Upgrade to Studio →' : 'See plans →'}
+              {onLowerPaidPlan ? `Upgrade to ${planFor('blink')} →` : 'See plans →'}
             </button>
           </div>
         </div>

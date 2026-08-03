@@ -17,7 +17,7 @@ plansRouter.get(
   wrap(async (_req, res) => {
     const { data, error } = await admin
       .from('plans')
-      .select('id, name, blurb, tier, rank, price_paise, currency, period, interval, features, sort')
+      .select('id, name, blurb, tier, rank, price_minor, currency, period, interval, features, sort')
       .eq('active', true)
       .order('sort', { ascending: true })
 
@@ -33,8 +33,10 @@ plansRouter.get(
         blurb: p.blurb,
         tier: p.tier,
         rank: p.rank,
-        price: p.price_paise / 100,
-        pricePaise: p.price_paise,
+        // Major units for display, minor units for anything that must be exact.
+        // Currency travels with them — the client must never assume a symbol.
+        price: p.price_minor / 100,
+        priceMinor: p.price_minor,
         currency: p.currency,
         period: p.period,
         interval: p.interval,

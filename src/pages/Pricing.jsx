@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
 import { fetchPlans, subscribeToPlan, CheckoutDismissed } from '../lib/razorpay.js'
+import { money, perMonth } from '../lib/money.js'
 import { go } from '../lib/router.js'
 
 export default function Pricing() {
@@ -90,7 +91,7 @@ export default function Pricing() {
           ) : lapsed ? (
             <>Your access has ended. Everything you made is safe and comes straight back.</>
           ) : (
-            <>Change or cancel any time. Billing is monthly, in rupees.</>
+            <>Change or cancel any time.</>
           )}
         </p>
       </div>
@@ -150,19 +151,19 @@ export default function Pricing() {
                 : 0
 
             return (
-              <div key={plan.id} className={`card plan ${plan.tier === 'studio' ? 'featured' : ''}`}>
-                {plan.tier === 'studio' && <span className="plan-flag">Includes Blink AI</span>}
+              <div key={plan.id} className={`card plan ${plan.tier === 'growth' ? 'featured' : ''}`}>
+                {plan.tier === 'growth' && <span className="plan-flag">Includes Blink AI</span>}
                 <div className="row between">
                   <h3 style={{ fontSize: 20 }}>{plan.name}</h3>
                   {isCurrent && <span className="chip mint">current</span>}
                 </div>
                 <div className="plan-price">
-                  ₹{plan.price.toLocaleString('en-IN')}
+                  {money(plan.price, plan.currency)}
                   <span className="small muted"> /{plan.period === 'yearly' ? 'year' : 'month'}</span>
                 </div>
                 {plan.period === 'yearly' && monthlyTwin && (
                   <div className="small muted" style={{ marginTop: -2 }}>
-                    ₹{Math.round(plan.price / 12).toLocaleString('en-IN')}/month, billed yearly
+                    {perMonth(plan.price, plan.currency)}/month, billed yearly
                     {saving > 0 && <> — <b style={{ color: 'var(--mint)' }}>save {saving}%</b></>}
                   </div>
                 )}
@@ -175,7 +176,7 @@ export default function Pricing() {
                 </ul>
 
                 <button
-                  className={`btn ${plan.tier === 'studio' ? 'primary' : ''}`}
+                  className={`btn ${plan.tier === 'growth' ? 'primary' : ''}`}
                   style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
                   disabled={isCurrent || busyPlan !== null || !billingEnabled}
                   onClick={() => subscribe(plan)}

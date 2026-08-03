@@ -1,5 +1,5 @@
 import { userFromToken } from '../supabase.js'
-import { resolveEntitlement, tierAllows } from '../entitlements.js'
+import { resolveEntitlement, tierAllows, FEATURE_TIER, PLAN_NAME } from '../entitlements.js'
 import { unauthorized, forbidden, wrap } from './errors.js'
 
 function bearer(req) {
@@ -30,11 +30,12 @@ export const requireFeature = (feature) =>
     req.entitlement = ent
 
     if (!tierAllows(ent.tier, feature)) {
+      const needs = FEATURE_TIER[feature]
       throw forbidden(
         ent.tier === 'none'
           ? 'Your plan has ended. Pick a plan to keep creating.'
-          : 'Blink AI is part of the Studio plan. Upgrade to generate videos.',
-        { feature, tier: ent.tier, upgradeTo: feature === 'blink' ? 'studio' : 'creator' }
+          : `Blink AI is part of the ${PLAN_NAME[needs]} plan. Upgrade to generate videos.`,
+        { feature, tier: ent.tier, upgradeTo: needs }
       )
     }
     next()

@@ -4,6 +4,7 @@ import { useAuth } from './lib/auth.jsx'
 import { useStore } from './lib/store.jsx'
 import { isApiConfigured } from './lib/api.js'
 import { isConfigured as isSupabaseConfigured } from './lib/supabase.js'
+import { planFor } from './lib/tiers.js'
 
 import Dashboard from './pages/Dashboard.jsx'
 import Brand from './pages/Brand.jsx'
@@ -164,11 +165,11 @@ function Shell({ route, auth, children, minimal = false }) {
                 <a
                   className={`nav-item ${route === n.path ? 'active' : ''} ${locked ? 'locked' : ''}`}
                   href={`#${n.path}`}
-                  title={locked ? 'Available on the Studio plan' : undefined}
+                  title={locked ? `Available on the ${planFor(n.feature)} plan` : undefined}
                 >
                   <span className="ico">{n.ico}</span>
                   {n.label}
-                  {locked && <span className="lock">Studio</span>}
+                  {locked && <span className="lock">{planFor(n.feature)}</span>}
                 </a>
               </React.Fragment>
             )

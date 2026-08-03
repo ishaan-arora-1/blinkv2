@@ -1,4 +1,5 @@
 import { api } from './api.js'
+import { money } from './money.js'
 
 const CHECKOUT_SRC = 'https://checkout.razorpay.com/v1/checkout.js'
 
@@ -53,7 +54,11 @@ export async function subscribeToPlan(planId, { user } = {}) {
       key: created.razorpayKeyId,
       subscription_id: created.subscriptionId,
       name: 'reelmint',
-      description: `${created.plan.name} — ₹${created.plan.price}/month`,
+      // Shown inside the Razorpay checkout modal, so it must match what the
+      // customer is actually about to be charged, currency and all.
+      description: `${created.plan.name} — ${money(created.plan.price, created.plan.currency)}/${
+        created.plan.period === 'yearly' ? 'year' : 'month'
+      }`,
       image: undefined,
       prefill: {
         name: user?.fullName || undefined,

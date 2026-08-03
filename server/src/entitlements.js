@@ -4,15 +4,20 @@ import { admin } from './supabase.js'
 // canonical definition; this reads through it rather than reimplementing the
 // rules, so the two cannot drift.
 
-export const TIER_RANK = { none: 0, creator: 1, studio: 2 }
+// Tier names match the customer-facing plan names on purpose, so a support
+// question about "Growth" does not need translating to read the database.
+export const TIER_RANK = { none: 0, starter: 1, growth: 2 }
 
 // What each feature costs you in tier. Everything needs a paid plan — free
 // accounts exist only to hold a trial and a card-less signup.
 export const FEATURE_TIER = {
-  carousels: 'creator',
-  videos: 'creator',
-  blink: 'studio',
+  carousels: 'starter',
+  videos: 'starter',
+  blink: 'growth',
 }
+
+/** The plan name a user must be on to unlock a feature, for error copy. */
+export const PLAN_NAME = { starter: 'Starter', growth: 'Growth' }
 
 export function tierAllows(tier, feature) {
   const need = FEATURE_TIER[feature]

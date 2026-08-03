@@ -1,5 +1,7 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
+import { fetchPlans } from '../lib/razorpay.js'
+import { money } from '../lib/money.js'
 
 function GoogleMark() {
   return (
@@ -14,6 +16,25 @@ function GoogleMark() {
 
 export default function Login() {
   const { signInWithGoogle, signingIn, authError } = useAuth()
+
+  // The headline price is read from the same table that bills people, so it
+  // cannot quietly disagree with checkout. /api/plans is public, and the line
+  // simply omits the price if the call fails rather than blocking sign-in.
+  const [cheapest, setCheapest] = useState(null)
+  useEffect(() => {
+    let alive = true
+    fetchPlans()
+      .then((r) => {
+        const monthly = (r.plans || []).filter((p) => p.period === 'monthly')
+        if (alive && monthly.length) {
+          setCheapest(monthly.reduce((a, b) => (a.price <= b.price ? a : b)))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
 
   return (
     <div className="hero">
@@ -32,7 +53,7 @@ export default function Login() {
           {signingIn ? 'Opening Google…' : 'Continue with Google'}
         </button>
         <div className="small muted">
-          Free for 7 days, no card. Then from ₹999/month.
+          Free for 7 days, no card.{cheapest && <> Then from {money(cheapest.price, cheapest.currency)}/month.</>}
         </div>
       </div>
 

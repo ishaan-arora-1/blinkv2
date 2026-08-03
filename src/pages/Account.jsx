@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
 import { cancelSubscription, fetchPayments } from '../lib/razorpay.js'
+import { money } from '../lib/money.js'
 import { go } from '../lib/router.js'
 
 const fmtDate = (d) =>
@@ -157,7 +158,7 @@ export default function Account() {
                 {payments.map((p) => (
                   <tr key={p.id}>
                     <td>{fmtDate(p.createdAt)}</td>
-                    <td>₹{p.amount.toLocaleString('en-IN')}</td>
+                    <td>{money(p.amount, p.currency)}</td>
                     <td>{p.method || '—'}</td>
                     <td>
                       <span className={`chip ${p.status === 'captured' ? 'mint' : p.status === 'failed' ? 'hot' : ''}`}>
