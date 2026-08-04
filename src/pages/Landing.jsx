@@ -2,11 +2,14 @@ import React, { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
 import { fetchPlans } from '../lib/razorpay.js'
 import { money, perMonth } from '../lib/money.js'
-import { CREATORS } from '../lib/creators.js'
+import { CREATORS, getCreator } from '../lib/creators.js'
 import { builtinSets, isGradientRef } from '../lib/library.js'
 import { presetOptions } from '../lib/copygen.js'
+import { SHOWCASE, heroSlides } from '../lib/showcase.js'
+import { BLINK_TEMPLATES } from '../lib/blinkTemplates.js'
 import Logo from '../components/Logo.jsx'
 import HookPreview from '../components/HookPreview.jsx'
+import SlidePreview from '../components/SlidePreview.jsx'
 
 function GoogleMark() {
   return (
@@ -31,8 +34,23 @@ const DEMO_BRAND = {
   tagline: 'The three-step routine you will actually finish.',
 }
 
-// Five faces for the hero, chosen to look like a roster rather than a type.
-const WALL = ['cr_tech_girl', 'cr_gym_guy', 'cr_casual_girl', 'cr_business_woman', 'cr_dad_guy']
+/*
+ * Five of the ten, chosen to look like a roster rather than a type: two men,
+ * three women, and an age range. Showing all ten here made the page's first
+ * three screens one long parade of the same 9:16 face card.
+ */
+const ROSTER = ['cr_tech_girl', 'cr_gym_guy', 'cr_older_woman', 'cr_casual_guy', 'cr_business_woman']
+
+// The hero shows both things Blink exports — a hook clip and finished carousel
+// slides — rather than five faces, leaving the carousels, which are half the
+// product, to be described in prose further down and never actually shown.
+const HERO_CLIP = 'cr_gym_guy'
+
+// The creator whose reaction fronts the hook-video breakdown, and the frame
+// standing in for the footage cut in behind it. A different face from the
+// hero's, so the two are not the same clip twice.
+const ANATOMY_CREATOR = 'cr_tech_girl'
+const ANATOMY_SHOT = '/sets/thumbs/girl/04.jpg'
 
 // The landing page shows the 360×450 thumbnails, not the full-resolution set
 // images those paths normally point at. Ten 450 KB photographs per set is the
@@ -110,9 +128,15 @@ export default function Landing() {
 
   const sets = builtinSets()
   const photoSets = sets.filter((s) => !s.images.some(isGradientRef))
-  const gradientSet = sets.find((s) => s.images.some(isGradientRef))
-  const angles = presetOptions(DEMO_BRAND)
-  const wall = WALL.map((id) => CREATORS.find((c) => c.id === id)).filter(Boolean)
+  // Nine, not ten: three full rows rather than two and an orphan. The prose
+  // still names the real total, which is what the product actually ships.
+  const angles = presetOptions(DEMO_BRAND).slice(0, 9)
+  const angleCount = presetOptions(DEMO_BRAND).length
+
+  const roster = ROSTER.map(getCreator).filter(Boolean)
+  const heroClip = getCreator(HERO_CLIP)
+  const heroCards = heroSlides()
+  const anatomyCreator = getCreator(ANATOMY_CREATOR)
 
   return (
     <div className="lp">
@@ -159,10 +183,26 @@ export default function Landing() {
             )}
           </div>
 
-          <div className="lp-wall" aria-label="AI creator hook previews">
-            {wall.map((c) => (
-              <HookPreview key={c.id} hook={c.hooks[0]} fallbackImg={c.img} alt={`${c.name} — ${c.vibe}`} />
-            ))}
+          {/* A carousel either side of a hook clip. The clip sits in the middle
+              because it is the one that moves, and the two slides are the half
+              of the product the page never used to show at all. */}
+          <div className="lp-mixwall" aria-label="Carousel slides and a hook video made with Blink">
+            <SlidePreview
+              slide={heroCards[0]}
+              style={{ '--pill-accent': heroCards[0]?.accent }}
+              alt={`A carousel slide for ${heroCards[0]?.name}`}
+            />
+            <HookPreview
+              hook={heroClip?.hooks[0]}
+              fallbackImg={heroClip?.img}
+              alt={`${heroClip?.name} — ${heroClip?.vibe}`}
+              eager
+            />
+            <SlidePreview
+              slide={heroCards[1]}
+              style={{ '--pill-accent': heroCards[1]?.accent }}
+              alt={`A carousel slide for ${heroCards[1]?.name}`}
+            />
           </div>
         </header>
       </div>
@@ -172,7 +212,7 @@ export default function Landing() {
           <span><b>{CREATORS.length}</b> AI creators</span>
           <span><b>{CREATORS.reduce((n, c) => n + c.hooks.length, 0)}</b> hook reactions</span>
           <span><b>{photoSets.length * 10}</b> photo backgrounds</span>
-          <span><b>{angles.length}</b> copy angles</span>
+          <span><b>{angleCount}</b> copy angles</span>
           <span>1080 × 1920 &amp; 1080 × 1350 exports</span>
         </div>
       </div>
@@ -186,14 +226,14 @@ export default function Landing() {
               Real faces. <em>Your</em> first three seconds.
             </h2>
             <p>
-              A cast of {CREATORS.length} AI creators, each with two premade reactions — a gasp, a
-              head-shake, a slow approving nod. They open the video, your product takes over, and the
-              scroll stops. Hover any of them to watch.
+              A cast of {CREATORS.length}, each with two premade reactions — a gasp, a head-shake, a
+              slow approving nod. They open the video, your product takes over, and the scroll stops.
+              Here are five of them; hover any one to watch.
             </p>
           </div>
 
           <div className="lp-creators">
-            {CREATORS.map((c) => (
+            {roster.map((c) => (
               <div className="lp-creator" key={c.id}>
                 <HookPreview hook={c.hooks[0]} fallbackImg={c.img} alt={`${c.name} — ${c.vibe}`} />
                 <div className="lp-creator-body">
@@ -227,10 +267,45 @@ export default function Landing() {
                 <li><span className="tickmark">✓</span><span><b>Music, overlays and export</b> at 1080 × 1920 — ready for Reels, TikTok and Shorts.</span></li>
               </ul>
             </div>
-            <div className="lp-wall narrow">
-              {CREATORS.slice(0, 3).map((c) => (
-                <HookPreview key={c.id} hook={c.hooks[1] || c.hooks[0]} fallbackImg={c.img} alt={c.name} />
-              ))}
+            {/* The cut itself, rather than three more faces: this section is
+                about the shape of the format, and the shape is the thing the
+                copy beside it is describing. */}
+            <div className="lp-anatomy">
+              <div className="lp-anatomy-cards">
+                <figure>
+                  <HookPreview
+                    hook={anatomyCreator?.hooks[0]}
+                    fallbackImg={anatomyCreator?.img}
+                    alt={`${anatomyCreator?.name} reacting`}
+                  />
+                  <figcaption><b>0:00</b> their reaction</figcaption>
+                </figure>
+                <div className="lp-anatomy-cut" aria-hidden="true">
+                  <span>cut</span>
+                </div>
+                <figure>
+                  <div
+                    className="lp-anatomy-shot"
+                    style={{ backgroundImage: `url("${ANATOMY_SHOT}")` }}
+                    role="img"
+                    aria-label="Your own product footage"
+                  />
+                  <figcaption><b>0:03</b> your product</figcaption>
+                </figure>
+              </div>
+
+              <div className="lp-track" aria-hidden="true">
+                <div className="lp-track-row">
+                  <span className="lp-seg hook">hook · 3s</span>
+                  <span className="lp-seg yours">your footage</span>
+                </div>
+                <div className="lp-track-row">
+                  <span className="lp-seg text">captions</span>
+                </div>
+                <div className="lp-track-row">
+                  <span className="lp-seg music">♪ music</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -245,52 +320,43 @@ export default function Landing() {
               Pick a look. Pick an angle. Get a <em>whole</em> carousel.
             </h2>
             <p>
-              Choose one of our photo sets, choose the angle you want to take, and Blink writes the
-              full sequence — hook slide, three body slides, closing CTA — over the photography. Every
-              word, every position and every background stays editable.
+              Choose one of {photoSets.length} photo sets, choose the angle you want to take, and Blink
+              writes the full sequence — hook slide, three body slides, closing CTA — over the
+              photography. Every word, every position and every background stays editable. Two made
+              earlier, for two very different products:
             </p>
           </div>
 
-          <div className="lp-sets">
-            {photoSets.map((s) => (
-              <div className="lp-set" key={s.id}>
-                <div className="lp-set-strip">
-                  {s.images.slice(0, 3).map((src) => (
-                    <img key={src} src={thumbOf(src)} alt="" loading="lazy" />
+          <div className="lp-showcase">
+            {SHOWCASE.map((c) => (
+              <figure className="lp-show" key={c.id}>
+                <div className="lp-show-slides">
+                  {c.slides.map((s, i) => (
+                    <SlidePreview
+                      key={i}
+                      slide={s}
+                      style={{ '--pill-accent': c.accent }}
+                      alt={`${c.name} — slide ${i + 1}`}
+                    />
                   ))}
                 </div>
-                <div className="lp-set-body">
+                <figcaption className="lp-show-body">
                   <div className="row between">
-                    <b style={{ fontSize: 13.5 }}>{s.name}</b>
-                    <span className="chip">10 photos</span>
+                    <b style={{ fontSize: 13.5 }}>{c.name}</b>
+                    <span className="chip">{c.category}</span>
                   </div>
-                  <div className="small muted mt-2">{s.desc}</div>
-                </div>
-              </div>
+                  <div className="small muted mt-2">
+                    “{c.angle}” angle · {c.slideCount} slides · 1080 × 1350
+                  </div>
+                </figcaption>
+              </figure>
             ))}
-
-            {gradientSet && (
-              <div className="lp-set">
-                <div className="lp-swatches">
-                  <div style={{ background: 'linear-gradient(20deg, #0f0c29, #302b63 50%, #24243e)' }} />
-                  <div style={{ background: 'linear-gradient(45deg, #1f1c2c, #928dab)' }} />
-                  <div style={{ background: 'linear-gradient(70deg, #0d1b2a, #1b263b 50%, #415a77)' }} />
-                </div>
-                <div className="lp-set-body">
-                  <div className="row between">
-                    <b style={{ fontSize: 13.5 }}>{gradientSet.name}</b>
-                    <span className="chip accent">offline</span>
-                  </div>
-                  <div className="small muted mt-2">{gradientSet.desc}</div>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="mt-6" style={{ marginTop: 42 }}>
             <div className="lp-kicker">Copy angles</div>
             <p className="muted" style={{ marginBottom: 20, maxWidth: '58ch' }}>
-              {angles.length} angles, each writing a different carousel. These are the real hooks
+              {angleCount} angles, each writing a different carousel. These are the real hooks
               Blink would open with for a skincare brand called <b style={{ color: 'var(--paper)' }}>Aurelia</b> —
               swap in your own product and they rewrite themselves.
             </p>
@@ -377,9 +443,11 @@ export default function Landing() {
                   <span className="small muted">Included on Growth — not part of the free trial.</span>
                 </div>
               </div>
+              {/* Actual Veo generations, not creator hooks — this section is
+                  the only one selling something the premade clips cannot show. */}
               <div className="lp-wall narrow">
-                {CREATORS.slice(6, 9).map((c) => (
-                  <HookPreview key={c.id} hook={c.hooks[0]} fallbackImg={c.img} alt={c.name} />
+                {BLINK_TEMPLATES.map((t) => (
+                  <HookPreview key={t.id} hook={t} alt={`Blink AI — ${t.name}`} />
                 ))}
               </div>
             </div>
