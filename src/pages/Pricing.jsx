@@ -86,7 +86,7 @@ export default function Pricing() {
             <>
               You're on the free trial — {entitlement.trialDaysLeft}{' '}
               {entitlement.trialDaysLeft === 1 ? 'day' : 'days'} left, with everything unlocked.
-              Pick a plan whenever you're ready.
+              Choosing a plan charges you today and starts your billing month from today.
             </>
           ) : lapsed ? (
             <>Your access has ended. Everything you made is safe and comes straight back.</>

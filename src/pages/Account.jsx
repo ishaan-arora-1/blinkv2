@@ -107,9 +107,15 @@ export default function Account() {
                 {sub.cancelAtCycleEnd ? (
                   <>Cancelled — access continues until {fmtDate(sub.currentEnd)}.</>
                 ) : sub.status === 'authenticated' ? (
-                  // Deferred first charge: card authorised, billing starts when
-                  // the trial they were promised actually runs out.
-                  <>Card authorised. First charge {fmtDate(sub.chargeAt || sub.currentEnd)}, when your trial ends.</>
+                  // The mandate is approved and the first payment is settling.
+                  // Subscriptions created before billing moved to charge-on-
+                  // signup can still sit here with a future charge date, so the
+                  // date is only quoted when there really is one ahead.
+                  new Date(sub.chargeAt || 0) > new Date() ? (
+                    <>Card authorised. First charge {fmtDate(sub.chargeAt)}.</>
+                  ) : (
+                    <>Card authorised — confirming your first payment.</>
+                  )
                 ) : (
                   <>Renews {fmtDate(sub.currentEnd)}.</>
                 )}

@@ -25,7 +25,14 @@ storefronts and B2B software as well as apps.
 Sign-in is Google, via Supabase Auth. Every account starts with a **7-day trial**
 at the top tier, no card required.
 
-| | Starter — $7.99/mo | Growth — $14.99/mo |
+Subscribing bills the full amount straight away and starts the billing month
+from that day, so any unused trial time is given up in exchange for the plan
+starting immediately. The pricing page says so before the button is pressed.
+
+Live prices are below; the test-mode Razorpay plans price Growth at $14.99, which
+is why the two modes keep separate columns in `plans` — see DEPLOY.md.
+
+| | Starter — $7.99/mo | Growth — $25.99/mo |
 |---|---|---|
 | Carousels | ✓ | ✓ |
 | Hook videos | ✓ | ✓ |

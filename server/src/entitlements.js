@@ -48,7 +48,6 @@ export async function resolveEntitlement(userId) {
 
   const tier = tierData || 'none'
   const trialEndsAt = profile?.trial_ends_at || null
-  const onTrial = Boolean(trialEndsAt && new Date(trialEndsAt) > new Date())
 
   // The subscription actually granting access right now, if any.
   const live = (subs || [])
@@ -58,6 +57,12 @@ export async function resolveEntitlement(userId) {
         (!s.current_end || new Date(s.current_end) > new Date())
     )
     .sort((a, b) => (b.plan?.rank ?? 0) - (a.plan?.rank ?? 0))[0] || null
+
+  // Subscribing bills immediately and starts the plan there and then, so a
+  // paying customer is not on a trial any more even if the original seven days
+  // have not run out. Saying otherwise would have the account page offering a
+  // free trial to someone who has already been charged.
+  const onTrial = Boolean(trialEndsAt && new Date(trialEndsAt) > new Date() && !live)
 
   return {
     tier,
@@ -79,8 +84,7 @@ export async function resolveEntitlement(userId) {
           planName: live.plan?.name ?? live.plan_id,
           period: live.plan?.period ?? 'monthly',
           currentEnd: live.current_end,
-          // When the first charge was deferred to the end of a trial, this is
-          // the date that actually matters to the customer.
+          // When the next charge falls due.
           chargeAt: live.charge_at,
           cancelAtCycleEnd: live.cancel_at_cycle_end,
           shortUrl: live.short_url,
