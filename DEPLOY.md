@@ -46,8 +46,9 @@ supabase db push
 6. `supabase/migrations/0006_razorpay_plan_ids.sql` — the real Razorpay plan ids and amounts
 7. `supabase/migrations/0007_live_and_test_plans.sql` — separate test and live plan ids and prices
 8. `supabase/migrations/0008_brand_accent_default.sql` — brand accent default moved to the Blink UGC violet
+9. `supabase/migrations/0009_trial_excludes_blink.sql` — the trial grants Starter, so Blink AI needs a paid Growth plan
 
-Run them in order and all eight of them. 0005 and 0006 rename columns that the API
+Run them in order and all nine of them. 0005 and 0006 rename columns that the API
 reads (`price_paise` → `price_minor`, `amount_paise` → `amount_minor`), so a
 database stopped at 0004 will fail every billing request rather than degrade, and
 0007 is what keeps test-mode checkouts from charging live-mode prices.

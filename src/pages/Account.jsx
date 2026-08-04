@@ -91,7 +91,7 @@ export default function Account() {
               <div style={{ fontFamily: 'var(--display)', fontSize: 18 }}>Free trial</div>
               <div className="small muted mt-2">
                 {entitlement.trialDaysLeft} {entitlement.trialDaysLeft === 1 ? 'day' : 'days'} left —
-                everything unlocked, no card on file. Ends {fmtDate(entitlement.trialEndsAt)}.
+                carousels and hook videos, no card on file. Ends {fmtDate(entitlement.trialEndsAt)}.
               </div>
               <button className="btn primary sm mt-4" onClick={() => go('/pricing')}>Choose a plan →</button>
             </div>

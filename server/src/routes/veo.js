@@ -133,8 +133,9 @@ veoRouter.post(
 /**
  * Poll a generation. The browser calls this every few seconds.
  *
- * Deliberately not gated on the Studio tier: a generation already started and
- * paid for should still be collectable if the plan lapses mid-render.
+ * Deliberately not gated on the Growth tier: a generation already started and
+ * paid for should still be collectable if the plan lapses mid-render. Scoped to
+ * the caller's own rows, which is what keeps it from being a way around the gate.
  */
 veoRouter.get(
   '/status/:blinkId',

@@ -85,8 +85,9 @@ export default function Pricing() {
           {entitlement.onTrial ? (
             <>
               You're on the free trial — {entitlement.trialDaysLeft}{' '}
-              {entitlement.trialDaysLeft === 1 ? 'day' : 'days'} left, with everything unlocked.
-              Choosing a plan charges you today and starts your billing month from today.
+              {entitlement.trialDaysLeft === 1 ? 'day' : 'days'} left, with unlimited carousels and
+              hook videos. Blink AI needs Growth. Choosing a plan charges you today and starts your
+              billing month from today.
             </>
           ) : lapsed ? (
             <>Your access has ended. Everything you made is safe and comes straight back.</>
@@ -108,7 +109,7 @@ export default function Pricing() {
           <div className="row"><span className="chip accent">coming soon</span></div>
           <div className="small mt-2">
             Checkout isn't switched on yet. These are the plans we'll launch with — for now
-            everything is unlocked on your trial.
+            your trial covers carousels and hook videos.
           </div>
         </div>
       )}

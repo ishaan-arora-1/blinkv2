@@ -374,7 +374,7 @@ export default function Landing() {
                 </ul>
                 <div className="row mt-6" style={{ gap: 10 }}>
                   <span className="chip accent">Growth plan</span>
-                  <span className="small muted">Included on Growth, unlocked during your trial.</span>
+                  <span className="small muted">Included on Growth — not part of the free trial.</span>
                 </div>
               </div>
               <div className="lp-wall narrow">
@@ -434,8 +434,9 @@ export default function Landing() {
               Start free. Upgrade when it's <em>working</em>.
             </h2>
             <p>
-              Seven days of everything unlocked, no card required. After that, pick the plan that
-              matches how much you're posting — and change or cancel it whenever you like.
+              Seven days of unlimited carousels and hook videos, no card required. Blink AI needs a
+              Growth plan. After that, pick the plan that matches how much you're posting — and
+              change or cancel it whenever you like.
             </p>
           </div>
 

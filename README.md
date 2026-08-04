@@ -23,7 +23,11 @@ storefronts and B2B software as well as apps.
 ## Plans
 
 Sign-in is Google, via Supabase Auth. Every account starts with a **7-day trial**
-at the top tier, no card required.
+at the Starter tier, no card required. The trial deliberately stops short of
+Blink AI: Veo bills per second of generated video, so it is the one feature where
+a free account can run up a real bill, and it stays behind a paid Growth
+subscription. `entitled_tier()` in `0009_trial_excludes_blink.sql` is where that
+line is drawn.
 
 Subscribing bills the full amount straight away and starts the billing month
 from that day, so any unused trial time is given up in exchange for the plan

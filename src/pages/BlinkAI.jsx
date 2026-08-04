@@ -109,7 +109,10 @@ export default function BlinkAI() {
   // ── gated ────────────────────────────────────────────────────────────────
   // A paying customer on a lower plan gets an upgrade pitch; someone with no
   // plan at all gets pointed at pricing, since "upgrade" would be nonsense.
-  const onLowerPaidPlan = Boolean(PLAN_NAME[entitlement.tier]) && !can.blink
+  // A trialist reads as the Starter tier but owns no plan, so they need their
+  // own line — telling them to upgrade a plan they never bought is confusing.
+  const onTrial = entitlement.onTrial && !entitlement.subscription
+  const onLowerPaidPlan = Boolean(PLAN_NAME[entitlement.tier]) && !can.blink && !onTrial
 
   if (!can.blink) {
     return (
@@ -127,9 +130,11 @@ export default function BlinkAI() {
           <div className="row"><span className="chip accent">{planFor('blink')} plan</span></div>
           <h3 style={{ margin: '12px 0 8px' }}>Blink AI is part of {planFor('blink')}</h3>
           <p className="small muted">
-            {onLowerPaidPlan
-              ? `Your ${PLAN_NAME[entitlement.tier]} plan covers carousels and hook videos. Upgrade to ${planFor('blink')} to generate video from a prompt.`
-              : `Pick the ${planFor('blink')} plan to generate video from a prompt.`}
+            {onTrial
+              ? `Your free trial covers unlimited carousels and hook videos. Prompt-to-video runs on Google Veo, so it needs the ${planFor('blink')} plan.`
+              : onLowerPaidPlan
+                ? `Your ${PLAN_NAME[entitlement.tier]} plan covers carousels and hook videos. Upgrade to ${planFor('blink')} to generate video from a prompt.`
+                : `Pick the ${planFor('blink')} plan to generate video from a prompt.`}
           </p>
           <div className="row mt-4">
             <button className="btn primary" onClick={() => go('/pricing')}>

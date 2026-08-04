@@ -1,8 +1,8 @@
 import { admin } from './supabase.js'
 
-// Mirrors public.entitled_tier() in 0002_billing.sql. The SQL function is the
-// canonical definition; this reads through it rather than reimplementing the
-// rules, so the two cannot drift.
+// Mirrors public.entitled_tier(), last redefined in 0009_trial_excludes_blink.sql.
+// The SQL function is the canonical definition; this reads through it rather than
+// reimplementing the rules, so the two cannot drift.
 
 // Tier names match the customer-facing plan names on purpose, so a support
 // question about "Growth" does not need translating to read the database.
