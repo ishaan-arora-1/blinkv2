@@ -52,6 +52,18 @@ reads (`price_paise` → `price_minor`, `amount_paise` → `amount_minor`), so a
 database stopped at 0004 will fail every billing request rather than degrade, and
 0007 is what keeps test-mode checkouts from charging live-mode prices.
 
+On the existing Blink UGC project this is already done, and 0001–0008 are recorded
+in the CLI's migration history, so a new migration is just:
+
+```bash
+supabase db push
+```
+
+The first seven were applied by hand in the SQL Editor before the project was
+linked, which left that history empty — `supabase migration repair --status
+applied 0001 … 0007` is what backfilled it. A fresh project does not need that
+step; run the files in order and the history records itself.
+
 Verify afterwards:
 
 ```sql

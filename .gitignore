@@ -5,3 +5,6 @@ dist
 !.env.example
 .DS_Store
 *.log
+
+# Written by `supabase link` — holds the linked project ref and pooler details.
+supabase/.temp
