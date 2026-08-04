@@ -30,7 +30,7 @@ function SetCard({ set, busy, onDelete, onAddImages, onRemoveImage }) {
           </div>
         )}
       </div>
-      <div className="grid" style={{ gridTemplateColumns: 'repeat(7, 1fr)', marginTop: 14, gap: 8 }}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(74px, 1fr))', marginTop: 14, gap: 8 }}>
         {urls.map((u, i) => (
           <div key={set.images[i]?.id ?? i} className="img-cell" style={{ backgroundImage: `url("${displayThumb(u)}")`, position: 'relative', cursor: 'default' }}>
             {!set.builtin && (

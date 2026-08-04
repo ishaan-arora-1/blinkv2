@@ -194,7 +194,7 @@ export default function BlinkAI() {
 
         {/* ── settings ── */}
         <div style={{ borderTop: '1px solid var(--line-soft)', marginTop: 18, paddingTop: 16 }}>
-          <div className="grid cols-3" style={{ gap: 18 }}>
+          <div className="grid cols-3 stack-sm" style={{ gap: 18 }}>
             <div className="field" style={{ marginBottom: 0 }}>
               <label>Duration — {duration}s</label>
               <input

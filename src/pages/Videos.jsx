@@ -217,7 +217,7 @@ function defaultCaption(brand) {
   const pool = [
     `Wait… ${app} does WHAT?!`,
     `Nobody told me about ${app}`,
-    `POV: you find THE app`,
+    `POV: you finally found ${app}`,
     `${app} just changed everything`,
   ]
   return pool[Math.floor(Math.random() * pool.length)]

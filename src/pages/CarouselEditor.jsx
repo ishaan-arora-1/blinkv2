@@ -26,7 +26,30 @@ function useResolvedBgs(slides = NO_SLIDES) {
   return map
 }
 
-function TextLayer({ layer, selected, onSelect, onDrag, stageRef }) {
+/**
+ * How much the on-screen stage is shrunk from its design width.
+ *
+ * The stage is fluid below 380px, but the text layers are sized in px, so they
+ * would grow relative to the slide on a narrow screen and the preview would
+ * stop matching the export. Measuring the stage and scaling the type by the
+ * same factor keeps the composition identical at any width.
+ */
+function useStageScale(ref) {
+  const [scale, setScale] = useState(1)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width
+      if (w > 0) setScale(w / STAGE_W)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
+  return scale
+}
+
+function TextLayer({ layer, selected, onSelect, onDrag, stageRef, scale = 1 }) {
   const start = useRef(null)
 
   function onPointerDown(e) {
@@ -45,10 +68,11 @@ function TextLayer({ layer, selected, onSelect, onDrag, stageRef }) {
   }
   function onPointerUp() { start.current = null }
 
+  const pad = `${8 * scale}px ${16 * scale}px`
   const pillStyle = layer.pill === 'dark'
-    ? { background: 'rgba(8,10,8,0.82)', padding: '8px 16px', borderRadius: 10 }
+    ? { background: 'rgba(8,10,8,0.82)', padding: pad, borderRadius: 10 * scale }
     : layer.pill === 'accent'
-      ? { background: 'var(--pill-accent, #c9a4ff)', padding: '8px 16px', borderRadius: 999 }
+      ? { background: 'var(--pill-accent, #c9a4ff)', padding: pad, borderRadius: 999 }
       : {}
 
   return (
@@ -57,7 +81,7 @@ function TextLayer({ layer, selected, onSelect, onDrag, stageRef }) {
       style={{
         left: `${layer.x}%`, top: `${layer.y}%`,
         width: `${layer.width}%`,
-        fontSize: layer.size,
+        fontSize: layer.size * scale,
         fontWeight: layer.weight,
         color: layer.color,
         textAlign: layer.align,
@@ -85,6 +109,7 @@ export default function CarouselEditor({ id }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [exporting, setExporting] = useState(null)
   const stageRef = useRef(null)
+  const stageScale = useStageScale(stageRef)
   const bgs = useResolvedBgs(proj?.slides)
 
   if (!proj) return <div className="empty mt-6">Carousel not found. <a href="#/carousels" style={{ color: 'var(--brand)' }}>Back to carousels</a></div>
@@ -161,10 +186,14 @@ export default function CarouselEditor({ id }) {
       im.src = url
     })
   }
+  // Measured, not assumed: the stage is fluid on small screens, and a fixed
+  // ratio there would export a slide narrower than 1080px.
+  const exportRatio = () => 1080 / (stageRef.current?.offsetWidth || STAGE_W)
+
   async function captureCurrent() {
     await waitForBg(bgs[slide.id])
     await new Promise((r) => setTimeout(r, 150))
-    return toPng(stageRef.current, { pixelRatio: 1080 / STAGE_W, cacheBust: false })
+    return toPng(stageRef.current, { pixelRatio: exportRatio(), cacheBust: false })
   }
   async function exportCurrent() {
     setExporting('Rendering slide…')
@@ -182,7 +211,7 @@ export default function CarouselEditor({ id }) {
         setCur(i)
         await new Promise((r) => setTimeout(r, 250))
         await waitForBg(bgs[proj.slides[i].id])
-        const png = await toPng(stageRef.current, { pixelRatio: 1080 / STAGE_W, cacheBust: false })
+        const png = await toPng(stageRef.current, { pixelRatio: exportRatio(), cacheBust: false })
         zip.file(`${String(i + 1).padStart(2, '0')}-${proj.slides[i].role}.png`, png.split(',')[1], { base64: true })
       }
       setExporting('Zipping…')
@@ -196,11 +225,11 @@ export default function CarouselEditor({ id }) {
 
   return (
     <div>
-      <div className="row between" style={{ marginBottom: 18 }}>
+      <div className="row between editor-bar" style={{ marginBottom: 18 }}>
         <div className="row">
           <button className="btn ghost sm" onClick={() => (window.location.hash = '/carousels')}>← Back</button>
           <input
-            className="input" style={{ width: 320, fontWeight: 700 }}
+            className="input editor-name"
             value={proj.name} onChange={(e) => save({ name: e.target.value })}
           />
         </div>
@@ -244,7 +273,7 @@ export default function CarouselEditor({ id }) {
             <div style={{ position: 'absolute', inset: 0, background: `rgba(6,8,6,${slide.dim})`, pointerEvents: 'none' }} />
             {slide.texts.map((t) => (
               <TextLayer
-                key={t.id} layer={t} stageRef={stageRef}
+                key={t.id} layer={t} stageRef={stageRef} scale={stageScale}
                 selected={t.id === selText}
                 onSelect={setSelText}
                 onDrag={(id2, x, y) => updateLayer(id2, { x, y })}
@@ -418,7 +447,7 @@ function ImagePicker({ store, proj, slide, onClose, onAssignSet, onPick, onShuff
           <button className="btn sm" onClick={() => onShuffle(setId)}>⤨ Shuffle from “{set?.name}”</button>
           <span className="small muted">{urls.length} images · applies to this slide</span>
         </div>
-        <div className="grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+        <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(84px, 1fr))', gap: 8 }}>
           {(set?.images || []).map((img, i) => (
             // The thumbnail is display-only — onPick still receives the original
             // reference, so the slide keeps its full-resolution background.

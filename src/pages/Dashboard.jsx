@@ -45,7 +45,7 @@ export default function Dashboard() {
         </button>
       </div>
 
-      <div className="mt-6 grid cols-3">
+      <div className="mt-6 grid cols-3 stack-sm">
         <div className="card">
           <div className="chip">workflow</div>
           <h3 style={{ fontSize: 15, margin: '10px 0 6px' }}>1 · Feed the brand</h3>

@@ -82,7 +82,7 @@ input, textarea, select { font-family: inherit; }
   position: sticky;
   top: 0;
   height: 100vh;
-  background: linear-gradient(180deg, #0c100d, var(--ink));
+  background: linear-gradient(180deg, #0f0c17, var(--ink));
 }
 
 /* The wordmark is set in live type rather than shipped as an image: the supplied
@@ -234,8 +234,18 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 
 /* ─── Editor layouts ─── */
 .editor-layout { display: grid; grid-template-columns: 200px 1fr 300px; gap: 20px; align-items: start; }
+/* The video editor has no slide rail, so it is preview + inspector. Declared
+ * here rather than inline, so the responsive rules below can override it —
+ * an inline grid-template-columns wins against any media query. */
+.editor-layout.two-col { grid-template-columns: 1fr 320px; }
 .editor-rail { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; }
 .inspector { position: sticky; top: 20px; max-height: calc(100vh - 40px); overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+/* The project-name field next to the Back button. The width stays a definite
+ * 320px — a percentage would resolve against a row that is itself sized by its
+ * content, which collapses the field — and min-width lets flex shrink it on a
+ * narrow screen instead. */
+.editor-name { width: 320px; min-width: 0; font-weight: 700; }
+.editor-bar { gap: 10px; }
 .inspector h4 {
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--accent); font-weight: 600;
@@ -256,9 +266,12 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 }
 
 /* Carousel stage */
-.stage-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.stage-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; }
 .stage {
-  width: 380px; aspect-ratio: 4/5;
+  /* Fluid below 380px. The editor measures the rendered width and scales the
+   * text layers and the export pixel ratio from it, so a narrower stage is the
+   * same design at a smaller size — not a different one. */
+  width: min(380px, 100%); aspect-ratio: 4/5;
   position: relative; overflow: hidden;
   border-radius: 6px;
   background-size: cover; background-position: center;
@@ -279,14 +292,26 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
   border-radius: 18px; overflow: hidden; box-shadow: 0 24px 64px rgba(0,0,0,0.55);
   border: 1px solid var(--line);
   line-height: 0;
+  width: min(300px, 100%);
 }
+.video-canvas-wrap canvas { width: 100%; height: auto; display: block; }
 
-.timeline { display: flex; gap: 6px; align-items: stretch; margin-top: 14px; width: 100%; }
+/* Playback controls and timeline track the preview's width instead of a fixed
+ * 480px, which overflowed every phone. */
+.video-controls { width: min(480px, 100%); }
+
+/* Width comes from .video-controls, which the timeline is always paired with. */
+.timeline { display: flex; gap: 6px; align-items: stretch; margin-top: 14px; }
 .timeline .seg-block {
   border-radius: 8px; padding: 8px 10px; font-size: 11px; font-family: var(--mono);
   letter-spacing: 0.06em; text-transform: uppercase; overflow: hidden; white-space: nowrap;
   border: 1px solid transparent; cursor: pointer;
+  text-overflow: ellipsis;
 }
+/* With no demo uploaded, this block is a call to action rather than a duration,
+ * so it is allowed to claim the width its label needs — the flex ratio it would
+ * otherwise get clips the prompt down to "+ uploa". */
+.timeline .seg-block.empty { min-width: fit-content; }
 .timeline .seg-block.hook { background: rgba(168, 120, 255,0.15); color: var(--brand); border-color: rgba(168, 120, 255,0.3); }
 .timeline .seg-block.demo { background: rgba(243, 164, 230,0.12); color: var(--accent); border-color: rgba(243, 164, 230,0.3); }
 .timeline .seg-block.on { box-shadow: 0 0 0 1.5px currentColor; }
@@ -301,6 +326,10 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
   background: var(--ink-2); border: 1px solid var(--line); border-radius: 18px;
   padding: 26px; width: min(720px, 92vw); max-height: 86vh; overflow-y: auto;
   animation: rise 0.2s ease;
+  /* Several modals set an explicit pixel width inline, which beats the `width`
+   * above. max-width beats both, so narrow screens are safe without having to
+   * chase every call site. */
+  max-width: 92vw;
 }
 @keyframes fadeIn { from { opacity: 0 } }
 @keyframes rise { from { opacity: 0; transform: translateY(14px) } }
@@ -367,7 +396,7 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
   position: relative;
   aspect-ratio: 4 / 5;
   overflow: hidden;
-  background: linear-gradient(120deg, #1a221c, #0f1411);
+  background: linear-gradient(120deg, #1d1728, #120f1a);
   background-size: cover;
   background-position: center;
   display: flex; align-items: center; justify-content: center;
@@ -755,6 +784,150 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 }
 .data-table td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
 .data-table tr:last-child td { border-bottom: none; }
+
+/* ─── Mobile navigation ────────────────────────────────────────────────────
+ *
+ * Both are desktop-invisible. Below the breakpoint the sidebar leaves the flow
+ * and becomes a drawer, and this bar is what opens it. */
+.topbar { display: none; }
+.nav-scrim { display: none; }
+
+.topbar-burger {
+  background: var(--ink-3); border: 1px solid var(--line); color: var(--paper);
+  border-radius: 10px; width: 38px; height: 34px; flex-shrink: 0;
+  font-size: 15px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.topbar-burger:hover { border-color: var(--brand); color: var(--brand); }
+
+/* ─── Responsive ───────────────────────────────────────────────────────────
+ *
+ * The studio was built for a desktop window: a fixed sidebar, three-column
+ * editors, fixed-width stages and hard column counts. Everything below is
+ * about surviving a phone, in rough order of screen width. */
+
+/* Tablet / small laptop: the widest fixed grids give up a column first. */
+@media (max-width: 1080px) {
+  .grid.cols-4 { grid-template-columns: repeat(3, 1fr); }
+  .main { padding: 30px 26px 72px; }
+}
+
+/* The editors stop being side-by-side well before phone width — a 300px
+ * inspector next to a 380px stage needs more room than a tablet has. */
+@media (max-width: 1000px) {
+  .editor-layout,
+  .editor-layout.two-col { grid-template-columns: 1fr; }
+
+  /* Sticky panels only make sense beside the content, not above it. */
+  .editor-rail,
+  .inspector { position: static; max-height: none; overflow-y: visible; }
+
+  /* The slide rail becomes a strip of thumbnails above the stage. */
+  .editor-rail > .grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); }
+  /* Its "+ Body slide" button is a full-width bar in the vertical rail; in the
+   * strip it reads better as one more tile in the row. */
+  .editor-rail > .grid > .btn {
+    aspect-ratio: 4 / 5; border-radius: 10px; border-style: dashed;
+    font-size: 11.5px; text-align: center; line-height: 1.3; padding: 6px;
+  }
+
+  .inspector { margin-top: 6px; }
+}
+
+@media (max-width: 900px) {
+  .grid.cols-3,
+  .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+
+  /* ── Sidebar becomes a drawer ── */
+  .shell { flex-direction: column; }
+
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 45;
+    padding: 10px 14px;
+    background: rgba(8, 7, 12, 0.86);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  /* The sidebar logo carries a bottom margin that would offset it here. */
+  .topbar .logo { margin-bottom: 0; }
+
+  .sidebar {
+    position: fixed; top: 0; bottom: 0; left: 0;
+    height: auto; width: 268px; max-width: 84vw;
+    z-index: 60;
+    overflow-y: auto;
+    border-right: 1px solid var(--line);
+    transform: translateX(-100%);
+    transition: transform 0.24s cubic-bezier(0.3, 0.8, 0.3, 1);
+  }
+  .sidebar.open { transform: none; box-shadow: 26px 0 70px rgba(0, 0, 0, 0.6); }
+
+  .nav-scrim {
+    display: block; position: fixed; inset: 0; z-index: 55;
+    background: rgba(4, 3, 7, 0.62);
+    backdrop-filter: blur(3px);
+    animation: fadeIn 0.15s ease;
+  }
+
+  .main { padding: 22px 18px 72px; }
+  .page-title { font-size: 26px; }
+}
+
+/* Phone. */
+@media (max-width: 700px) {
+  /* Almost every header is a `.row between` holding a title and an action
+   * button. Wrapping is what stops those from overflowing, and it only takes
+   * effect when the content genuinely does not fit. */
+  .row { flex-wrap: wrap; }
+
+  .grid { gap: 12px; }
+  .grid.cols-2 { grid-template-columns: 1fr; }
+  /* Thumbnails stay two-up. One tall 4:5 or 9:16 tile per row turns picking a
+   * photo set into a scrolling exercise, and you cannot compare two of them. */
+  .grid.cols-3,
+  .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+  /* Opt-in override for grids of text or form fields, which do want one column. */
+  .grid.stack-sm { grid-template-columns: 1fr; }
+
+  .main { padding: 18px 14px 64px; }
+  .page-head { margin-bottom: 22px; }
+  .page-title { font-size: 23px; }
+  .page-sub { font-size: 14px; }
+
+  .card { padding: 16px; }
+  .modal { padding: 20px; border-radius: 15px; max-height: 88vh; }
+  /* A modal header is a title block and a ✕. Left to wrap, the ✕ drops onto its
+   * own line under the title; letting the title wrap internally instead keeps
+   * the close affordance where it belongs. */
+  .modal > .row.between:first-child { flex-wrap: nowrap; align-items: flex-start; gap: 10px; }
+  .modal > .row.between:first-child > :first-child { min-width: 0; }
+  .modal > .row.between:first-child > .btn { flex-shrink: 0; }
+  .empty { padding: 30px 20px; }
+
+  /* Segmented controls can hold four filters — let them scroll rather than
+   * stretch the page. The partly-visible last option is the affordance; a
+   * scrollbar inside a pill is not. */
+  .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .seg::-webkit-scrollbar { display: none; }
+  .seg button { white-space: nowrap; }
+
+  /* 180px minimums land one library tile per row at this width, which is a
+   * 580px-tall preview of a single clip. */
+  .grid.portrait { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+
+  /* Onboarding / splash heroes. */
+  .hero { padding: 30px 18px; }
+  .hero .cta-row { flex-wrap: wrap; justify-content: center; width: 100%; }
+  .hero p { font-size: 15.5px; }
+
+  /* Tap targets. */
+  .btn { padding: 10px 16px; }
+  .btn.sm { padding: 8px 13px; }
+  .nav-item { padding: 12px; }
+
+  .editor-rail > .grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+}
 
 /* Savings badge inside the monthly/yearly toggle */
 .seg .save-pill {

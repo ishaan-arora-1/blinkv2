@@ -139,6 +139,27 @@ function Shell({ route, auth, children, minimal = false }) {
   const brand = store.state.brand
   const { entitlement } = auth
 
+  // Below 900px the sidebar is a drawer. It is closed on every route change
+  // rather than by each link, so tapping any nav item both navigates and
+  // dismisses — including the ones that route to the same page.
+  const [navOpen, setNavOpen] = React.useState(false)
+  React.useEffect(() => setNavOpen(false), [route])
+
+  React.useEffect(() => {
+    if (!navOpen) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') setNavOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    // Stop the page behind the drawer from scrolling with it.
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prev
+    }
+  }, [navOpen])
+
   // Onboarding and the lapsed-plan paywall are both full-bleed: no sidebar to
   // navigate away into features that are not available yet.
   const bare = minimal || (store.status === 'ready' && !brand.onboarded)
@@ -153,8 +174,27 @@ function Shell({ route, auth, children, minimal = false }) {
 
   return (
     <div className="shell">
+      {/* Only rendered when there is a sidebar to open. The editors hide the
+          sidebar and carry their own Back button, so a bar here would be a
+          second, redundant way out. */}
       {!isEditor && (
-        <aside className="sidebar">
+        <header className="topbar">
+          <button
+            className="topbar-burger"
+            onClick={() => setNavOpen(true)}
+            aria-label="Open navigation"
+            aria-expanded={navOpen}
+          >
+            ☰
+          </button>
+          <a href="#/dashboard" style={{ textDecoration: 'none' }}><Logo size={22} /></a>
+        </header>
+      )}
+
+      {!isEditor && navOpen && <div className="nav-scrim" onClick={() => setNavOpen(false)} />}
+
+      {!isEditor && (
+        <aside className={`sidebar ${navOpen ? 'open' : ''}`}>
           <a href="#/dashboard" style={{ textDecoration: 'none' }}><Logo size={26} /></a>
           <div className="logo-sub">ugc studio for your product</div>
 

@@ -44,10 +44,13 @@ supabase db push
 4. `supabase/migrations/0004_annual_plans.sql` — annual plan rows (removed again by 0005)
 5. `supabase/migrations/0005_usd_plans.sql` — INR → USD, Creator/Studio → Starter/Growth
 6. `supabase/migrations/0006_razorpay_plan_ids.sql` — the real Razorpay plan ids and amounts
+7. `supabase/migrations/0007_live_and_test_plans.sql` — separate test and live plan ids and prices
+8. `supabase/migrations/0008_brand_accent_default.sql` — brand accent default moved to the Blink UGC violet
 
-Run them in order and all six of them. 0005 and 0006 rename columns that the API
+Run them in order and all eight of them. 0005 and 0006 rename columns that the API
 reads (`price_paise` → `price_minor`, `amount_paise` → `amount_minor`), so a
-database stopped at 0004 will fail every billing request rather than degrade.
+database stopped at 0004 will fail every billing request rather than degrade, and
+0007 is what keeps test-mode checkouts from charging live-mode prices.
 
 Verify afterwards:
 

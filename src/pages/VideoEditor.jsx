@@ -338,20 +338,20 @@ export default function VideoEditor({ id }) {
 
   return (
     <div>
-      <div className="row between" style={{ marginBottom: 18 }}>
+      <div className="row between editor-bar" style={{ marginBottom: 18 }}>
         <div className="row">
           <button className="btn ghost sm" onClick={() => { stopPlayback(); window.location.hash = '/videos' }}>← Back</button>
-          <input className="input" style={{ width: 300, fontWeight: 700 }} value={proj.name} onChange={(e) => save({ name: e.target.value })} />
+          <input className="input editor-name" value={proj.name} onChange={(e) => save({ name: e.target.value })} />
           <span className="chip accent">{char.name} — {proj.hook.label}</span>
         </div>
         <button className="btn primary sm" onClick={exportVideo} disabled={!!exporting}>⬇ Export video</button>
       </div>
 
-      <div className="editor-layout" style={{ gridTemplateColumns: '1fr 320px' }}>
+      <div className="editor-layout two-col">
         {/* ── preview + timeline ── */}
         <div className="stage-wrap">
           <div className="video-canvas-wrap">
-            <canvas ref={canvasRef} width={W} height={H} style={{ width: 300, display: 'block' }} />
+            <canvas ref={canvasRef} width={W} height={H} />
           </div>
           <video ref={hookRef} src={proj.hook.src} muted playsInline preload="auto" style={{ display: 'none' }} />
           <video
@@ -365,18 +365,18 @@ export default function VideoEditor({ id }) {
             }}
           />
 
-          <div className="row" style={{ width: 480 }}>
+          <div className="row video-controls">
             <button className="btn sm" onClick={playing ? stopPlayback : play}>{playing ? '❚❚ Pause' : '▶ Play'}</button>
             <input type="range" min="0" max={total} step="0.02" value={t} onChange={(e) => seek(parseFloat(e.target.value))} />
             <span className="mono small muted" style={{ minWidth: 86 }}>{fmt(t)} / {fmt(total)}</span>
           </div>
 
-          <div className="timeline" style={{ width: 480 }}>
+          <div className="timeline video-controls">
             <div className={`seg-block hook ${t < hookDur ? 'on' : ''}`} style={{ flex: hookDur }} onClick={() => seek(0)}>
               Hook · {hookDur.toFixed(1)}s
             </div>
             <div
-              className={`seg-block demo ${t >= hookDur ? 'on' : ''}`}
+              className={`seg-block demo ${t >= hookDur ? 'on' : ''} ${proj.demoPath ? '' : 'empty'}`}
               style={{ flex: Math.max(demoSeg, 0.5) }}
               onClick={() => (proj.demoPath ? seek(hookDur + 0.01) : fileRef.current?.click())}
             >
@@ -415,7 +415,7 @@ export default function VideoEditor({ id }) {
 
           <div className="card">
             <div className="row between">
-              <h4>App demo</h4>
+              <h4>Product demo</h4>
               <button className="btn xs" disabled={uploading} onClick={() => fileRef.current?.click()}>
                 {uploading ? 'Uploading…' : proj.demoPath ? 'Replace' : 'Upload'}
               </button>
