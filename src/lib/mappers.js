@@ -7,6 +7,7 @@
 
 export function brandFromRow(row) {
   return {
+    id: row?.id ?? null,
     appName: row?.app_name ?? '',
     tagline: row?.tagline ?? '',
     category: row?.category ?? 'productivity',
@@ -35,6 +36,13 @@ export function carouselFromRow(row) {
     name: row.name,
     createdAt: new Date(row.created_at).getTime(),
     presetId: row.preset_id,
+    brandId: row.brand_id ?? null,
+    // Animated carousels carry a render lifecycle; photo ones are 'ready' the
+    // moment they exist, which is the column default.
+    kind: row.kind || 'photo',
+    status: row.status || 'ready',
+    topic: row.topic ?? null,
+    characterId: row.character_id ?? null,
     setAssignment: row.set_assignment || {},
     slides: row.slides || [],
   }
@@ -46,6 +54,7 @@ export function carouselToRow(proj, userId) {
     user_id: userId,
     name: proj.name,
     preset_id: proj.presetId ?? null,
+    brand_id: proj.brandId ?? null,
     set_assignment: proj.setAssignment || {},
     slides: proj.slides || [],
   }
@@ -56,6 +65,7 @@ export function videoFromRow(row) {
     id: row.id,
     name: row.name,
     createdAt: new Date(row.created_at).getTime(),
+    brandId: row.brand_id ?? null,
     characterId: row.character_id,
     hook: row.hook || {},
     demoPath: row.demo_path,
@@ -71,6 +81,7 @@ export function videoToRow(proj, userId) {
     id: proj.id,
     user_id: userId,
     name: proj.name,
+    brand_id: proj.brandId ?? null,
     character_id: proj.characterId,
     hook: proj.hook || {},
     demo_path: proj.demoPath ?? null,

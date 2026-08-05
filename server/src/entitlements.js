@@ -13,11 +13,36 @@ export const TIER_RANK = { none: 0, starter: 1, growth: 2 }
 export const FEATURE_TIER = {
   carousels: 'starter',
   videos: 'starter',
+  animated: 'starter',
   blink: 'growth',
 }
 
+/**
+ * Features that spend money at a vendor on every single use.
+ *
+ * These are checked against paid_tier() rather than entitled_tier(), which is
+ * the difference between "may see it" and "has bought it". The trial grants
+ * 'starter' (0009), so a tier check alone would let any signup generate
+ * animated carousels on our bill — the exact hole 0009 closed for Blink AI by
+ * putting it on a tier the trial cannot reach.
+ *
+ * 'blink' is listed even though 'growth' already puts it out of the trial's
+ * reach. It is a metered feature and belongs here on its own merits; leaving it
+ * out would mean the set silently stops being the answer to "what costs us
+ * money" the moment the trial's tier changes.
+ */
+export const METERED = new Set(['animated', 'blink'])
+
 /** The plan name a user must be on to unlock a feature, for error copy. */
 export const PLAN_NAME = { starter: 'Starter', growth: 'Growth' }
+
+/** What to call a feature when telling someone they cannot use it. */
+export const FEATURE_LABEL = {
+  carousels: 'Photo carousels',
+  videos: 'Hook videos',
+  animated: 'Animated carousels',
+  blink: 'Blink AI',
+}
 
 export function tierAllows(tier, feature) {
   const need = FEATURE_TIER[feature]
@@ -25,16 +50,32 @@ export function tierAllows(tier, feature) {
   return (TIER_RANK[tier] ?? 0) >= TIER_RANK[need]
 }
 
-export function featuresFor(tier) {
-  return Object.fromEntries(Object.keys(FEATURE_TIER).map((f) => [f, tierAllows(tier, f)]))
+/**
+ * The real check: metered features read the paid tier, everything else reads
+ * the entitled tier.
+ */
+export function allows({ tier, paidTier }, feature) {
+  return tierAllows(METERED.has(feature) ? paidTier : tier, feature)
+}
+
+export function featuresFor(tier, paidTier = tier) {
+  return Object.fromEntries(
+    Object.keys(FEATURE_TIER).map((f) => [f, allows({ tier, paidTier }, f)])
+  )
 }
 
 /**
  * Resolve a user's current tier plus the context the UI needs to explain it.
  */
 export async function resolveEntitlement(userId) {
-  const [{ data: tierData, error: tierErr }, { data: profile }, { data: subs }] = await Promise.all([
+  const [
+    { data: tierData, error: tierErr },
+    { data: paidData, error: paidErr },
+    { data: profile },
+    { data: subs },
+  ] = await Promise.all([
     admin.rpc('entitled_tier', { p_user_id: userId }),
+    admin.rpc('paid_tier', { p_user_id: userId }),
     admin.from('profiles').select('trial_ends_at').eq('id', userId).maybeSingle(),
     admin
       .from('subscriptions')
@@ -45,8 +86,10 @@ export async function resolveEntitlement(userId) {
   ])
 
   if (tierErr) throw new Error(`entitled_tier failed: ${tierErr.message}`)
+  if (paidErr) throw new Error(`paid_tier failed: ${paidErr.message}`)
 
   const tier = tierData || 'none'
+  const paidTier = paidData || 'none'
   const trialEndsAt = profile?.trial_ends_at || null
 
   // The subscription actually granting access right now, if any.
@@ -66,7 +109,11 @@ export async function resolveEntitlement(userId) {
 
   return {
     tier,
-    features: featuresFor(tier),
+    // What they have actually bought, ignoring the trial. The client needs it
+    // to explain why a Starter-tier feature is still locked during a trial —
+    // "upgrade" is the wrong word when the plan is already Starter.
+    paidTier,
+    features: featuresFor(tier, paidTier),
     onTrial,
     trialEndsAt,
     trialDaysLeft: onTrial

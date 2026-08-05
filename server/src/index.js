@@ -10,6 +10,7 @@ import { plansRouter } from './routes/plans.js'
 import { billingRouter } from './routes/billing.js'
 import { webhooksRouter } from './routes/webhooks.js'
 import { veoRouter } from './routes/veo.js'
+import { animatedRouter } from './routes/animated.js'
 import { requireAuth } from './middleware/auth.js'
 import { notFoundHandler, errorHandler } from './middleware/errors.js'
 
@@ -115,6 +116,9 @@ app.use('/api/billing', requireAuth, byUser(60_000, 20, 'Too many billing reques
 // Generous: the Blink AI poller legitimately calls /status every 6 seconds, and
 // a user may have three renders in flight.
 app.use('/api/veo', requireAuth, byUser(60_000, 90, 'Too many requests. Try again shortly.'), veoRouter)
+// Same shape as Blink AI: the browser polls /status while a carousel renders,
+// so the budget has to cover a poll every few seconds per carousel in flight.
+app.use('/api/animated', requireAuth, byUser(60_000, 90, 'Too many requests. Try again shortly.'), animatedRouter)
 
 app.use(notFoundHandler)
 app.use(errorHandler)
@@ -129,6 +133,15 @@ const server = app.listen(env.port, () => {
     // charges people for real.
     console.log(`  razorpay: ${razorpayMode.toUpperCase()} mode`)
   }
+})
+
+// Animated carousels keep working after the response has been sent, so a
+// rejection can surface with no request to attach it to. Node's default for
+// that is to exit the process — one user's failed slide upload would take the
+// API down for everyone. Log it and stay up; the route already records the
+// failure on the row the client is polling.
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason?.stack || reason)
 })
 
 // Railway sends SIGTERM on redeploy. Finish in-flight requests first — one of

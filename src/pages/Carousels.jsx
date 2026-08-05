@@ -1,9 +1,14 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
+import { useAuth } from '../lib/auth.jsx'
 import { buildPreset, blankCopy, presetOptions } from '../lib/copygen.js'
 import { pickRandom, suggestedSetId } from '../lib/library.js'
 import { newId, uid } from '../lib/ids.js'
 import { useSetImages, useResolvedImage, displayThumb } from '../lib/useImages.js'
+import { CHARACTERS } from '../lib/characters.js'
+import { startAnimated, waitForAnimated } from '../lib/animated.js'
+import { lockReason } from '../lib/tiers.js'
+import { go } from '../lib/router.js'
 
 export function newTextLayer(patch) {
   return {
@@ -53,6 +58,9 @@ export function buildCarousel(store, setId, presetId) {
     id: newId(),
     name: copy.hook.length > 34 ? copy.hook.slice(0, 34) + '…' : copy.hook,
     createdAt: Date.now(),
+    // Pinned at creation. Re-rolling a hook a month later has to use the brand
+    // this was written for, not whichever one happens to be selected then.
+    brandId: brand.id,
     presetId: copy.presetId,
     setAssignment: assignment,
     slides,
@@ -155,7 +163,361 @@ function SetTile({ set, selected, suggested, onSelect }) {
   )
 }
 
+/**
+ * Which of the two carousels to make.
+ *
+ * Animated carousels are metered, so this is also where the trial gets told no
+ * — before a character is picked and a topic written, rather than after.
+ */
+function KindStep({ canAnimate, lock, onPick }) {
+  return (
+    <div className="grid cols-2" style={{ gap: 12 }}>
+      <button className="tile" style={{ padding: 20, textAlign: 'left' }} onClick={() => onPick('photo')}>
+        <div style={{ fontSize: 26, color: 'var(--brand)' }}>❏</div>
+        <div className="tile-title" style={{ marginTop: 10, fontSize: 15 }}>Photo carousel</div>
+        <div className="tile-sub" style={{ marginTop: 6 }}>
+          Your copy over our photography, or your own. Free on your plan, instant.
+        </div>
+      </button>
+
+      <button
+        className="tile"
+        style={{ padding: 20, textAlign: 'left', opacity: canAnimate ? 1 : 0.55 }}
+        onClick={() => canAnimate && onPick('animated')}
+        disabled={!canAnimate}
+      >
+        <div className="row between">
+          <div style={{ fontSize: 26, color: 'var(--accent)' }}>✦</div>
+          {!canAnimate && <span className="chip accent">{lock}</span>}
+        </div>
+        <div className="tile-title" style={{ marginTop: 10, fontSize: 15 }}>Animated carousel</div>
+        <div className="tile-sub" style={{ marginTop: 6 }}>
+          A 3D character acts out your message across every slide. Written and drawn for you.
+        </div>
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Brand selection, with a way out of it.
+ *
+ * "New brand" is a tile in the same grid rather than a link somewhere else:
+ * someone making a carousel for a product they have not set up yet should not
+ * have to abandon the wizard, go to the Brand page, and start again.
+ */
+function BrandStep({ brands, selectedId, onSelect, onNew, onBack }) {
+  return (
+    <>
+      <div className="grid cols-3" style={{ gap: 12 }}>
+        {brands.map((b) => (
+          <button
+            key={b.id}
+            className={`tile ${selectedId === b.id ? 'selected' : ''}`}
+            style={{ padding: 16, textAlign: 'left' }}
+            onClick={() => onSelect(b.id)}
+          >
+            <div
+              style={{
+                width: 26, height: 26, borderRadius: 8,
+                background: b.accent || 'var(--brand)', marginBottom: 10,
+              }}
+            />
+            <div className="tile-title">{b.appName || 'Untitled brand'}</div>
+            <div className="tile-sub" style={{ marginTop: 4 }}>
+              {b.tagline || b.category || 'No pitch yet'}
+            </div>
+          </button>
+        ))}
+
+        <button
+          className="tile"
+          onClick={onNew}
+          style={{
+            padding: 16, textAlign: 'left', borderStyle: 'dashed',
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center',
+          }}
+        >
+          <div style={{ fontSize: 24, color: 'var(--brand)' }}>＋</div>
+          <div className="tile-title" style={{ marginTop: 8 }}>New brand</div>
+          <div className="tile-sub" style={{ marginTop: 4 }}>Set one up without leaving this</div>
+        </button>
+      </div>
+
+      <div className="row mt-4">
+        <button className="btn ghost sm" onClick={onBack}>← Character</button>
+      </div>
+    </>
+  )
+}
+
+/** Just enough to write copy against: the name, the pitch and the category. */
+function NewBrandForm({ onCancel, onCreate }) {
+  const [appName, setAppName] = useState('')
+  const [tagline, setTagline] = useState('')
+  const [category, setCategory] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+
+  async function create() {
+    setBusy(true)
+    setErr(null)
+    try {
+      await onCreate({
+        appName: appName.trim(),
+        tagline: tagline.trim(),
+        category: category.trim() || 'productivity',
+      })
+    } catch (e) {
+      setErr(e.message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="field mt-4">
+        <label>Brand name</label>
+        <input
+          className="input"
+          autoFocus
+          value={appName}
+          onChange={(e) => setAppName(e.target.value)}
+          placeholder="Aurelia"
+        />
+      </div>
+      <div className="field mt-2">
+        <label>What is it?</label>
+        <input
+          className="input"
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          placeholder="skincare"
+        />
+      </div>
+      <div className="field mt-2">
+        <label>One-line pitch</label>
+        <input
+          className="input"
+          value={tagline}
+          onChange={(e) => setTagline(e.target.value)}
+          placeholder="The three-step routine you will actually finish."
+          onKeyDown={(e) => e.key === 'Enter' && appName.trim() && create()}
+        />
+      </div>
+      {err && <div className="small mt-2" style={{ color: 'var(--hot)' }}>{err}</div>}
+      <div className="row mt-4 between">
+        <button className="btn ghost sm" onClick={onCancel}>← Brands</button>
+        <button className="btn primary" disabled={!appName.trim() || busy} onClick={create}>
+          {busy ? 'Creating…' : 'Create and continue'}
+        </button>
+      </div>
+    </>
+  )
+}
+
+function AnimatedFlow({ store, onClose }) {
+  const [step, setStep] = useState('character')
+  const [characterId, setCharacterId] = useState(null)
+  const [brandId, setBrandId] = useState(store.state.activeBrandId)
+  const [topic, setTopic] = useState('')
+  const [slideCount, setSlideCount] = useState(5)
+  const [progress, setProgress] = useState({ ready: 0, total: 0 })
+  const [error, setError] = useState(null)
+  const abort = useRef(null)
+
+  useEffect(() => () => abort.current?.abort(), [])
+
+  const character = CHARACTERS.find((c) => c.id === characterId)
+  const brand = store.state.brands.find((b) => b.id === brandId)
+
+  async function generate() {
+    setError(null)
+    setStep('rendering')
+    setProgress({ ready: 0, total: slideCount })
+
+    const ctrl = new AbortController()
+    abort.current = ctrl
+
+    try {
+      const { carouselId } = await startAnimated({ topic: topic.trim(), slideCount, characterId, brandId })
+      await waitForAnimated(carouselId, {
+        signal: ctrl.signal,
+        onProgress: (s) => setProgress({ ready: s.ready, total: s.total || slideCount }),
+      })
+      // The row was written by the server, so the local store has never seen it.
+      await store.reload()
+      go(`/carousel/${carouselId}`)
+    } catch (err) {
+      if (err.name === 'AbortError') return
+      setError(err.message)
+      setStep('brief')
+    }
+  }
+
+  if (step === 'rendering') {
+    const pct = progress.total ? Math.round((progress.ready / progress.total) * 100) : 0
+    return (
+      <>
+        <div className="row between">
+          <div>
+            <h3>Drawing your carousel</h3>
+            <div className="sub">
+              {character?.name} across {slideCount} slides. This takes about half a minute.
+            </div>
+          </div>
+        </div>
+        <div className="empty" style={{ padding: 30 }}>
+          <div className="big">✦</div>
+          <b>{progress.ready} of {progress.total || slideCount} slides done</b>
+          <div style={{ height: 6, borderRadius: 999, background: 'var(--ink-3)', margin: '16px auto 0', maxWidth: 320, overflow: 'hidden' }}>
+            <div style={{ width: `${pct}%`, height: '100%', background: 'var(--brand-gradient)', transition: 'width 0.4s' }} />
+          </div>
+          <div className="small muted mt-4">
+            The copy is written first, then every slide is drawn with the same character.
+            You can leave this open — it lands in your library either way.
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  if (step === 'character') {
+    return (
+      <>
+        <div className="row between">
+          <div>
+            <h3>Choose your character</h3>
+            <div className="sub">One character fronts every slide, in the same style throughout.</div>
+          </div>
+          <button className="btn ghost sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="grid cols-4" style={{ gap: 12 }}>
+          {CHARACTERS.map((c) => (
+            <button
+              key={c.id}
+              className={`tile ${characterId === c.id ? 'selected' : ''}`}
+              onClick={() => {
+                setCharacterId(c.id)
+                setStep('brand')
+              }}
+            >
+              <div style={{ aspectRatio: '4/5', overflow: 'hidden', background: '#131019' }}>
+                <img
+                  src={c.img}
+                  alt={c.name}
+                  loading="lazy"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              </div>
+              <div className="tile-body" style={{ padding: '10px 12px' }}>
+                <div className="tile-title">{c.name}</div>
+                <div className="tile-sub">{c.blurb}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </>
+    )
+  }
+
+  if (step === 'brand' || step === 'newBrand') {
+    return (
+      <>
+        <div className="row between">
+          <div>
+            <h3>{step === 'brand' ? 'Which brand is this for?' : 'New brand'}</h3>
+            <div className="sub">
+              {step === 'brand'
+                ? 'The copy is written from the brand’s name, pitch and category.'
+                : 'Enough to write from. You can fill in the rest on the Brand page later.'}
+            </div>
+          </div>
+          <button className="btn ghost sm" onClick={onClose}>✕</button>
+        </div>
+
+        {step === 'brand' ? (
+          <BrandStep
+            brands={store.state.brands}
+            selectedId={brandId}
+            onSelect={(id) => {
+              setBrandId(id)
+              setStep('brief')
+            }}
+            onNew={() => setStep('newBrand')}
+            onBack={() => setStep('character')}
+          />
+        ) : (
+          <NewBrandForm
+            onCancel={() => setStep('brand')}
+            onCreate={async (patch) => {
+              const created = await store.createBrand(patch)
+              setBrandId(created.id)
+              setStep('brief')
+            }}
+          />
+        )}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="row between">
+        <div>
+          <h3>What should it say?</h3>
+          <div className="sub">
+            {character?.name} will act it out for <b>{brand?.appName || 'your brand'}</b>.
+          </div>
+        </div>
+        <button className="btn ghost sm" onClick={onClose}>✕</button>
+      </div>
+
+      <div className="field mt-4">
+        <label>What is this carousel about?</label>
+        <textarea
+          className="input"
+          rows={3}
+          autoFocus
+          maxLength={400}
+          placeholder="e.g. why most skincare routines fall apart after week two"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+        />
+        <div className="small muted mt-2">{topic.trim().length}/400</div>
+      </div>
+
+      <div className="field mt-4">
+        <label>Slides — {slideCount}</label>
+        <input
+          type="range"
+          min="3"
+          max="8"
+          value={slideCount}
+          onChange={(e) => setSlideCount(+e.target.value)}
+        />
+      </div>
+
+      {error && (
+        <div className="card mt-4" style={{ borderColor: 'rgba(255,122,89,0.4)' }}>
+          <div className="row"><span className="chip hot">could not generate</span></div>
+          <div className="small mt-2">{error}</div>
+        </div>
+      )}
+
+      <div className="row mt-4 between">
+        <button className="btn ghost sm" onClick={() => setStep('brand')}>← Brand</button>
+        <button className="btn primary" disabled={!topic.trim() || !brandId} onClick={generate}>
+          ✦ Generate {slideCount} slides
+        </button>
+      </div>
+    </>
+  )
+}
+
 function NewCarouselWizard({ store, onClose }) {
+  const { can, entitlement } = useAuth()
+  const [kind, setKind] = useState(null)
   const [step, setStep] = useState(0)
   const [setId, setSetId] = useState(null)
   const sets = store.allSets()
@@ -176,6 +538,37 @@ function NewCarouselWizard({ store, onClose }) {
     setSetId(id)
     if (s && !s.builtin) create('blank', id)
     else setStep(1)
+  }
+
+  if (!kind) {
+    return (
+      <div className="modal-veil" onClick={onClose}>
+        <div className="modal" style={{ width: 'min(720px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="row between">
+            <div>
+              <h3>Mint a carousel</h3>
+              <div className="sub">Two kinds. Both stay fully editable afterwards.</div>
+            </div>
+            <button className="btn ghost sm" onClick={onClose}>✕</button>
+          </div>
+          <KindStep
+            canAnimate={can.animated}
+            lock={lockReason('animated', entitlement)}
+            onPick={setKind}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  if (kind === 'animated') {
+    return (
+      <div className="modal-veil" onClick={onClose}>
+        <div className="modal" style={{ width: 'min(860px, 94vw)' }} onClick={(e) => e.stopPropagation()}>
+          <AnimatedFlow store={store} onClose={onClose} />
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -226,6 +619,7 @@ function NewCarouselWizard({ store, onClose }) {
               <button className="btn ghost sm" onClick={() => setStep(0)}>← Photo sets</button>
               <button className="btn sm" onClick={() => create('blank')}>Start blank instead</button>
             </div>
+
           </>
         )}
       </div>

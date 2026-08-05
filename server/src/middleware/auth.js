@@ -1,5 +1,12 @@
 import { userFromToken } from '../supabase.js'
-import { resolveEntitlement, tierAllows, FEATURE_TIER, PLAN_NAME } from '../entitlements.js'
+import {
+  resolveEntitlement,
+  allows,
+  METERED,
+  FEATURE_TIER,
+  FEATURE_LABEL,
+  PLAN_NAME,
+} from '../entitlements.js'
 import { unauthorized, forbidden, wrap } from './errors.js'
 
 function bearer(req) {
@@ -29,14 +36,30 @@ export const requireFeature = (feature) =>
     const ent = await resolveEntitlement(req.user.id)
     req.entitlement = ent
 
-    if (!tierAllows(ent.tier, feature)) {
+    if (!allows(ent, feature)) {
       const needs = FEATURE_TIER[feature]
-      throw forbidden(
+      const label = FEATURE_LABEL[feature] || 'That feature'
+
+      // Three different noes, and telling them apart matters. A trial user
+      // blocked from a metered feature is not on the wrong plan and has nothing
+      // to upgrade — they are on the right tier already and simply have not
+      // subscribed. "Upgrade to Starter" to someone already on Starter reads as
+      // a bug in the product.
+      const message =
         ent.tier === 'none'
           ? 'Your plan has ended. Pick a plan to keep creating.'
-          : `Blink AI is part of the ${PLAN_NAME[needs]} plan. Upgrade to generate videos.`,
-        { feature, tier: ent.tier, upgradeTo: needs }
-      )
+          : METERED.has(feature) && ent.onTrial
+            ? `${label} needs a paid plan — it is not part of the free trial. Subscribe to unlock it.`
+            : `${label} ${label.endsWith('s') ? 'are' : 'is'} part of the ${PLAN_NAME[needs]} plan.`
+
+      throw forbidden(message, {
+        feature,
+        tier: ent.tier,
+        upgradeTo: needs,
+        // Lets the client tell "subscribe" apart from "upgrade" without
+        // re-deriving the rule it does not own.
+        needsPaidPlan: METERED.has(feature) && ent.onTrial,
+      })
     }
     next()
   })

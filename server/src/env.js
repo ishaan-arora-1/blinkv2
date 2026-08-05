@@ -54,12 +54,32 @@ export const env = {
     apiKey: optional('GOOGLE_AI_KEY'),
     model: optional('GOOGLE_AI_MODEL', 'veo-3.1-generate-preview'),
   },
+
+  // Animated carousels. Images and slide copy both go through fal, so one key
+  // covers both — and it is a different vendor from Veo on purpose, so a
+  // depleted balance on one does not take the other down with it.
+  fal: {
+    key: optional('FAL_KEY'),
+    // Establishes the character on slide 1.
+    imageModel: optional('FAL_IMAGE_MODEL', 'fal-ai/nano-banana'),
+    // Holds that character across slides 2..n, conditioned on slide 1.
+    editModel: optional('FAL_EDIT_MODEL', 'fal-ai/nano-banana/edit'),
+    // Writes the slide copy and the character brief.
+    textModel: optional('FAL_TEXT_MODEL', 'google/gemini-flash-1.5'),
+  },
+
+  // Animated carousels cost roughly $0.20 each against a $7.99 plan, so past
+  // this many in a calendar month a Starter subscription is losing money.
+  // Configurable because the right number depends on the price, and the price
+  // lives in the plans table rather than here.
+  animatedMonthlyLimit: Number(optional('ANIMATED_MONTHLY_LIMIT', '30')),
 }
 
 env.razorpay.configured = Boolean(
   env.razorpay.keyId && env.razorpay.keySecret && env.razorpay.webhookSecret
 )
 env.google.configured = Boolean(env.google.apiKey)
+env.fal.configured = Boolean(env.fal.key)
 
 /**
  * Browsers send an Origin with no trailing slash and in lower case. A URL
@@ -115,4 +135,7 @@ if (!env.razorpay.configured) {
 }
 if (!env.google.configured) {
   console.warn('  ⚠ GOOGLE_AI_KEY is not set — Blink AI generation will return 503.')
+}
+if (!env.fal.configured) {
+  console.warn('  ⚠ FAL_KEY is not set — animated carousels will return 503.')
 }

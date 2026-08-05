@@ -27,11 +27,35 @@ import { detectLegacyData, dismissLegacyData, runLegacyImport } from './migrate.
 const StoreCtx = createContext(null)
 
 const EMPTY = {
-  brand: brandFromRow(null),
+  brands: [brandFromRow(null)],
+  activeBrandId: null,
   customSets: [],
   carousels: [],
   videos: [],
   blinks: [],
+}
+
+/**
+ * Which brand is selected, remembered per account across reloads.
+ *
+ * Local rather than a column: it is a UI preference, not something the API or
+ * another device needs to agree on, and putting it on `profiles` would mean a
+ * write every time someone flicks between two brands to compare.
+ */
+const ACTIVE_BRAND_KEY = (userId) => `blink.activeBrand.${userId}`
+
+function pickActiveBrand(userId, brands) {
+  let stored = null
+  try {
+    stored = localStorage.getItem(ACTIVE_BRAND_KEY(userId))
+  } catch {
+    // Safari in private mode throws on localStorage. Falling back to the first
+    // brand is correct, just not sticky.
+  }
+  // A stored id can outlive the brand it names — deleted here, or on another
+  // device. Fall back rather than leaving the app pointed at nothing.
+  if (stored && brands.some((b) => b.id === stored)) return stored
+  return brands[0]?.id ?? null
 }
 
 // How long to sit on an edit before writing it. The carousel editor calls
@@ -123,7 +147,7 @@ export function StoreProvider({ children }) {
 
     try {
       const [brandRes, carouselsRes, videosRes, blinksRes, setsRes] = await Promise.all([
-        supabase.from('brands').select('*').eq('user_id', userId).maybeSingle(),
+        supabase.from('brands').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
         supabase.from('carousels').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('videos').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
         supabase.from('blinks').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
@@ -137,11 +161,15 @@ export function StoreProvider({ children }) {
       const firstError = [brandRes, carouselsRes, videosRes, blinksRes, setsRes].find((r) => r.error)?.error
       if (firstError) throw new Error(firstError.message)
 
+      // The signup trigger creates the first brand row, but a user who predates
+      // it (or a failed trigger) should still get sensible defaults rather than
+      // a crash on brand.appName — hence the fallback to one empty brand.
+      const brands = (brandRes.data || []).map(brandFromRow)
+      if (!brands.length) brands.push(brandFromRow(null))
+
       const next = {
-        // The signup trigger creates the brand row, but a user who predates it
-        // (or a failed trigger) should still get sensible defaults rather than
-        // a crash on brand.appName.
-        brand: brandFromRow(brandRes.data),
+        brands,
+        activeBrandId: pickActiveBrand(userId, brands),
         carousels: (carouselsRes.data || []).map(carouselFromRow),
         videos: (videosRes.data || []).map(videoFromRow),
         blinks: (blinksRes.data || []).map(blinkFromRow),
@@ -206,11 +234,23 @@ export function StoreProvider({ children }) {
       if (err) console.error(`[store] ${table} delete failed:`, err.message)
     }
 
+    // `state.brand` is the active brand, derived rather than stored.
+    //
+    // It predates multiple brands and is read all over the app — the editors,
+    // the copy generator, the sidebar. Keeping it as the selected brand means
+    // every one of those call sites stays correct without knowing a list now
+    // exists, and there is no second copy of a brand to drift out of sync.
+    const activeBrand =
+      state.brands.find((b) => b.id === state.activeBrandId) || state.brands[0] || brandFromRow(null)
+
     return {
-      state,
+      state: { ...state, brand: activeBrand },
       status,
       error,
       syncing,
+      /** The brand a piece of work was made for, falling back to the active one. */
+      brandFor: (proj) =>
+        state.brands.find((b) => b.id === proj?.brandId) || activeBrand,
       reload: load,
       flush,
 
@@ -244,15 +284,81 @@ export function StoreProvider({ children }) {
       // onboarding passes immediate:true — it is the one brand write that gates
       // access to the rest of the app, and losing it to a closed tab would drop
       // the user back into the wizard with their answers gone.
-      setBrand: (patch, { immediate = false } = {}) => {
+      /**
+       * Edit a brand. Defaults to the active one, which is what every existing
+       * caller means — the Brand page and onboarding both edit "the" brand.
+       */
+      setBrand: (patch, { immediate = false, brandId } = {}) => {
         let merged
         setState((s) => {
-          merged = { ...s.brand, ...patch }
-          return { ...s, brand: merged }
+          const id = brandId || s.activeBrandId
+          const brands = s.brands.map((b) => {
+            if (b.id !== id) return b
+            merged = { ...b, ...patch }
+            return merged
+          })
+          return { ...s, brands }
         })
-        // user_id is the primary key of brands, so upsert resolves to an update
-        // for the row the signup trigger already created.
-        return scheduleWrite('brands', { user_id: userId, ...brandToRow(merged) }, { immediate })
+        if (!merged) return Promise.resolve()
+        // id is the primary key now, so the upsert resolves to an update of
+        // this brand rather than of "the user's brand".
+        return scheduleWrite('brands', { id: merged.id, user_id: userId, ...brandToRow(merged) }, { immediate })
+      },
+
+      setActiveBrand: (brandId) => {
+        setState((s) => (s.brands.some((b) => b.id === brandId) ? { ...s, activeBrandId: brandId } : s))
+        try {
+          localStorage.setItem(ACTIVE_BRAND_KEY(userId), brandId)
+        } catch {
+          // Not sticky in private mode; the selection still applies this session.
+        }
+      },
+
+      /**
+       * Create a brand and select it.
+       *
+       * Written immediately rather than debounced: the caller is usually about
+       * to generate a carousel against this brand's id, and the server will not
+       * find a row that is still sitting in the write queue.
+       */
+      createBrand: async (patch = {}) => {
+        const brand = {
+          ...brandFromRow(null),
+          id: newId(),
+          onboarded: true,
+          ...patch,
+        }
+        setState((s) => ({ ...s, brands: [...s.brands, brand], activeBrandId: brand.id }))
+        try {
+          localStorage.setItem(ACTIVE_BRAND_KEY(userId), brand.id)
+        } catch {}
+
+        const { error: err } = await supabase
+          .from('brands')
+          .insert({ id: brand.id, user_id: userId, ...brandToRow(brand) })
+        if (err) throw new Error(err.message)
+        return brand
+      },
+
+      /**
+       * Delete a brand. Refuses the last one — the app has no state for an
+       * account with no brand, and onboarding would not re-run to create one.
+       */
+      deleteBrand: async (brandId) => {
+        let ok = false
+        setState((s) => {
+          if (s.brands.length <= 1) return s
+          ok = true
+          const brands = s.brands.filter((b) => b.id !== brandId)
+          const activeBrandId = s.activeBrandId === brandId ? brands[0].id : s.activeBrandId
+          return { ...s, brands, activeBrandId }
+        })
+        if (!ok) throw new Error('You need at least one brand.')
+
+        // Carousels and videos made for it survive — brand_id is ON DELETE SET
+        // NULL, so the work stays and simply stops naming a brand.
+        const { error: err } = await supabase.from('brands').delete().eq('id', brandId)
+        if (err) throw new Error(err.message)
       },
 
       // ── sets ──

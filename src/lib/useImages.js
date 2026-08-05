@@ -1,14 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import { UPLOADS, signedUrl } from './storage.js'
+import { UPLOADS, GENERATIONS, signedUrl } from './storage.js'
 import { isGradientRef, gradientByRef } from './library.js'
 
 /**
- * An image reference is one of three things, and this is the only place that
+ * An image reference is one of four things, and this is the only place that
  * needs to know the difference:
  *
- *   "/sets/boy/01.jpg"   a built-in asset served from /public
- *   "gradient:3"         a locally generated gradient, painted on demand
- *   { path: "uid/..." }  an upload in the private storage bucket
+ *   "/sets/boy/01.jpg"                        a built-in asset from /public
+ *   "gradient:3"                              a gradient, painted on demand
+ *   { path: "uid/..." }                       an upload in the private bucket
+ *   { bucket: "generations", path: "uid/..." } a generated animated-carousel slide
+ *
+ * The bucket matters because the two are not interchangeable: `uploads` is
+ * writable by its owner, `generations` is written only by the service role. A
+ * generated slide signed against `uploads` comes back null and the slide paints
+ * nothing.
  *
  * Everything resolves to a URL you can put in a src or a background-image.
  */
@@ -18,7 +24,9 @@ export async function resolveImage(img) {
     if (isGradientRef(img)) return gradientByRef(img)
     return img
   }
-  if (img.path) return signedUrl(UPLOADS, img.path)
+  // Anything without an explicit bucket predates animated carousels and is an
+  // upload, so the default has to stay UPLOADS.
+  if (img.path) return signedUrl(img.bucket === GENERATIONS ? GENERATIONS : UPLOADS, img.path)
   return null
 }
 
@@ -58,7 +66,9 @@ export function useResolvedImage(img) {
   const ref = useRef(img)
   ref.current = img
 
-  const key = typeof img === 'string' ? img : img?.path || null
+  // Bucket is part of the identity, not just the path: the same path in two
+  // buckets is two different images.
+  const key = typeof img === 'string' ? img : img?.path ? `${img.bucket || UPLOADS}::${img.path}` : null
 
   useEffect(() => {
     let alive = true

@@ -6,6 +6,7 @@ import { CREATORS, getCreator } from '../lib/creators.js'
 import { builtinSets, isGradientRef } from '../lib/library.js'
 import { presetOptions } from '../lib/copygen.js'
 import { SHOWCASE, heroSlides } from '../lib/showcase.js'
+import { supabase, isLocalSupabase } from '../lib/supabase.js'
 import { BLINK_TEMPLATES } from '../lib/blinkTemplates.js'
 import Logo from '../components/Logo.jsx'
 import HookPreview from '../components/HookPreview.jsx'
@@ -84,6 +85,56 @@ function SignInButton({ label = 'Continue with Google', className = 'btn google'
       <GoogleMark />
       {signingIn ? 'Opening Google…' : label}
     </button>
+  )
+}
+
+/**
+ * Email sign-in, for a local Supabase only.
+ *
+ * Google OAuth cannot complete against `supabase start`, so without this there
+ * is no way into the app on a local stack. isLocalSupabase is derived from the
+ * build-time Supabase URL, so this whole component is unreachable — and
+ * dropped by the minifier — in any build pointed at a hosted project.
+ */
+function DevSignIn() {
+  // Blank rather than prefilled. The seeded credentials live in
+  // supabase/seed-local.mjs, which never reaches a browser; baking them in here
+  // put a working-looking password into every bundle that shipped this file.
+  const [email, setEmail] = React.useState('')
+  const [password, setPassword] = React.useState('')
+  const [busy, setBusy] = React.useState(false)
+  const [err, setErr] = React.useState(null)
+
+  async function signIn() {
+    setBusy(true)
+    setErr(null)
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) setErr(error.message)
+    setBusy(false)
+  }
+
+  return (
+    <div className="card" style={{ marginTop: 18, maxWidth: 420, borderColor: 'rgba(243,164,230,0.35)' }}>
+      <div className="row"><span className="chip accent">local dev only</span></div>
+      <div className="small muted mt-2">Google can’t redirect to a local Supabase. Sign in with email instead.</div>
+      <div className="field mt-2">
+        <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email" />
+      </div>
+      <div className="field mt-2">
+        <input
+          className="input"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="password"
+          onKeyDown={(e) => e.key === 'Enter' && signIn()}
+        />
+      </div>
+      {err && <div className="small mt-2" style={{ color: 'var(--hot)' }}>{err}</div>}
+      <button className="btn primary sm mt-2" onClick={signIn} disabled={busy}>
+        {busy ? 'Signing in…' : 'Sign in'}
+      </button>
+    </div>
   )
 }
 
@@ -173,6 +224,7 @@ export default function Landing() {
                 <b>Free for 7 days</b>, no card.
                 {cheapest && <> Then from {money(cheapest.price, cheapest.currency)}/month. Cancel anytime.</>}
               </div>
+              {isLocalSupabase && <DevSignIn />}
             </div>
 
             {authError && (

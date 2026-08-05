@@ -220,13 +220,7 @@ function Shell({ route, auth, children, minimal = false }) {
 
           <PlanBadge entitlement={entitlement} />
 
-          <div className="small muted" style={{ padding: '0 12px' }}>
-            {brand.appName ? (
-              <>Marketing <b style={{ color: 'var(--brand)' }}>{brand.appName}</b></>
-            ) : (
-              'No brand set'
-            )}
-          </div>
+          <BrandSwitcher store={store} brand={brand} />
         </aside>
       )}
 
@@ -235,6 +229,49 @@ function Shell({ route, auth, children, minimal = false }) {
         <ImportNotice store={store} />
         {children}
       </main>
+    </div>
+  )
+}
+
+/**
+ * Which brand the app is currently working on.
+ *
+ * A plain select rather than a menu: with one brand it reads as a label and
+ * costs nothing, and the moment there are several it is already the control.
+ * Everything that generates copy — both carousel kinds, videos — reads the
+ * active brand, so this is the single thing that decides whose voice the app
+ * is writing in.
+ */
+function BrandSwitcher({ store, brand }) {
+  const brands = store.state.brands || []
+
+  if (brands.length <= 1) {
+    return (
+      <div className="small muted" style={{ padding: '0 12px' }}>
+        {brand.appName ? (
+          <>Marketing <b style={{ color: 'var(--brand)' }}>{brand.appName}</b></>
+        ) : (
+          'No brand set'
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ padding: '0 12px' }}>
+      <div className="small muted" style={{ marginBottom: 6 }}>Marketing</div>
+      <select
+        className="input"
+        style={{ padding: '7px 9px', fontSize: 13 }}
+        value={brand.id || ''}
+        onChange={(e) => store.setActiveBrand(e.target.value)}
+      >
+        {brands.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.appName || 'Untitled brand'}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }

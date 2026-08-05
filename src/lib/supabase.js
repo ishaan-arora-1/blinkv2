@@ -23,6 +23,26 @@ export const supabase = isConfigured
 
 export const SUPABASE_URL = url
 
+/**
+ * True only in a dev server pointed at a `supabase start` stack.
+ *
+ * Gates the email sign-in on the landing page. Google OAuth cannot complete
+ * against a local Supabase, so without it there is no way into the app locally.
+ *
+ * Both halves are load-bearing, for different reasons. The URL test is the
+ * correctness one: it must never be true against a hosted project. The
+ * `import.meta.env.DEV` test is what makes it *disappear* — Vite replaces that
+ * identifier with the literal `false` at build time, so the whole expression
+ * folds to false and the minifier drops the sign-in component and its contents.
+ *
+ * The URL test alone was not enough. It is a runtime regex, so a production
+ * build kept the component and shipped a placeholder password in the bundle
+ * where anyone could read it.
+ */
+export const isLocalSupabase =
+  import.meta.env.DEV &&
+  /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(String(url || '').replace(/\/+$/, ''))
+
 // Reachable from the console while developing, for inspecting sessions and
 // running ad-hoc queries. import.meta.env.DEV is replaced at build time, so
 // this block is stripped from production output entirely.
