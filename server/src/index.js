@@ -59,7 +59,14 @@ app.get('/health', (req, res) =>
     allowedOrigins,
     yourOrigin: req.get('origin') || null,
     originAllowed: req.get('origin') ? isOriginAllowed(req.get('origin')) : null,
-    integrations: { razorpay: env.razorpay.configured, googleVeo: env.google.configured },
+    integrations: {
+      razorpay: env.razorpay.configured,
+      googleVeo: env.google.configured,
+      // Animated carousels. Worth reporting for the same reason as the others:
+      // a missing key here is a 503 on a feature the pricing page sells, and
+      // one curl is a much better way to find that out than a customer is.
+      fal: env.fal.configured,
+    },
     // Which Razorpay mode the deployed key belongs to. Not secret — it is a
     // property of the key's prefix — and it is the one thing worth checking
     // after a deploy, because a test key in production takes no money and a live
