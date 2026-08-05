@@ -15,7 +15,7 @@ storefronts and B2B software as well as apps.
 - **Hook videos** — an AI creator reacts to your product for 3 seconds, then your
   screen recording plays. Trim both, score it with a synthesized track, add
   timed text overlays, export as video.
-- **Blink AI** — describe a video and generate it with Google Veo. Optionally
+- **Blink AI** — describe a video and generate it. Optionally
   anchor it to a creator and your product photo.
 - **Library** — everything you've generated, in one place, synced across devices.
 - **Image sets** — four built-in lifestyle collections plus your own uploads.
@@ -24,7 +24,7 @@ storefronts and B2B software as well as apps.
 
 Sign-in is Google, via Supabase Auth. Every account starts with a **7-day trial**
 at the Starter tier, no card required. The trial deliberately stops short of
-Blink AI: Veo bills per second of generated video, so it is the one feature where
+Blink AI: generated video is billed per clip, so it is the one feature where
 a free account can run up a real bill, and it stays behind a paid Growth
 subscription. `entitled_tier()` in `0009_trial_excludes_blink.sql` is where that
 line is drawn.
@@ -70,7 +70,7 @@ Change the price in Razorpay first, then follow it here with a migration.
 - **Media** — private Supabase Storage buckets, read through short-lived signed
   URLs. `uploads` is the user's; `generations` is written only by the server.
 - **Money and secrets** — the API owns the Razorpay secret, the webhook secret and
-  the Google Veo key. Entitlement is enforced server-side; the client only hides
+  the fal key. Entitlement is enforced server-side; the client only hides
   what you can't use.
 - **Routing** — a hash router in `src/lib/router.js`, so the app is deployable as
   plain static files.
@@ -86,7 +86,7 @@ records the compositor canvas in real time with `MediaRecorder`.
 - `src/lib/copygen.js` — the carousel copy presets
 - `src/lib/creators.js` — the creator roster and their premade hook clips
 - `src/lib/audio.js` — the music tracks, synthesized with WebAudio
-- `server/src/routes` — `me`, `plans`, `billing`, `webhooks`, `veo`
+- `server/src/routes` — `me`, `plans`, `billing`, `webhooks`, `veo` (Blink AI), `animated`
 - `supabase/migrations` — schema, RLS, entitlement function, storage policies
 
 ## Running it

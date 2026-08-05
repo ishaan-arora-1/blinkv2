@@ -5,7 +5,7 @@ import { api } from './api.js'
 export const LIMITS = {
   duration: { min: 4, max: 8, default: 6 },
   aspectRatios: ['9:16', '16:9'],
-  resolutions: ['720p', '1080p'],
+  resolutions: ['480p', '720p'],
 }
 
 const POLL_INTERVAL_MS = 6000

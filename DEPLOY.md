@@ -227,14 +227,24 @@ appear to work and then silently never renew.
 
 ---
 
-## 3 · Google Veo
+## 3 · fal
 
-Get an API key from [Google AI Studio](https://aistudio.google.com/apikey) with the
-Generative Language API enabled → `GOOGLE_AI_KEY`.
+Get a key from [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) → `FAL_KEY`.
 
-Veo video generation is billed per second of output. This key is what the Studio plan is
-selling access to, which is exactly why it lives on the server now — in the previous
-build it shipped inside the JavaScript bundle.
+One key covers every generation in the product: Blink AI video, the animated-carousel
+backgrounds, and the slide copy. All of it is metered, which is exactly why the key lives
+on the server — in an early build the video key shipped inside the JavaScript bundle.
+
+Video used to be Google Veo on a separate Google AI balance. When that balance ran dry,
+Blink AI failed for every paying Growth subscriber while the rest of the product carried
+on working, and nothing in the app said why. Two vendors meant two balances to keep
+funded and two ways to go dark; there is now one.
+
+`/health` reports whether the key is set:
+
+```bash
+curl -s https://YOUR-API.up.railway.app/health | python3 -m json.tool
+```
 
 ---
 
@@ -255,8 +265,8 @@ SUPABASE_SERVICE_ROLE_KEY=...
 RAZORPAY_KEY_ID=...
 RAZORPAY_KEY_SECRET=...
 RAZORPAY_WEBHOOK_SECRET=...
-GOOGLE_AI_KEY=...
-GOOGLE_AI_MODEL=veo-3.1-generate-preview
+FAL_KEY=...
+ANIMATED_MONTHLY_LIMIT=30
 ```
 
 Do **not** set `PORT` — Railway injects it.
@@ -389,8 +399,8 @@ invisible to the app.
 | `RAZORPAY_KEY_ID` | Public-ish; handed to Checkout by the server |
 | `RAZORPAY_KEY_SECRET` | Signs and authenticates API calls |
 | `RAZORPAY_WEBHOOK_SECRET` | Verifies webhook deliveries |
-| `GOOGLE_AI_KEY` | Veo generation. Billed per second |
-| `GOOGLE_AI_MODEL` | Defaults to `veo-3.1-generate-preview` |
+| `FAL_KEY` | Every generation: video, images, slide copy. Metered |
+| `ANIMATED_MONTHLY_LIMIT` | Animated carousels per account per month (default 30) |
 
 ---
 

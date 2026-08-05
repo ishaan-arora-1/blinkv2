@@ -25,7 +25,7 @@ export default function BlinkAI() {
   // generation settings
   const [duration, setDuration] = useState(LIMITS.duration.default)
   const [aspect, setAspect] = useState('9:16')
-  const [resolution, setResolution] = useState('1080p')
+  const [resolution, setResolution] = useState('720p')
   const [negative, setNegative] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
 

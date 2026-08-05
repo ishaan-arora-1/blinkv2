@@ -49,15 +49,14 @@ export const env = {
     webhookSecret: optional('RAZORPAY_WEBHOOK_SECRET'),
   },
 
-  google: {
-    // The whole point of this server: this key used to ship in the JS bundle.
-    apiKey: optional('GOOGLE_AI_KEY'),
-    model: optional('GOOGLE_AI_MODEL', 'veo-3.1-generate-preview'),
-  },
 
-  // Animated carousels. Images and slide copy both go through fal, so one key
-  // covers both — and it is a different vendor from Veo on purpose, so a
-  // depleted balance on one does not take the other down with it.
+  // Every generation in the product: Blink AI video, animated-carousel images
+  // and the slide copy. One vendor and one key.
+  //
+  // Video used to be Google Veo on a separate balance. When that balance ran
+  // dry, Blink AI went down for every paying Growth subscriber while the rest
+  // of the product carried on — two balances meant two ways to go dark, and the
+  // second one was easy to forget about until a customer found it.
   fal: {
     key: optional('FAL_KEY'),
     // Establishes the character on slide 1.
@@ -66,6 +65,12 @@ export const env = {
     editModel: optional('FAL_EDIT_MODEL', 'fal-ai/nano-banana/edit'),
     // Writes the slide copy and the character brief.
     textModel: optional('FAL_TEXT_MODEL', 'google/gemini-flash-1.5'),
+
+    // Blink AI. Two entries because the model family splits text-to-video from
+    // image-to-video, and a generation anchored to a creator still needs the
+    // second one.
+    videoModel: optional('FAL_VIDEO_MODEL', 'fal-ai/wan/v2.2-a14b/text-to-video'),
+    videoImageModel: optional('FAL_VIDEO_IMAGE_MODEL', 'fal-ai/wan/v2.2-a14b/image-to-video'),
   },
 
   // Animated carousels cost roughly $0.20 each against a $7.99 plan, so past
@@ -78,7 +83,6 @@ export const env = {
 env.razorpay.configured = Boolean(
   env.razorpay.keyId && env.razorpay.keySecret && env.razorpay.webhookSecret
 )
-env.google.configured = Boolean(env.google.apiKey)
 env.fal.configured = Boolean(env.fal.key)
 
 /**
@@ -133,9 +137,6 @@ if (!env.razorpay.configured) {
       '    Trials still work, so sign-in and the app are fully usable.'
   )
 }
-if (!env.google.configured) {
-  console.warn('  ⚠ GOOGLE_AI_KEY is not set — Blink AI generation will return 503.')
-}
 if (!env.fal.configured) {
-  console.warn('  ⚠ FAL_KEY is not set — animated carousels will return 503.')
+  console.warn('  ⚠ FAL_KEY is not set — Blink AI and animated carousels will return 503.')
 }

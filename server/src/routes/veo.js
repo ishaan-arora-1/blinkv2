@@ -11,7 +11,7 @@ import {
   startGeneration,
   pollOperation,
   downloadVideo,
-} from '../veo.js'
+} from '../video.js'
 
 // requireAuth is applied where this router is mounted, so the rate limiter can
 // key on req.user. Every route below can assume req.user exists.
@@ -33,7 +33,7 @@ veoRouter.post(
   '/generate',
   requireFeature('blink'),
   wrap(async (req, res) => {
-    if (!env.google.configured) {
+    if (!env.fal.configured) {
       throw new ApiError(
         503,
         'generation_not_configured',

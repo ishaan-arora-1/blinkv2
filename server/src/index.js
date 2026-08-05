@@ -61,10 +61,10 @@ app.get('/health', (req, res) =>
     originAllowed: req.get('origin') ? isOriginAllowed(req.get('origin')) : null,
     integrations: {
       razorpay: env.razorpay.configured,
-      googleVeo: env.google.configured,
-      // Animated carousels. Worth reporting for the same reason as the others:
-      // a missing key here is a 503 on a feature the pricing page sells, and
-      // one curl is a much better way to find that out than a customer is.
+      // One key now covers Blink AI video, animated-carousel images and slide
+      // copy. Worth reporting for the same reason as Razorpay: a missing key
+      // here is a 503 on features the pricing page sells, and one curl is a
+      // much better way to find that out than a customer is.
       fal: env.fal.configured,
     },
     // Which Razorpay mode the deployed key belongs to. Not secret — it is a
