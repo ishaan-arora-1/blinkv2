@@ -1,5 +1,5 @@
 /**
- * Seeds two accounts into a LOCAL Supabase stack.
+ * Seeds three accounts into a LOCAL Supabase stack.
  *
  *   node supabase/seed-local.mjs
  *
@@ -7,12 +7,13 @@
  * separating "seed a test account" from "write rows into production" is the URL
  * in an env file.
  *
- *   dev@blinkugc.test    subscribed to Starter — can make animated carousels
- *   trial@blinkugc.test  on the free trial    — animated carousels are blocked
+ *   free@blinkugc.test    no subscription     — photo carousels only
+ *   dev@blinkugc.test     Starter             — + hook videos, animated, own sets
+ *   growth@blinkugc.test  Growth              — + Blink AI
  *
- * Both with password `devpassword`. The pair is the point: the whole reason
- * paid_tier() exists is that these two accounts have the same entitled tier and
- * must behave differently.
+ * All with password `devpassword`. One per tier is the point: every gate in the
+ * product is a comparison between two of these three accounts, and the free one
+ * is the account most of the UI has never been looked at as.
  */
 const API = process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
 const SERVICE_ROLE =
@@ -67,50 +68,49 @@ const brand = (userId, appName) => ({
   onboarded: true,
 })
 
-// ── paid account ──
-const paidId = await createUser('dev@blinkugc.test')
-await rest('brands?on_conflict=user_id', {
-  method: 'POST',
-  headers: { Prefer: 'resolution=merge-duplicates' },
-  body: JSON.stringify(brand(paidId, 'Aurelia')),
-})
-// on_conflict names the column to upsert on; without it a re-run collides on
-// the unique razorpay id instead of updating the row.
-await rest('subscriptions?on_conflict=razorpay_subscription_id', {
-  method: 'POST',
-  headers: { Prefer: 'resolution=merge-duplicates' },
-  body: JSON.stringify({
-    user_id: paidId,
-    plan_id: 'starter',
-    razorpay_subscription_id: `sub_local_${paidId.slice(0, 8)}`,
-    status: 'active',
-    current_end: new Date(Date.now() + 30 * 864e5).toISOString(),
-  }),
-})
-// Expire the trial rather than clearing it — the column is NOT NULL, and a
-// past date is what a customer who subscribed and moved on actually looks like.
-await rest(`profiles?id=eq.${paidId}`, {
-  method: 'PATCH',
-  body: JSON.stringify({ trial_ends_at: new Date(Date.now() - 864e5).toISOString() }),
-})
+async function seed(email, appName, planId) {
+  const id = await createUser(email)
+  // The signup trigger has already made this account its first brand, so this
+  // fills that row in rather than upserting. It cannot upsert: since 0011 there
+  // is deliberately no unique constraint on user_id for ON CONFLICT to name.
+  await rest(`brands?user_id=eq.${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(brand(id, appName)),
+  })
+  // Clear first, always. entitled_tier() takes the highest-ranked live
+  // subscription, so one forgotten row from an afternoon of manual testing
+  // silently promotes the account and the seed reports a tier it did not
+  // create. Owning the whole set is the only way this stays true on a re-run.
+  await rest(`subscriptions?user_id=eq.${id}`, { method: 'DELETE' })
 
-// ── trial account ──
-const trialId = await createUser('trial@blinkugc.test')
-await rest('brands?on_conflict=user_id', {
-  method: 'POST',
-  headers: { Prefer: 'resolution=merge-duplicates' },
-  body: JSON.stringify(brand(trialId, 'Northbound')),
-})
-await rest(`profiles?id=eq.${trialId}`, {
-  method: 'PATCH',
-  body: JSON.stringify({ trial_ends_at: new Date(Date.now() + 7 * 864e5).toISOString() }),
-})
+  if (planId) {
+    await rest('subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: id,
+        plan_id: planId,
+        razorpay_subscription_id: `sub_local_${planId}_${id.slice(0, 8)}`,
+        status: 'active',
+        current_end: new Date(Date.now() + 30 * 864e5).toISOString(),
+      }),
+    })
+  }
+  return id
+}
+
+const accounts = [
+  ['free@blinkugc.test', 'Northbound', null, 'photo carousels only'],
+  ['dev@blinkugc.test', 'Aurelia', 'starter', '+ videos, animated, own sets'],
+  ['growth@blinkugc.test', 'Halcyon', 'growth', '+ Blink AI'],
+]
 
 const check = async (id) =>
   (await rest(`rpc/entitled_tier`, { method: 'POST', body: JSON.stringify({ p_user_id: id }) })) +
-  ' / ' +
+  '/' +
   (await rest(`rpc/paid_tier`, { method: 'POST', body: JSON.stringify({ p_user_id: id }) }))
 
-console.log('seeded — password for both is "devpassword"')
-console.log(`  dev@blinkugc.test    entitled/paid = ${await check(paidId)}   → animated allowed`)
-console.log(`  trial@blinkugc.test  entitled/paid = ${await check(trialId)}   → animated blocked`)
+console.log('seeded — password for all three is "devpassword"')
+for (const [email, appName, planId, note] of accounts) {
+  const id = await seed(email, appName, planId)
+  console.log(`  ${email.padEnd(22)} entitled/paid = ${(await check(id)).padEnd(16)} ${note}`)
+}
