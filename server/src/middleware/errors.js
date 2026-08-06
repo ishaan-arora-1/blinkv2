@@ -30,10 +30,25 @@ export function errorHandler(err, req, res, _next) {
   } else {
     console.warn(`[${status}] ${req.method} ${req.path} — ${err.message}`)
   }
+
+  // What gets masked is authorship, not status code.
+  //
+  // An ApiError's message was written to be read by whoever hit it — that is
+  // the entire reason razorpayMessage() digs the gateway's own description out
+  // of the SDK's error. Masking on `status >= 500` threw all of that away: a
+  // customer whose checkout failed, and the person they then emailed, both got
+  // "Something went wrong on our side" instead of "your card was declined" or
+  // "the Starter plan is not connected to a Razorpay plan yet" — the latter
+  // being a deployment mistake DEPLOY.md tells you to go looking for by its
+  // message.
+  //
+  // Anything that is not an ApiError arrived here by accident and may carry a
+  // connection string or a stack frame, so it still says nothing.
+  const authored = err instanceof ApiError
   res.status(status).json({
     error: {
       code: err.code || 'server_error',
-      message: status >= 500 ? 'Something went wrong on our side.' : err.message,
+      message: authored ? err.message : 'Something went wrong on our side.',
       ...(err.extra || {}),
     },
   })
