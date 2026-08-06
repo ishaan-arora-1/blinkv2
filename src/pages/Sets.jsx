@@ -1,7 +1,9 @@
 import React, { useRef, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
+import { useAuth } from '../lib/auth.jsx'
 import { builtinSets } from '../lib/library.js'
 import { useSetImages, displayThumb } from '../lib/useImages.js'
+import Upsell from '../components/Upsell.jsx'
 
 function SetCard({ set, busy, onDelete, onAddImages, onRemoveImage }) {
   const urls = useSetImages(set)
@@ -50,6 +52,7 @@ function SetCard({ set, busy, onDelete, onAddImages, onRemoveImage }) {
 
 export default function Sets() {
   const store = useStore()
+  const { can } = useAuth()
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [busySet, setBusySet] = useState(null)
@@ -90,8 +93,20 @@ export default function Sets() {
             section (hook / body / CTA) and shuffle within it.
           </p>
         </div>
-        <button className="btn primary" onClick={() => setCreating(true)}>+ New custom set</button>
+        {can.sets && <button className="btn primary" onClick={() => setCreating(true)}>+ New custom set</button>}
       </div>
+
+      {/* The built-in collections below stay usable on every plan — they are
+          what a free photo carousel is built from, so hiding this page would
+          hide the thing the free tier runs on. Only uploading is bought. */}
+      {!can.sets && (
+        <div style={{ marginBottom: 22 }}>
+          <Upsell
+            feature="sets"
+            pitch="Upload your own product photography into named sets and build carousels straight from it, instead of choosing from the built-in collections below."
+          />
+        </div>
+      )}
 
       {error && (
         <div className="card" style={{ borderColor: 'rgba(255,122,89,0.4)', marginBottom: 18 }}>

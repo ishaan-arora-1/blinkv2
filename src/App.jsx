@@ -4,7 +4,7 @@ import { useAuth } from './lib/auth.jsx'
 import { useStore } from './lib/store.jsx'
 import { isApiConfigured } from './lib/api.js'
 import { isConfigured as isSupabaseConfigured } from './lib/supabase.js'
-import { planFor } from './lib/tiers.js'
+import { planFor, isPaying } from './lib/tiers.js'
 
 import Dashboard from './pages/Dashboard.jsx'
 import Brand from './pages/Brand.jsx'
@@ -24,10 +24,15 @@ import Logo from './components/Logo.jsx'
 
 export { go }
 
+// `feature` marks a nav item that needs a plan. Carousels has none: photo
+// carousels are free, and the wizard is where the animated half gets locked.
+// Image Sets is listed without one too — the page is worth seeing on the free
+// tier, since the built-in collections it shows are what free carousels are
+// built from. It locks the uploading, not the looking.
 const NAV = [
   { path: '/dashboard', label: 'Studio', ico: '◍', section: null },
   { path: '/carousels', label: 'Carousels', ico: '❏', section: 'Create' },
-  { path: '/videos', label: 'Videos', ico: '▶', section: null },
+  { path: '/videos', label: 'Videos', ico: '▶', section: null, feature: 'videos' },
   { path: '/blink', label: 'Blink AI', ico: '✦', section: null, feature: 'blink' },
   { path: '/library', label: 'Library', ico: '▤', section: null },
   { path: '/sets', label: 'Image Sets', ico: '❖', section: 'Setup' },
@@ -35,7 +40,7 @@ const NAV = [
   { path: '/account', label: 'Account', ico: '◎', section: null },
 ]
 
-// Reachable without an active plan, so a lapsed user can always get back in.
+// Rendered before the store has loaded, so billing is always reachable.
 const BILLING_ROUTES = ['/pricing', '/account']
 
 function missingConfig() {
@@ -83,16 +88,10 @@ export default function App() {
     )
   }
 
-  // ── paywall ──
-  // The client hiding a feature is a courtesy; the API is what enforces it.
-  if (auth.entitlement.tier === 'none' && !BILLING_ROUTES.includes(route)) {
-    return (
-      <Shell route="/pricing" auth={auth} minimal>
-        <Pricing />
-      </Shell>
-    )
-  }
-
+  // There is no paywall in front of the studio any more. Every signed-in
+  // account is on at least the free tier, which is photo carousels, so the door
+  // is always open and the locks live on the individual features instead. The
+  // client hiding one is a courtesy; the API is what enforces it.
   return (
     <Shell route={route} auth={auth}>
       <Routed route={route} auth={auth} />
@@ -133,7 +132,7 @@ function Routed({ route, auth }) {
   return <Dashboard />
 }
 
-function Shell({ route, auth, children, minimal = false }) {
+function Shell({ route, auth, children }) {
   const store = useStore()
   const isEditor = route.startsWith('/carousel/') || route.startsWith('/video/')
   const brand = store.state.brand
@@ -160,9 +159,9 @@ function Shell({ route, auth, children, minimal = false }) {
     }
   }, [navOpen])
 
-  // Onboarding and the lapsed-plan paywall are both full-bleed: no sidebar to
-  // navigate away into features that are not available yet.
-  const bare = minimal || (store.status === 'ready' && !brand.onboarded)
+  // Onboarding is full-bleed: no sidebar to navigate away into features that
+  // have nothing to work with until a brand exists.
+  const bare = store.status === 'ready' && !brand.onboarded
 
   if (bare) {
     return (
@@ -277,15 +276,9 @@ function BrandSwitcher({ store, brand }) {
 }
 
 function PlanBadge({ entitlement }) {
-  if (entitlement.onTrial && !entitlement.subscription) {
-    const d = entitlement.trialDaysLeft
-    return (
-      <a className="plan-badge trial" href="#/pricing">
-        <b>{d} {d === 1 ? 'day' : 'days'} left</b>
-        <span>on your free trial — see plans</span>
-      </a>
-    )
-  }
+  // Payment trouble outranks the upsell: someone whose card is failing is
+  // already a customer, and selling to them instead of telling them is how you
+  // lose one.
   if (entitlement.paymentRetrying) {
     return (
       <a className="plan-badge warn" href="#/account">
@@ -298,7 +291,15 @@ function PlanBadge({ entitlement }) {
     return (
       <a className="plan-badge warn" href="#/account">
         <b>Plan ending</b>
-        <span>resubscribe to keep access</span>
+        <span>you keep photo carousels either way</span>
+      </a>
+    )
+  }
+  if (!isPaying(entitlement)) {
+    return (
+      <a className="plan-badge trial" href="#/pricing">
+        <b>Free plan</b>
+        <span>photo carousels — see what's on Starter</span>
       </a>
     )
   }

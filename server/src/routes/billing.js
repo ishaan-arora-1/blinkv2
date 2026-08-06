@@ -19,7 +19,7 @@ billingRouter.use((_req, _res, next) => {
       new ApiError(
         503,
         'billing_not_configured',
-        'Payments are not set up yet. Everything else still works on your trial.'
+        'Payments are not set up yet. Photo carousels still work on the free tier.'
       )
     )
   }
@@ -36,17 +36,15 @@ const LIVE_STATUSES = ['active', 'authenticated', 'pending']
 /*
  * Subscriptions bill from the moment they are authorised.
  *
- * This used to defer the first charge to the end of the trial with `start_at`,
- * on the reasoning that someone promised seven free days should get all seven.
- * What the customer actually saw was a token authorisation charge — about
- * $0.50 to validate the mandate — followed by the real amount days later, which
- * reads like a double charge and invites a dispute.
+ * There is deliberately no `start_at`. An earlier version deferred the first
+ * charge to the end of the trial, and what the customer actually saw was a
+ * token authorisation charge — about $0.50 to validate the mandate — followed
+ * by the real amount days later, which reads like a double charge and invites a
+ * dispute. Now that nothing is being deferred to, there is nothing to defer.
  *
- * Charging in full up front means the authorisation and the first payment are
- * the same transaction, for the amount on the pricing page. The unused part of
- * the trial is given up in exchange for the plan starting immediately; that is
- * the trade being offered, so the pricing page says so before the button is
- * pressed rather than leaving it to the bank statement.
+ * Omitting start_at means the authorisation and the first payment are one
+ * transaction, for exactly the amount on the pricing page, and access starts
+ * the moment it settles. Buying and paying are the same event.
  */
 
 /** Reuse one Razorpay customer per user across every subscription they create. */

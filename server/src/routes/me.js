@@ -17,7 +17,7 @@ meRouter.get(
     const [{ data: profile }, entitlement] = await Promise.all([
       admin
         .from('profiles')
-        .select('id, email, full_name, avatar_url, trial_ends_at, created_at')
+        .select('id, email, full_name, avatar_url, created_at')
         .eq('id', req.user.id)
         .maybeSingle(),
       resolveEntitlement(req.user.id),

@@ -47,14 +47,17 @@ supabase db push
 7. `supabase/migrations/0007_live_and_test_plans.sql` — separate test and live plan ids and prices
 8. `supabase/migrations/0008_brand_accent_default.sql` — brand accent default moved to the Blink UGC violet
 9. `supabase/migrations/0009_trial_excludes_blink.sql` — the trial grants Starter, so Blink AI needs a paid Growth plan
+10. `supabase/migrations/0010_animated_carousels.sql` — animated carousels, slide rows, and `paid_tier()`
+11. `supabase/migrations/0011_multiple_brands.sql` — an account can hold more than one brand
+12. `supabase/migrations/0012_free_tier_no_trial.sql` — the trial becomes a permanent free tier; custom image sets move to Starter
 
-Run them in order and all nine of them. 0005 and 0006 rename columns that the API
+Run them in order and all twelve of them. 0005 and 0006 rename columns that the API
 reads (`price_paise` → `price_minor`, `amount_paise` → `amount_minor`), so a
 database stopped at 0004 will fail every billing request rather than degrade, and
 0007 is what keeps test-mode checkouts from charging live-mode prices.
 
-On the existing Blink UGC project this is already done, and 0001–0008 are recorded
-in the CLI's migration history, so a new migration is just:
+On the existing Blink UGC project this is already done, and the applied ones are
+recorded in the CLI's migration history, so a new migration is just:
 
 ```bash
 supabase db push
@@ -350,24 +353,36 @@ Work through this in order — each step depends on the previous one:
 1. `GET /health` on the API returns `{"ok":true}`.
 2. The web app loads and shows the sign-in screen, not the "isn't configured yet" screen.
 3. Sign in with Google. You land on onboarding, and a row appears in `public.profiles`
-   with `trial_ends_at` seven days out.
-4. Finish onboarding, create a carousel, reload — it is still there. Open it in a
-   different browser signed into the same account; it is there too.
-5. Blink AI is available (the trial grants Studio). Generate a short clip; a row appears
-   in `public.blinks` moving `rendering → ready`, and an object appears in the
-   `generations` bucket.
-6. Expire the trial by hand:
-   ```sql
-   update profiles set trial_ends_at = now() - interval '1 day' where email = 'you@example.com';
+   with `trial_ends_at` null — nothing stamps a trial any more.
+4. Finish onboarding, create a photo carousel, reload — it is still there. Open it in a
+   different browser signed into the same account; it is there too. All of this on the
+   free tier, with no subscription anywhere.
+5. Still on free: Videos, Blink AI and the "+ New custom set" button each show an upsell
+   rather than the feature, and the animated tile in the carousel wizard is locked.
+6. Confirm the free tier is enforced, not just hidden — from the browser console of a
+   signed-in free account:
+   ```js
+   await supabase.from('image_sets').insert({ user_id: (await supabase.auth.getUser()).data.user.id, name: 'x' })
    ```
-   Reload — you should be held at the pricing page.
-7. Subscribe to Creator with a [Razorpay test card](https://razorpay.com/docs/payments/payments/test-card-details/).
-   Access returns, Blink AI shows the Studio upsell, `public.subscriptions` has an
+   It must come back with a row-level-security error. If it inserts, 0012 did not run.
+7. Subscribe to Starter with a [Razorpay test card](https://razorpay.com/docs/payments/payments/test-card-details/).
+   The full $7.99 is charged immediately — not a token authorisation — hook videos and
+   image sets unlock, Blink AI shows the Growth upsell, `public.subscriptions` has an
    `active` row, and `public.webhook_events` has entries with `processed_at` set.
-8. Upgrade to Studio. Blink AI unlocks and the previous subscription is cancelled at
+8. Upgrade to Growth. Blink AI unlocks and the previous subscription is cancelled at
    Razorpay.
-9. Cancel from the account page. `cancel_at_cycle_end` becomes true and access continues
-   to the period end.
+9. Cancel from the account page. `cancel_at_cycle_end` becomes true, access continues to
+   the period end, and after it you drop to free rather than being locked out.
+
+Or run the whole entitlement half of that against a running API:
+
+```bash
+cd server && node scripts/verify-tiers.mjs
+```
+
+It creates a throwaway account, walks it free → Starter → Growth → cancelled, checks
+both the API gates and the RLS ones at each step, and deletes the account afterwards.
+Point it at a non-production Supabase project: it writes subscription rows.
 
 If step 7 grants access but `webhook_events` stays empty, the webhook secret or URL is
 wrong. Fix it before taking real money — without it, renewals and failed payments are
@@ -406,18 +421,24 @@ invisible to the app.
 
 ## 9 · Things worth knowing
 
-**Entitlement lives in one place.** `public.entitled_tier(user_id)` in
-`0002_billing.sql` is the definition; the API reads through it rather than
+**Entitlement lives in one place.** `public.entitled_tier(user_id)`, last redefined in
+`0012_free_tier_no_trial.sql`, is the definition; the API reads through it rather than
 reimplementing the rules. Change the policy there and both agree by construction.
 
-**The trial is a column, not a Razorpay object.** `profiles.trial_ends_at`, seven days,
-set by the signup trigger. No card is collected. To change the length, edit the column
-default in `0001_init.sql`.
+**The free tier is the absence of a subscription.** There is no row for it in `plans`
+and no Razorpay object behind it — `entitled_tier()` simply returns `'free'` when it
+finds nothing live. `profiles.trial_ends_at` is a historical column now; nothing reads
+it and new signups leave it null.
+
+**Custom image sets are gated in RLS, not in the API.** They are the one feature the
+browser writes directly, with the user's own token, never touching the Express server —
+so the insert policies on `image_sets` and `set_images` are the enforcement, and the
+React check is only there to explain it. Everything else is gated by `requireFeature()`.
 
 **Users cannot write their own entitlement.** RLS restricts which *rows* a user touches;
 column privileges restrict which *fields*. `profiles` grants `UPDATE` on only
-`full_name` and `avatar_url` — without that, a user could set their own `trial_ends_at`
-from the browser console and never pay.
+`full_name` and `avatar_url` — without that, a user could write their own billing
+columns from the browser console and never pay.
 
 **Blinks and subscriptions are server-written.** Neither table has an insert policy for
 authenticated users, so a paid generation or an active plan cannot be fabricated client

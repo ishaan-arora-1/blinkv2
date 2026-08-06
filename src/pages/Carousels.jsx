@@ -166,8 +166,9 @@ function SetTile({ set, selected, suggested, onSelect }) {
 /**
  * Which of the two carousels to make.
  *
- * Animated carousels are metered, so this is also where the trial gets told no
- * — before a character is picked and a topic written, rather than after.
+ * Also where the free tier gets told no. Animated carousels are metered — every
+ * slide is an image we are billed for — so the lock belongs here, before a
+ * character is picked and a topic written, rather than after.
  */
 function KindStep({ canAnimate, lock, onPick }) {
   return (
@@ -176,7 +177,7 @@ function KindStep({ canAnimate, lock, onPick }) {
         <div style={{ fontSize: 26, color: 'var(--brand)' }}>❏</div>
         <div className="tile-title" style={{ marginTop: 10, fontSize: 15 }}>Photo carousel</div>
         <div className="tile-sub" style={{ marginTop: 6 }}>
-          Your copy over our photography, or your own. Free on your plan, instant.
+          Your copy over our photography, or your own. Free on every plan, instant.
         </div>
       </button>
 
@@ -516,7 +517,7 @@ function AnimatedFlow({ store, onClose }) {
 }
 
 function NewCarouselWizard({ store, onClose }) {
-  const { can, entitlement } = useAuth()
+  const { can } = useAuth()
   const [kind, setKind] = useState(null)
   const [step, setStep] = useState(0)
   const [setId, setSetId] = useState(null)
@@ -551,11 +552,7 @@ function NewCarouselWizard({ store, onClose }) {
             </div>
             <button className="btn ghost sm" onClick={onClose}>✕</button>
           </div>
-          <KindStep
-            canAnimate={can.animated}
-            lock={lockReason('animated', entitlement)}
-            onPick={setKind}
-          />
+          <KindStep canAnimate={can.animated} lock={lockReason('animated')} onPick={setKind} />
         </div>
       </div>
     )

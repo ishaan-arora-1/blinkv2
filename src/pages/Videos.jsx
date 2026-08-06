@@ -1,29 +1,58 @@
 import React, { useRef, useState } from 'react'
 import { useStore } from '../lib/store.jsx'
+import { useAuth } from '../lib/auth.jsx'
 import { CREATORS, hookPoster } from '../lib/creators.js'
 import { newId } from '../lib/ids.js'
 import HookPreview from '../components/HookPreview.jsx'
+import Upsell from '../components/Upsell.jsx'
 
 export default function Videos() {
   const store = useStore()
+  const { can } = useAuth()
   const { videos } = store.state
   const [wizard, setWizard] = useState(false)
 
   const valid = videos.filter((p) => store.getCharacter(p.characterId))
 
+  // Videos a free account made before this was a paid feature stay listed and
+  // openable below. What Starter buys is making another one, so only the
+  // wizard is behind the lock.
+  const head = (
+    <div className="page-head row between" style={{ alignItems: 'flex-end' }}>
+      <div>
+        <div className="page-kicker">Create</div>
+        <h1 className="page-title">Hook <em>videos</em></h1>
+        <p className="page-sub">
+          A real AI creator reacts to your product in a 3-second hook, then your screen recording plays.
+          Trim it, score it, caption it, export it.
+        </p>
+      </div>
+      {can.videos && <button className="btn primary" onClick={() => setWizard(true)}>▶ New video</button>}
+    </div>
+  )
+
+  if (!can.videos) {
+    return (
+      <div>
+        {head}
+        <Upsell
+          feature="videos"
+          pitch="Every creator in the roster, unlimited hooks, your screen recording cut in behind them, exported at 1080 × 1920 for Reels and TikTok."
+        />
+        {valid.length > 0 && (
+          <div className="grid portrait mt-6">
+            {[...valid].sort((a, b) => b.createdAt - a.createdAt).map((p) => (
+              <VideoCard key={p.id} proj={p} char={store.getCharacter(p.characterId)} store={store} />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div>
-      <div className="page-head row between" style={{ alignItems: 'flex-end' }}>
-        <div>
-          <div className="page-kicker">Create</div>
-          <h1 className="page-title">Hook <em>videos</em></h1>
-          <p className="page-sub">
-            A real AI creator reacts to your product in a 3-second hook, then your screen recording plays.
-            Trim it, score it, caption it, export it.
-          </p>
-        </div>
-        <button className="btn primary" onClick={() => setWizard(true)}>▶ New video</button>
-      </div>
+      {head}
 
       {valid.length === 0 ? (
         <div className="empty">

@@ -22,27 +22,33 @@ storefronts and B2B software as well as apps.
 
 ## Plans
 
-Sign-in is Google, via Supabase Auth. Every account starts with a **7-day trial**
-at the Starter tier, no card required. The trial deliberately stops short of
-Blink AI: generated video is billed per clip, so it is the one feature where
-a free account can run up a real bill, and it stays behind a paid Growth
-subscription. `entitled_tier()` in `0009_trial_excludes_blink.sql` is where that
-line is drawn.
+Sign-in is Google, via Supabase Auth. Every account lands on a permanent **free
+tier**, no card and no countdown. There is no trial and no lapsed state: the
+door is always open, and the locks are on individual features.
+
+The line between free and paid is what a use of the feature costs us. Photo
+carousels are composed in the browser from our own photography and our own copy
+templates — no vendor is billed, nothing renders on our side — so there is
+nothing to meter and no reason to charge for them. Everything above that line
+either bills a vendor per generation or holds storage we pay for.
+`entitled_tier()` in `0012_free_tier_no_trial.sql` is where that is drawn.
 
 Subscribing bills the full amount straight away and starts the billing month
-from that day, so any unused trial time is given up in exchange for the plan
-starting immediately. The pricing page says so before the button is pressed.
+from that day: buying and paying are one transaction. Cancelling drops you back
+to free rather than out, and nothing you made is deleted.
 
 Live prices are below; the test-mode Razorpay plans price Growth at $14.99, which
 is why the two modes keep separate columns in `plans` — see DEPLOY.md.
 
-| | Starter — $7.99/mo | Growth — $25.99/mo |
-|---|---|---|
-| Carousels | ✓ | ✓ |
-| Hook videos | ✓ | ✓ |
-| Custom image sets | ✓ | ✓ |
-| Cloud sync | ✓ | ✓ |
-| Blink AI | — | ✓ |
+| | Free | Starter — $7.99/mo | Growth — $25.99/mo |
+|---|---|---|---|
+| Photo carousels | ✓ | ✓ | ✓ |
+| Built-in image sets | ✓ | ✓ | ✓ |
+| Cloud sync | ✓ | ✓ | ✓ |
+| Hook videos | — | ✓ | ✓ |
+| Animated carousels | — | ✓ | ✓ |
+| Custom image sets | — | ✓ | ✓ |
+| Blink AI | — | — | ✓ |
 
 Billing is Razorpay subscriptions, monthly, charged in **USD** (the Razorpay
 account has international payments enabled).

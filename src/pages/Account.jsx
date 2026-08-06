@@ -83,19 +83,8 @@ export default function Account() {
         <div className="card">
           <div className="row between">
             <h4>Plan</h4>
-            {entitlement.onTrial && <span className="chip accent">trial</span>}
+            {!sub && <span className="chip">free</span>}
           </div>
-
-          {entitlement.onTrial && !sub && (
-            <div className="mt-4">
-              <div style={{ fontFamily: 'var(--display)', fontSize: 18 }}>Free trial</div>
-              <div className="small muted mt-2">
-                {entitlement.trialDaysLeft} {entitlement.trialDaysLeft === 1 ? 'day' : 'days'} left —
-                carousels and hook videos, no card on file. Ends {fmtDate(entitlement.trialEndsAt)}.
-              </div>
-              <button className="btn primary sm mt-4" onClick={() => go('/pricing')}>Choose a plan →</button>
-            </div>
-          )}
 
           {sub && (
             <div className="mt-4">
@@ -137,10 +126,13 @@ export default function Account() {
             </div>
           )}
 
-          {!sub && !entitlement.onTrial && (
+          {!sub && (
             <div className="mt-4">
-              <div style={{ fontFamily: 'var(--display)', fontSize: 18 }}>No active plan</div>
-              <div className="small muted mt-2">Your work is saved and waiting.</div>
+              <div style={{ fontFamily: 'var(--display)', fontSize: 18 }}>Free</div>
+              <div className="small muted mt-2">
+                Unlimited photo carousels over the built-in photography, with no card on file and no
+                end date. Starter adds hook videos, animated carousels and your own image sets.
+              </div>
               <button className="btn primary sm mt-4" onClick={() => go('/pricing')}>See plans →</button>
             </div>
           )}
@@ -185,8 +177,8 @@ export default function Account() {
           <div className="modal" style={{ width: 440 }} onClick={(e) => e.stopPropagation()}>
             <h3>Cancel your plan?</h3>
             <div className="sub">
-              You keep full access until {fmtDate(sub?.currentEnd)}, and nothing you've made is deleted.
-              You can resubscribe any time.
+              You keep full access until {fmtDate(sub?.currentEnd)}, then drop to the free tier —
+              photo carousels stay, and nothing you've made is deleted. You can resubscribe any time.
             </div>
             <div className="row mt-4" style={{ justifyContent: 'flex-end' }}>
               <button className="btn ghost" onClick={() => setConfirming(false)}>Keep my plan</button>

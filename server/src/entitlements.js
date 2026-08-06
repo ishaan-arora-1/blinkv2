@@ -1,19 +1,30 @@
 import { admin } from './supabase.js'
 
-// Mirrors public.entitled_tier(), last redefined in 0009_trial_excludes_blink.sql.
+// Mirrors public.entitled_tier(), last redefined in 0012_free_tier_no_trial.sql.
 // The SQL function is the canonical definition; this reads through it rather than
 // reimplementing the rules, so the two cannot drift.
 
 // Tier names match the customer-facing plan names on purpose, so a support
 // question about "Growth" does not need translating to read the database.
-export const TIER_RANK = { none: 0, starter: 1, growth: 2 }
+//
+// 'free' is a real tier, not the absence of one. Every signed-in account has at
+// least this, permanently — there is no lapsed state below it to fall into.
+export const TIER_RANK = { free: 0, starter: 1, growth: 2 }
 
-// What each feature costs you in tier. Everything needs a paid plan — free
-// accounts exist only to hold a trial and a card-less signup.
+/**
+ * What each feature costs you in tier.
+ *
+ * The line between free and paid is what a use of the feature costs us. Photo
+ * carousels are composed in the browser from our own stock photography and our
+ * own copy templates: no vendor is billed, no render runs on our side, so there
+ * is nothing for a plan to meter and no reason to make anyone buy one. Every
+ * other feature either bills a vendor per use or holds storage we pay for.
+ */
 export const FEATURE_TIER = {
-  carousels: 'starter',
+  carousels: 'free',
   videos: 'starter',
   animated: 'starter',
+  sets: 'starter',
   blink: 'growth',
 }
 
@@ -21,15 +32,14 @@ export const FEATURE_TIER = {
  * Features that spend money at a vendor on every single use.
  *
  * These are checked against paid_tier() rather than entitled_tier(), which is
- * the difference between "may see it" and "has bought it". The trial grants
- * 'starter' (0009), so a tier check alone would let any signup generate
- * animated carousels on our bill — the exact hole 0009 closed for Blink AI by
- * putting it on a tier the trial cannot reach.
+ * the difference between "may see it" and "has bought it". Those two answers
+ * are identical for every account today — the trial that used to separate them
+ * is gone as of 0012, and nothing else grants a tier without a payment.
  *
- * 'blink' is listed even though 'growth' already puts it out of the trial's
- * reach. It is a metered feature and belongs here on its own merits; leaving it
- * out would mean the set silently stops being the answer to "what costs us
- * money" the moment the trial's tier changes.
+ * The distinction is kept anyway, for the same reason the SQL function is: it
+ * costs one property on an object, and it is the difference between a future
+ * comp'd or promotional tier being a pricing decision and it being an
+ * unmetered vendor bill nobody notices until it arrives.
  */
 export const METERED = new Set(['animated', 'blink'])
 
@@ -41,6 +51,7 @@ export const FEATURE_LABEL = {
   carousels: 'Photo carousels',
   videos: 'Hook videos',
   animated: 'Animated carousels',
+  sets: 'Custom image sets',
   blink: 'Blink AI',
 }
 
@@ -71,12 +82,10 @@ export async function resolveEntitlement(userId) {
   const [
     { data: tierData, error: tierErr },
     { data: paidData, error: paidErr },
-    { data: profile },
     { data: subs },
   ] = await Promise.all([
     admin.rpc('entitled_tier', { p_user_id: userId }),
     admin.rpc('paid_tier', { p_user_id: userId }),
-    admin.from('profiles').select('trial_ends_at').eq('id', userId).maybeSingle(),
     admin
       .from('subscriptions')
       .select('*, plan:plans(*)')
@@ -88,9 +97,8 @@ export async function resolveEntitlement(userId) {
   if (tierErr) throw new Error(`entitled_tier failed: ${tierErr.message}`)
   if (paidErr) throw new Error(`paid_tier failed: ${paidErr.message}`)
 
-  const tier = tierData || 'none'
-  const paidTier = paidData || 'none'
-  const trialEndsAt = profile?.trial_ends_at || null
+  const tier = tierData || 'free'
+  const paidTier = paidData || 'free'
 
   // The subscription actually granting access right now, if any.
   const live = (subs || [])
@@ -101,24 +109,11 @@ export async function resolveEntitlement(userId) {
     )
     .sort((a, b) => (b.plan?.rank ?? 0) - (a.plan?.rank ?? 0))[0] || null
 
-  // Subscribing bills immediately and starts the plan there and then, so a
-  // paying customer is not on a trial any more even if the original seven days
-  // have not run out. Saying otherwise would have the account page offering a
-  // free trial to someone who has already been charged.
-  const onTrial = Boolean(trialEndsAt && new Date(trialEndsAt) > new Date() && !live)
-
   return {
     tier,
-    // What they have actually bought, ignoring the trial. The client needs it
-    // to explain why a Starter-tier feature is still locked during a trial —
-    // "upgrade" is the wrong word when the plan is already Starter.
+    // What they have actually bought, ignoring anything granted for free.
     paidTier,
     features: featuresFor(tier, paidTier),
-    onTrial,
-    trialEndsAt,
-    trialDaysLeft: onTrial
-      ? Math.max(0, Math.ceil((new Date(trialEndsAt) - Date.now()) / 86_400_000))
-      : 0,
     // 'pending' means Razorpay is retrying a failed charge. Access continues,
     // but the UI should say so before it turns into 'halted'.
     paymentRetrying: live?.status === 'pending',

@@ -221,8 +221,8 @@ export default function Landing() {
             <div className="lp-cta">
               <SignInButton />
               <div className="lp-trust">
-                <b>Free for 7 days</b>, no card.
-                {cheapest && <> Then from {money(cheapest.price, cheapest.currency)}/month. Cancel anytime.</>}
+                <b>Photo carousels are free</b>, forever, no card.
+                {cheapest && <> The rest from {money(cheapest.price, cheapest.currency)}/month. Cancel anytime.</>}
               </div>
               {isLocalSupabase && <DevSignIn />}
             </div>
@@ -481,8 +481,7 @@ export default function Landing() {
                 </h2>
                 <p className="muted" style={{ marginTop: 14, fontSize: 15.5 }}>
                   When no premade hook fits, write the scene instead. Add a photo of your product, pick
-                  a creator to appear in it, and Blink generates the clip — Google Veo under the hood,
-                  metered on your plan.
+                  a creator to appear in it, and Blink generates the clip.
                 </p>
                 <ul className="lp-bullets">
                   <li><span className="tickmark">✓</span><span><b>4–8 second clips</b> at 720p or 1080p.</span></li>
@@ -492,7 +491,7 @@ export default function Landing() {
                 </ul>
                 <div className="row mt-6" style={{ gap: 10 }}>
                   <span className="chip accent">Growth plan</span>
-                  <span className="small muted">Included on Growth — not part of the free trial.</span>
+                  <span className="small muted">Included on Growth — the one thing that isn't on Starter.</span>
                 </div>
               </div>
               {/* Actual Veo generations, not creator hooks — this section is
@@ -551,12 +550,12 @@ export default function Landing() {
           <div className="lp-sec-head center">
             <div className="lp-kicker">Pricing</div>
             <h2>
-              Start free. Upgrade when it's <em>working</em>.
+              Free where it's free. Paid where it <em>renders</em>.
             </h2>
             <p>
-              Seven days of unlimited carousels and hook videos, no card required. Blink AI needs a
-              Growth plan. After that, pick the plan that matches how much you're posting — and
-              change or cancel it whenever you like.
+              Photo carousels cost nothing and always will — no card, no countdown, no day eight where
+              it stops working. Starter adds hook videos, animated carousels and your own image sets;
+              Growth adds Blink AI. Change or cancel whenever you like.
             </p>
           </div>
 
@@ -575,6 +574,31 @@ export default function Landing() {
 
           {plansState === 'ready' && shownPlans.length > 0 ? (
             <div className="lp-plans">
+              {/* Hardcoded, unlike the two beside it. The free tier is not a row
+                  in the plans table — nothing bills for it, nothing in Razorpay
+                  corresponds to it — so there is nothing to read it from. It is
+                  the absence of a subscription, described. */}
+              <div className="card plan">
+                <h3 style={{ fontSize: 20 }}>Free</h3>
+                <div className="plan-price">
+                  {money(0, shownPlans[0].currency)}
+                  <span className="small muted"> /forever</span>
+                </div>
+                <p className="small muted" style={{ minHeight: 38, marginTop: 8 }}>
+                  Photo carousels, unlimited, no card.
+                </p>
+                <ul className="plan-features">
+                  <li><span className="tickmark">✓</span>Unlimited photo carousels</li>
+                  <li><span className="tickmark">✓</span>Copy written from your brand and pitch</li>
+                  <li><span className="tickmark">✓</span>Five built-in photography collections</li>
+                  <li><span className="tickmark">✓</span>1080 × 1350 PNG and ZIP export</li>
+                  <li><span className="tickmark">✓</span>Cloud sync across devices</li>
+                </ul>
+                <div style={{ marginTop: 18 }}>
+                  <SignInButton label="Start free" className="btn" />
+                </div>
+              </div>
+
               {shownPlans.map((plan) => {
                 const twin = plans.find((p) => p.tier === plan.tier && p.period === 'monthly')
                 const saving =
@@ -603,7 +627,7 @@ export default function Landing() {
                     </ul>
                     <div style={{ marginTop: 18 }}>
                       <SignInButton
-                        label="Start 7 days free"
+                        label={`Get ${plan.name}`}
                         className={`btn ${plan.tier === 'growth' ? 'primary' : ''}`}
                       />
                     </div>
@@ -612,15 +636,15 @@ export default function Landing() {
               })}
             </div>
           ) : (
-            // Prices are unavailable, not unknown — the trial is the offer either
-            // way, so the section still converts.
+            // Prices are unavailable, not unknown — the free tier is the offer
+            // either way, so the section still converts.
             <div className="empty" style={{ maxWidth: 560, margin: '0 auto' }}>
               {plansState === 'loading' ? (
                 <span className="tick">Loading plans…</span>
               ) : (
                 <>
-                  <b>Seven days free, no card.</b>
-                  <div className="small mt-2">Sign in to see the current plans.</div>
+                  <b>Photo carousels are free, no card.</b>
+                  <div className="small mt-2">Sign in to see the paid plans.</div>
                 </>
               )}
             </div>
@@ -672,10 +696,12 @@ export default function Landing() {
               </p>
             </details>
             <details>
-              <summary>What happens after the trial?</summary>
+              <summary>What's actually free, and for how long?</summary>
               <p>
-                Nothing is deleted. Your projects, sets and exports stay exactly where they are — pick
-                a plan whenever you're ready and everything comes straight back.
+                Photo carousels — unlimited, over our built-in photography, with the copy written from
+                your brand. No card, no countdown. Hook videos, animated carousels and your own image
+                sets are on Starter; Blink AI is on Growth, because those render on hardware somebody
+                bills us for. If you cancel later you drop back to free and keep everything you made.
               </p>
             </details>
           </div>
@@ -689,14 +715,14 @@ export default function Landing() {
             Post something <em>worth</em> stopping for.
           </h2>
           <p className="muted" style={{ marginTop: 16, maxWidth: '48ch', marginLeft: 'auto', marginRight: 'auto' }}>
-            Set up your product in a minute, and have your first carousel and hook video before you
-            finish your coffee.
+            Set up your product in a minute, and have your first carousel before you finish your
+            coffee. That part costs nothing.
           </p>
           <div className="lp-cta">
             <SignInButton />
             <div className="lp-trust">
-              <b>Free for 7 days</b>, no card.
-              {cheapest && <> Then from {money(cheapest.price, cheapest.currency)}/month.</>}
+              <b>Photo carousels free</b>, no card.
+              {cheapest && <> The rest from {money(cheapest.price, cheapest.currency)}/month.</>}
             </div>
           </div>
         </div>

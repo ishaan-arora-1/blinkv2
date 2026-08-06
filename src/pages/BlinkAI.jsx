@@ -3,12 +3,11 @@ import CreatorPicker from '../components/CreatorPicker.jsx'
 import { LIMITS, startGeneration, awaitGeneration } from '../lib/blink.js'
 import { useStore } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
-import { go } from '../lib/router.js'
-import { planFor, PLAN_NAME } from '../lib/tiers.js'
+import Upsell from '../components/Upsell.jsx'
 
 export default function BlinkAI() {
   const store = useStore()
-  const { can, entitlement } = useAuth()
+  const { can } = useAuth()
 
   const [prompt, setPrompt] = useState('')
   const [product, setProduct] = useState(null)
@@ -107,13 +106,6 @@ export default function BlinkAI() {
   }
 
   // ── gated ────────────────────────────────────────────────────────────────
-  // A paying customer on a lower plan gets an upgrade pitch; someone with no
-  // plan at all gets pointed at pricing, since "upgrade" would be nonsense.
-  // A trialist reads as the Starter tier but owns no plan, so they need their
-  // own line — telling them to upgrade a plan they never bought is confusing.
-  const onTrial = entitlement.onTrial && !entitlement.subscription
-  const onLowerPaidPlan = Boolean(PLAN_NAME[entitlement.tier]) && !can.blink && !onTrial
-
   if (!can.blink) {
     return (
       <div>
@@ -121,27 +113,15 @@ export default function BlinkAI() {
           <div className="page-kicker">Blink AI</div>
           <h1 className="page-title">Say it, and <em>blink</em> it into a video</h1>
           <p className="page-sub">
-            Describe the video you want and Google Veo renders it — optionally anchored to one of
-            our creators and your own product photo.
+            Describe the video you want and Blink renders it — optionally anchored to one of our
+            creators and your own product photo.
           </p>
         </div>
 
-        <div className="card upsell" style={{ maxWidth: 620 }}>
-          <div className="row"><span className="chip accent">{planFor('blink')} plan</span></div>
-          <h3 style={{ margin: '12px 0 8px' }}>Blink AI is part of {planFor('blink')}</h3>
-          <p className="small muted">
-            {onTrial
-              ? `Your free trial covers unlimited carousels and hook videos. Prompt-to-video runs on Google Veo, so it needs the ${planFor('blink')} plan.`
-              : onLowerPaidPlan
-                ? `Your ${PLAN_NAME[entitlement.tier]} plan covers carousels and hook videos. Upgrade to ${planFor('blink')} to generate video from a prompt.`
-                : `Pick the ${planFor('blink')} plan to generate video from a prompt.`}
-          </p>
-          <div className="row mt-4">
-            <button className="btn primary" onClick={() => go('/pricing')}>
-              {onLowerPaidPlan ? `Upgrade to ${planFor('blink')} →` : 'See plans →'}
-            </button>
-          </div>
-        </div>
+        <Upsell
+          feature="blink"
+          pitch="Write the scene instead of shooting it. 4–8 seconds at up to 1080p, vertical or wide, holding your actual product — rendered in the background and filed in your library."
+        />
       </div>
     )
   }

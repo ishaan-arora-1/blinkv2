@@ -4,12 +4,14 @@ import { api } from './api.js'
 
 const AuthCtx = createContext(null)
 
+// Only ever rendered before /api/me answers. Deliberately the most locked-down
+// shape there is rather than the free tier's: this is "we do not know yet", and
+// flashing a feature on before the server has confirmed it is worse than the
+// half-second of it being off.
 const EMPTY_ENTITLEMENT = {
-  tier: 'none',
-  features: { carousels: false, videos: false, blink: false },
-  onTrial: false,
-  trialEndsAt: null,
-  trialDaysLeft: 0,
+  tier: 'free',
+  paidTier: 'free',
+  features: { carousels: false, videos: false, animated: false, sets: false, blink: false },
   paymentRetrying: false,
   subscription: null,
 }

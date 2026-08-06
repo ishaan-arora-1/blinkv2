@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
 import { fetchPlans, subscribeToPlan, CheckoutDismissed } from '../lib/razorpay.js'
 import { money, perMonth } from '../lib/money.js'
+import { isPaying } from '../lib/tiers.js'
 import { go } from '../lib/router.js'
 
 export default function Pricing() {
-  const { entitlement, user, refreshAccount, signOut } = useAuth()
+  const { entitlement, user, refreshAccount } = useAuth()
   const [plans, setPlans] = useState([])
   const [billingEnabled, setBillingEnabled] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -72,27 +73,24 @@ export default function Pricing() {
     }
   }
 
-  const lapsed = entitlement.tier === 'none'
+  const onFree = !isPaying(entitlement)
 
   return (
     <div>
       <div className="page-head">
         <div className="page-kicker">Plans</div>
         <h1 className="page-title">
-          {lapsed ? <>Pick a plan to <em>keep going</em></> : <>Your <em>plan</em></>}
+          {onFree ? <>Go past <em>free</em></> : <>Your <em>plan</em></>}
         </h1>
         <p className="page-sub">
-          {entitlement.onTrial ? (
+          {onFree ? (
             <>
-              You're on the free trial — {entitlement.trialDaysLeft}{' '}
-              {entitlement.trialDaysLeft === 1 ? 'day' : 'days'} left, with unlimited carousels and
-              hook videos. Blink AI needs Growth. Choosing a plan charges you today and starts your
-              billing month from today.
+              Photo carousels are free on your account and stay that way. Starter adds hook videos,
+              animated carousels and your own image sets; Growth adds Blink AI. You're charged today
+              and your billing month starts today — no trial to wait out.
             </>
-          ) : lapsed ? (
-            <>Your access has ended. Everything you made is safe and comes straight back.</>
           ) : (
-            <>Change or cancel any time.</>
+            <>Change or cancel any time. Cancelling drops you to the free tier, not out of the app.</>
           )}
         </p>
       </div>
@@ -109,7 +107,7 @@ export default function Pricing() {
           <div className="row"><span className="chip accent">coming soon</span></div>
           <div className="small mt-2">
             Checkout isn't switched on yet. These are the plans we'll launch with — for now
-            your trial covers carousels and hook videos.
+            photo carousels are free and the rest is waiting on this.
           </div>
         </div>
       )}
@@ -202,14 +200,9 @@ export default function Pricing() {
       )}
 
       <div className="small muted mt-6" style={{ maxWidth: 760 }}>
-        Payments are handled by Razorpay — Blink UGC never sees your card. Switching plans cancels the
-        previous subscription once the new one is active.
-        {lapsed && (
-          <>
-            {' '}Not ready?{' '}
-            <button className="btn ghost xs" onClick={signOut}>Sign out</button>
-          </>
-        )}
+        Payments are handled by Razorpay — Blink UGC never sees your card. You're charged the full
+        amount the moment you authorise it, and your plan starts there and then. Switching plans
+        cancels the previous subscription once the new one is active.
       </div>
     </div>
   )

@@ -2,7 +2,6 @@ import { userFromToken } from '../supabase.js'
 import {
   resolveEntitlement,
   allows,
-  METERED,
   FEATURE_TIER,
   FEATURE_LABEL,
   PLAN_NAME,
@@ -40,17 +39,14 @@ export const requireFeature = (feature) =>
       const needs = FEATURE_TIER[feature]
       const label = FEATURE_LABEL[feature] || 'That feature'
 
-      // Three different noes, and telling them apart matters. A trial user
-      // blocked from a metered feature is not on the wrong plan and has nothing
-      // to upgrade — they are on the right tier already and simply have not
-      // subscribed. "Upgrade to Starter" to someone already on Starter reads as
-      // a bug in the product.
-      const message =
-        ent.tier === 'none'
-          ? 'Your plan has ended. Pick a plan to keep creating.'
-          : METERED.has(feature) && ent.onTrial
-            ? `${label} needs a paid plan — it is not part of the free trial. Subscribe to unlock it.`
-            : `${label} ${label.endsWith('s') ? 'are' : 'is'} part of the ${PLAN_NAME[needs]} plan.`
+      // Two different noes, and telling them apart is the difference between a
+      // useful button and a confusing one. Someone on the free tier is being
+      // asked to buy; someone already paying for Starter is being asked to move
+      // up. "Upgrade" to a customer with nothing to upgrade from reads as a bug.
+      const onPaidPlan = Boolean(PLAN_NAME[ent.tier])
+      const message = onPaidPlan
+        ? `${label} ${label.endsWith('s') ? 'are' : 'is'} part of the ${PLAN_NAME[needs]} plan — upgrade to unlock ${label.endsWith('s') ? 'them' : 'it'}.`
+        : `${label} ${label.endsWith('s') ? 'are' : 'is'} part of the ${PLAN_NAME[needs]} plan.`
 
       throw forbidden(message, {
         feature,
@@ -58,7 +54,7 @@ export const requireFeature = (feature) =>
         upgradeTo: needs,
         // Lets the client tell "subscribe" apart from "upgrade" without
         // re-deriving the rule it does not own.
-        needsPaidPlan: METERED.has(feature) && ent.onTrial,
+        isUpgrade: onPaidPlan,
       })
     }
     next()
