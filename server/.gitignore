@@ -3,3 +3,10 @@ node_modules
 .env.*
 !.env.example
 *.log
+
+# Instagram token store, written by scripts/daily-carousel.mjs. A live
+# credential: it can post to the account for as long as it is valid.
+.instagram.json
+
+# Rendered carousels, kept as the record of what went out on a given day.
+tmp/

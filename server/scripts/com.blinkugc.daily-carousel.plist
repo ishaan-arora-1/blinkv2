@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Daily carousel, scheduled.
+
+  launchd rather than cron: cron on macOS is deprecated, has no useful logging,
+  and silently drops a run it cannot start. launchd at least tells you why.
+
+  Install:
+    cp scripts/com.blinkugc.daily-carousel.plist ~/Library/LaunchAgents/
+    # edit the paths and the env block below first
+    launchctl load ~/Library/LaunchAgents/com.blinkugc.daily-carousel.plist
+
+  Check on it:
+    launchctl list | grep blinkugc
+    tail -f /tmp/blink-carousel.log
+
+  Stop it:
+    launchctl unload ~/Library/LaunchAgents/com.blinkugc.daily-carousel.plist
+
+  Two things to know before trusting it:
+
+  · A closed lid means a missed day. RunAtLoad picks up the run at next login,
+    but a laptop asleep at 10am simply does not fire. If missing a day matters,
+    this belongs on the Railway box next to the API, not here.
+
+  · ProgramArguments below has NO --publish flag. That is deliberate. Run it by
+    hand for a few days, read what it writes to server/tmp/carousels/, and add
+    the flag once you trust the copy.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.blinkugc.daily-carousel</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <!-- `which node` — launchd gets no shell, so this must be an absolute path -->
+    <string>/usr/local/bin/node</string>
+    <string>/Users/ashish/reelmint/server/scripts/daily-carousel.mjs</string>
+    <!-- <string>- -publish</string>  ← remove the spaces and uncomment to go live -->
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/ashish/reelmint/server</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- launchd inherits nothing from your shell. Every value the script needs
+         has to be spelled out here, including the ones already in server/.env
+         if you are not loading that file. -->
+    <key>NODE_ENV</key>
+    <string>production</string>
+    <key>INSTAGRAM_POST_USER_ID</key>
+    <string>REPLACE_WITH_SUPABASE_USER_ID</string>
+    <key>CHROME_BIN</key>
+    <string>/Applications/Google Chrome.app/Contents/MacOS/Google Chrome</string>
+  </dict>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>10</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/blink-carousel.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/blink-carousel.log</string>
+
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>
