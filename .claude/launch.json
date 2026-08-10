@@ -6,10 +6,13 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",
-        "dev"
+        "dev",
+        "--",
+        "--port",
+        "5233"
       ],
       "cwd": "/Users/ashish/reelmint",
-      "port": 5199
+      "port": 5233
     },
     {
       "name": "reelmint-api",
