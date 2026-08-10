@@ -759,6 +759,27 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 .lp-creator-body b { font-size: 13.5px; display: block; }
 .lp-creator-body span { color: var(--muted); font-size: 11.5px; }
 
+/* ── Character cast ──
+ *
+ * Its own grid rather than .lp-creators', despite reusing that section's card:
+ * five tiles in two columns leaves one alone on the last row. So 5 → 3 (3+2) →
+ * 2, and at two columns the fifth tile is dropped rather than stranded, the
+ * same way .lp-wall sheds its outer two and .lp-show-slides its middle slide.
+ * The cast is a sample of ten either way — which five are shown is not a claim
+ * the copy makes. */
+.lp-cast { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+@media (max-width: 1040px) { .lp-cast { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 520px) {
+  .lp-cast { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .lp-cast > :nth-child(5) { display: none; }
+}
+/* A still portrait where .lp-creator normally holds a HookPreview's 9:16 video.
+ * 4:5 is the ratio the slides themselves render at, matching the picker. */
+.lp-cast-img {
+  width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block;
+  background: #131019;
+}
+
 /* ── Feature rows ── */
 .lp-split {
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

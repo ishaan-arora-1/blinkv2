@@ -114,3 +114,44 @@ export const SHOWCASE = [
 
 /** The opening slide of each showcase, for the hero. */
 export const heroSlides = () => SHOWCASE.map((c) => ({ ...c.slides[0], accent: c.accent, name: c.name }))
+
+/**
+ * Animated carousels, shown on the landing page.
+ *
+ * Real exports rather than compositions, which is the `{ img }` case the
+ * docstring above describes: these came out of the product at 1080 × 1350 with
+ * the text already burnt in, so there is nothing left to compose. They are
+ * downscaled to 540px and JPEG'd — six full-size PNGs is ten megabytes to
+ * render one section of a first visit.
+ *
+ * Hook, a middle slide and the CTA, same three-of-five as SHOWCASE. The middle
+ * one is slide three rather than two on purpose: it is where the pose has
+ * travelled furthest from the hook's, which is the claim this section makes —
+ * one character, a different action per slide, drawn from that slide's words.
+ */
+export const ANIMATED_SHOWCASE = [
+  {
+    id: 'muscleblaze',
+    name: 'MuscleBlaze',
+    category: 'Protein',
+    character: 'Athlete',
+    slideCount: 5,
+    slides: [
+      { img: '/showcase/animated/muscleblaze-hook.jpg' },
+      { img: '/showcase/animated/muscleblaze-body.jpg' },
+      { img: '/showcase/animated/muscleblaze-cta.jpg' },
+    ],
+  },
+  {
+    id: 'blink',
+    name: 'Blink UGC',
+    category: 'Marketing',
+    character: 'Robot',
+    slideCount: 5,
+    slides: [
+      { img: '/showcase/animated/blink-hook.jpg' },
+      { img: '/showcase/animated/blink-body.jpg' },
+      { img: '/showcase/animated/blink-cta.jpg' },
+    ],
+  },
+]

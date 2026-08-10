@@ -5,7 +5,8 @@ import { money, perMonth } from '../lib/money.js'
 import { CREATORS, getCreator } from '../lib/creators.js'
 import { builtinSets, isGradientRef } from '../lib/library.js'
 import { presetOptions } from '../lib/copygen.js'
-import { SHOWCASE, heroSlides } from '../lib/showcase.js'
+import { SHOWCASE, ANIMATED_SHOWCASE, heroSlides } from '../lib/showcase.js'
+import { CHARACTERS, getCharacter } from '../lib/characters.js'
 import { supabase, isLocalSupabase } from '../lib/supabase.js'
 import { BLINK_TEMPLATES } from '../lib/blinkTemplates.js'
 import Logo from '../components/Logo.jsx'
@@ -52,6 +53,21 @@ const HERO_CLIP = 'cr_gym_guy'
 // hero's, so the two are not the same clip twice.
 const ANATOMY_CREATOR = 'cr_tech_girl'
 const ANATOMY_SHOT = '/sets/thumbs/girl/04.jpg'
+
+/*
+ * Five of the ten characters, on the same reasoning as ROSTER above. The first
+ * two are the athlete and the robot, who are the ones actually acting in the
+ * two animated carousels shown directly above them — the roster and the output
+ * should visibly be the same cast. The rest cover the range that matters when
+ * someone is deciding whether their own category is served: a person, a trade,
+ * and something with no human likeness at all.
+ */
+const CAST = ['ch_athlete', 'ch_robot', 'ch_everyday_woman', 'ch_chef', 'ch_blob']
+
+// The animated carousel whose opening slide leads the hero. The robot's is the
+// one that reads at hero size: a pale backdrop against the page's near-black,
+// and a character who survives being shown a third of the width he was drawn at.
+const HERO_ANIMATED = 'blink'
 
 // The landing page shows the 360×450 thumbnails, not the full-resolution set
 // images those paths normally point at. Ten 450 KB photographs per set is the
@@ -185,8 +201,10 @@ export default function Landing() {
   const angleCount = presetOptions(DEMO_BRAND).length
 
   const roster = ROSTER.map(getCreator).filter(Boolean)
+  const cast = CAST.map(getCharacter).filter(Boolean)
   const heroClip = getCreator(HERO_CLIP)
   const heroCards = heroSlides()
+  const heroAnimated = ANIMATED_SHOWCASE.find((c) => c.id === HERO_ANIMATED)
   const anatomyCreator = getCreator(ANATOMY_CREATOR)
 
   return (
@@ -197,6 +215,7 @@ export default function Landing() {
           <div className="lp-nav-links">
             <SectionLink to="creators">AI creators</SectionLink>
             <SectionLink to="carousels">Carousels</SectionLink>
+            <SectionLink to="animated">Animated</SectionLink>
             <SectionLink to="blink">Blink AI</SectionLink>
             <SectionLink to="pricing">Pricing</SectionLink>
           </div>
@@ -215,8 +234,9 @@ export default function Landing() {
             </h1>
             <p className="lp-lede">
               AI creators who deliver your hook on camera. Photo carousels written from your pitch.
-              Prompt-to-video when you need something that doesn't exist yet. Everything designed,
-              written and exported in minutes — no shoot, no agency, no editor.
+              Animated ones where a 3D character acts the whole thing out. Prompt-to-video when you
+              need something that doesn't exist yet. Everything designed, written and exported in
+              minutes — no shoot, no agency, no editor.
             </p>
             <div className="lp-cta">
               <SignInButton />
@@ -237,12 +257,15 @@ export default function Landing() {
 
           {/* A carousel either side of a hook clip. The clip sits in the middle
               because it is the one that moves, and the two slides are the half
-              of the product the page never used to show at all. */}
+              of the product the page never used to show at all.
+
+              The two are deliberately not the same kind of carousel: an
+              animated slide on the left, a photo one on the right. All three
+              things Blink exports, in the order the page then explains them. */}
           <div className="lp-mixwall" aria-label="Carousel slides and a hook video made with Blink">
             <SlidePreview
-              slide={heroCards[0]}
-              style={{ '--pill-accent': heroCards[0]?.accent }}
-              alt={`A carousel slide for ${heroCards[0]?.name}`}
+              slide={heroAnimated?.slides[0]}
+              alt={`An animated carousel slide for ${heroAnimated?.name}`}
             />
             <HookPreview
               hook={heroClip?.hooks[0]}
@@ -264,6 +287,7 @@ export default function Landing() {
           <span><b>{CREATORS.length}</b> AI creators</span>
           <span><b>{CREATORS.reduce((n, c) => n + c.hooks.length, 0)}</b> hook reactions</span>
           <span><b>{photoSets.length * 10}</b> photo backgrounds</span>
+          <span><b>{CHARACTERS.length}</b> 3D characters</span>
           <span><b>{angleCount}</b> copy angles</span>
           <span>1080 × 1920 &amp; 1080 × 1350 exports</span>
         </div>
@@ -419,6 +443,76 @@ export default function Landing() {
                   <span className="chip">{a.name}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Animated carousels ── */}
+      {/* Directly after the photo ones, because the two are a pair: same
+          editor, same export, and the only real question a visitor has is
+          which of the two they want. */}
+      <section className="lp-section" id="animated" style={{ paddingTop: 0 }}>
+        <div className="lp-wrap">
+          <div className="lp-sec-head">
+            <div className="lp-kicker">Animated carousels</div>
+            <h2>
+              One character. Every slide. <em>Acting out</em> your words.
+            </h2>
+            <p>
+              The other kind of carousel, with nothing photographed at all. Pick one of{' '}
+              {CHARACTERS.length} 3D characters, say what the carousel should be about, and Blink
+              writes the copy and draws every slide around it — the same character throughout, doing
+              something different on each one, matched to the sentence it sits under. Three to eight
+              slides. Two made earlier:
+            </p>
+          </div>
+
+          <div className="lp-showcase">
+            {ANIMATED_SHOWCASE.map((c) => (
+              <figure className="lp-show" key={c.id}>
+                <div className="lp-show-slides">
+                  {c.slides.map((s, i) => (
+                    <SlidePreview key={i} slide={s} alt={`${c.name} — slide ${i + 1}`} />
+                  ))}
+                </div>
+                <figcaption className="lp-show-body">
+                  <div className="row between">
+                    <b style={{ fontSize: 13.5 }}>{c.name}</b>
+                    <span className="chip">{c.category}</span>
+                  </div>
+                  <div className="small muted mt-2">
+                    {c.character} · {c.slideCount} slides · 1080 × 1350
+                  </div>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+
+          <div style={{ marginTop: 42 }}>
+            <div className="lp-kicker">The cast</div>
+            <p className="muted" style={{ marginBottom: 20, maxWidth: '58ch' }}>
+              {CHARACTERS.length} characters in one house style — a cartoon kid, a mascot bird, a
+              chef, a robot, a friendly creature with no human likeness at all. Whoever you pick
+              holds the same face, hair and clothes across every slide in the set.
+            </p>
+            <div className="lp-cast">
+              {cast.map((c) => (
+                <div className="lp-creator" key={c.id}>
+                  <img className="lp-cast-img" src={c.img} alt={c.name} loading="lazy" />
+                  <div className="lp-creator-body">
+                    <b>{c.name}</b>
+                    <span>{c.blurb}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="row" style={{ gap: 10, marginTop: 24 }}>
+              <span className="chip accent">Starter plan</span>
+              <span className="small muted">
+                Every slide is drawn to order, so this one is on Starter rather than free.
+              </span>
             </div>
           </div>
         </div>
@@ -678,6 +772,17 @@ export default function Landing() {
                 They're AI-generated creators, consistent across every clip, so the same face can front
                 a whole campaign. No casting, no usage rights to renew, no reshoots when your pitch
                 changes.
+              </p>
+            </details>
+            <details>
+              <summary>What's the difference between a photo and an animated carousel?</summary>
+              <p>
+                Where the pictures come from. A photo carousel lays your copy over photography —
+                ours or your own — and is free and instant. An animated one has no photography in
+                it: you pick a 3D character and every slide is drawn to order, with that same
+                character doing something that matches the words on that slide. Both open in the
+                same editor and export the same way. Animated carousels are on Starter, because
+                each slide is an image somebody bills us to render.
               </p>
             </details>
             <details>
