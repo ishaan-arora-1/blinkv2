@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# 116 MB of MP4 across 23 files, and none of it is content worth indexing —
+# they are UI previews. Crawlers were re-fetching them against a site that,
+# until vercel.json existed, sent max-age=0 on every asset.
+Disallow: /hooks/
+Disallow: /blink/
+Disallow: /sets/
+Disallow: /showcase/
+Disallow: /characters/
+Disallow: /creators/
