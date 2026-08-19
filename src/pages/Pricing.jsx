@@ -86,8 +86,8 @@ export default function Pricing() {
           {onFree ? (
             <>
               Photo carousels are free on your account and stay that way. Starter adds hook videos,
-              animated carousels and your own image sets; Growth adds Blink AI. You're charged today
-              and your billing month starts today — no trial to wait out.
+              animated carousels and your own image sets; Growth adds Blink AI, 25 videos a month.
+              You're charged today and your billing month starts today — no trial to wait out.
             </>
           ) : (
             <>Change or cancel any time. Cancelling drops you to the free tier, not out of the app.</>
@@ -151,7 +151,7 @@ export default function Pricing() {
 
             return (
               <div key={plan.id} className={`card plan ${plan.tier === 'growth' ? 'featured' : ''}`}>
-                {plan.tier === 'growth' && <span className="plan-flag">Includes Blink AI</span>}
+                {plan.tier === 'growth' && <span className="plan-flag">25 Blink AI videos/mo</span>}
                 <div className="row between">
                   <h3 style={{ fontSize: 20 }}>{plan.name}</h3>
                   {isCurrent && <span className="chip brand">current</span>}

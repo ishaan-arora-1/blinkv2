@@ -15,8 +15,8 @@ storefronts and B2B software as well as apps.
 - **Hook videos** — an AI creator reacts to your product for 3 seconds, then your
   screen recording plays. Trim both, score it with a synthesized track, add
   timed text overlays, export as video.
-- **Blink AI** — describe a video and generate it. Optionally
-  anchor it to a creator and your product photo.
+- **Blink AI** — describe a video and generate it, with audio. Optionally
+  anchor it to a creator and your product photo. Growth includes 25 a month.
 - **Library** — everything you've generated, in one place, synced across devices.
 - **Image sets** — four built-in lifestyle collections plus your own uploads.
 
@@ -48,7 +48,7 @@ is why the two modes keep separate columns in `plans` — see DEPLOY.md.
 | Hook videos | — | ✓ | ✓ |
 | Animated carousels | — | ✓ | ✓ |
 | Custom image sets | — | ✓ | ✓ |
-| Blink AI | — | — | ✓ |
+| Blink AI | — | — | ✓ (25/month) |
 
 Billing is Razorpay subscriptions, monthly, charged in **USD** (the Razorpay
 account has international payments enabled).

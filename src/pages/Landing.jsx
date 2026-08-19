@@ -578,14 +578,14 @@ export default function Landing() {
                   a creator to appear in it, and Blink generates the clip.
                 </p>
                 <ul className="lp-bullets">
-                  <li><span className="tickmark">✓</span><span><b>4–8 second clips</b> at 720p or 1080p.</span></li>
+                  <li><span className="tickmark">✓</span><span><b>4–8 second clips</b> at 720p or 1080p, <b>with generated audio</b>.</span></li>
                   <li><span className="tickmark">✓</span><span><b>9:16 or 16:9</b> — vertical for Reels, wide for a landing page.</span></li>
                   <li><span className="tickmark">✓</span><span><b>Reference your product photo</b> so the generated scene holds your actual packaging.</span></li>
                   <li><span className="tickmark">✓</span><span><b>Renders in the background</b> — close the tab, it lands in your library.</span></li>
                 </ul>
                 <div className="row mt-6" style={{ gap: 10 }}>
                   <span className="chip accent">Growth plan</span>
-                  <span className="small muted">Included on Growth — the one thing that isn't on Starter.</span>
+                  <span className="small muted">25 videos a month on Growth — the one thing that isn't on Starter.</span>
                 </div>
               </div>
               {/* Actual Veo generations, not creator hooks — this section is
@@ -649,7 +649,7 @@ export default function Landing() {
             <p>
               Photo carousels cost nothing and always will — no card, no countdown, no day eight where
               it stops working. Starter adds hook videos, animated carousels and your own image sets;
-              Growth adds Blink AI. Change or cancel whenever you like.
+              Growth adds Blink AI, 25 videos a month. Change or cancel whenever you like.
             </p>
           </div>
 
@@ -701,7 +701,7 @@ export default function Landing() {
                     : 0
                 return (
                   <div key={plan.id} className={`card plan ${plan.tier === 'growth' ? 'featured' : ''}`}>
-                    {plan.tier === 'growth' && <span className="plan-flag">Includes Blink AI</span>}
+                    {plan.tier === 'growth' && <span className="plan-flag">25 Blink AI videos/mo</span>}
                     <h3 style={{ fontSize: 20 }}>{plan.name}</h3>
                     <div className="plan-price">
                       {money(plan.price, plan.currency)}
@@ -805,8 +805,9 @@ export default function Landing() {
               <p>
                 Photo carousels — unlimited, over our built-in photography, with the copy written from
                 your brand. No card, no countdown. Hook videos, animated carousels and your own image
-                sets are on Starter; Blink AI is on Growth, because those render on hardware somebody
-                bills us for. If you cancel later you drop back to free and keep everything you made.
+                sets are on Starter; Blink AI is on Growth and capped at 25 videos a month, because
+                those render on hardware somebody bills us for. If you cancel later you drop back to
+                free and keep everything you made.
               </p>
             </details>
           </div>

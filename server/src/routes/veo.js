@@ -19,8 +19,56 @@ export const veoRouter = Router()
 
 const SIGNED_URL_TTL = 60 * 60 // 1 hour
 const MAX_IN_FLIGHT = 3
+const MONTHLY_LIMIT = env.blinkMonthlyLimit
 
-veoRouter.get('/limits', (_req, res) => res.json({ limits: LIMITS }))
+/** Start of the current calendar month, UTC — the window the cap is counted in. */
+function monthStart() {
+  const d = new Date()
+  d.setUTCDate(1)
+  d.setUTCHours(0, 0, 0, 0)
+  return d
+}
+
+/**
+ * How many generations this account has spent this month.
+ *
+ * Counted from generation_events rather than from blinks, for the same reason
+ * animated carousels are: a row in blinks can be deleted by its owner, and a
+ * cap you can reset by emptying your own library is not a cap. The event is
+ * written only once the vendor has accepted the request, so a generation that
+ * failed before it cost anything does not come out of the allowance.
+ */
+async function usedThisMonth(userId) {
+  const { count } = await admin
+    .from('generation_events')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('kind', 'blink.generate')
+    .gte('created_at', monthStart().toISOString())
+  return count ?? 0
+}
+
+veoRouter.get('/limits', (_req, res) => res.json({ limits: LIMITS, monthlyLimit: MONTHLY_LIMIT }))
+
+/**
+ * What is left this month. The form shows this before anyone spends anything,
+ * because finding out you are at your limit by being refused is a bad way to
+ * find out.
+ */
+veoRouter.get(
+  '/usage',
+  wrap(async (req, res) => {
+    const used = await usedThisMonth(req.user.id)
+    const start = monthStart()
+    res.json({
+      used,
+      limit: MONTHLY_LIMIT,
+      remaining: Math.max(0, MONTHLY_LIMIT - used),
+      // The 1st of next month, UTC — what the copy means by "resets".
+      resetsAt: new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1)).toISOString(),
+    })
+  })
+)
 
 /**
  * Start a generation.
@@ -60,6 +108,19 @@ veoRouter.post(
         429,
         'too_many_in_flight',
         `You already have ${count} generations rendering. Wait for one to finish.`
+      )
+    }
+
+    // The monthly allowance. Blink AI is the most expensive thing this product
+    // does per use and Growth is a flat $25.99, so the plan is sold with a
+    // number on it rather than as "unlimited" — this is that number, and it is
+    // checked here because the browser is never the thing that decides.
+    const used = await usedThisMonth(req.user.id)
+    if (used >= MONTHLY_LIMIT) {
+      throw new ApiError(
+        429,
+        'monthly_limit_reached',
+        `You have used all ${MONTHLY_LIMIT} Blink AI videos included this month. It resets on the 1st.`
       )
     }
 

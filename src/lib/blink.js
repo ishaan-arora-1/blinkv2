@@ -1,11 +1,15 @@
 import { api } from './api.js'
 
-// Mirrors the server's veo.js. Kept here so the form can render its controls
+// Mirrors the server's video.js. Kept here so the form can render its controls
 // without a round trip; the server re-validates everything regardless.
+//
+// Duration is a list, not a range: Veo 3.1 takes 4, 6 or 8 seconds and nothing
+// in between.
 export const LIMITS = {
-  duration: { min: 4, max: 8, default: 6 },
+  duration: { options: [4, 6, 8], default: 8 },
   aspectRatios: ['9:16', '16:9'],
-  resolutions: ['480p', '720p'],
+  resolutions: ['720p', '1080p'],
+  audio: true,
 }
 
 const POLL_INTERVAL_MS = 6000
@@ -48,6 +52,17 @@ export async function startGeneration({ prompt, productFile, creator, options })
 
 export function checkStatus(blinkId, { signal } = {}) {
   return api(`/api/veo/status/${blinkId}`, { signal })
+}
+
+/**
+ * How many of the month's included generations are left.
+ *
+ * { used, limit, remaining, resetsAt }. The server enforces this regardless;
+ * reading it here is only so the form can say so before someone writes a prompt
+ * they cannot run.
+ */
+export function fetchUsage({ signal } = {}) {
+  return api('/api/veo/usage', { signal })
 }
 
 /**

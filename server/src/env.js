@@ -69,8 +69,17 @@ export const env = {
     // Blink AI. Two entries because the model family splits text-to-video from
     // image-to-video, and a generation anchored to a creator still needs the
     // second one.
-    videoModel: optional('FAL_VIDEO_MODEL', 'fal-ai/wan/v2.2-a14b/text-to-video'),
-    videoImageModel: optional('FAL_VIDEO_IMAGE_MODEL', 'fal-ai/wan/v2.2-a14b/image-to-video'),
+    //
+    // Veo 3.1 Fast, on fal. This was Wan 2.2, which renders no audio at all —
+    // every clip came out silent while the app told people otherwise, and a
+    // silent UGC ad is not a deliverable. Veo generates a matching soundtrack
+    // in the same pass, so there is no second vendor and no stitching step.
+    // It also reaches 1080p, where Wan stopped at 720p.
+    //
+    // It costs materially more per second, which is what the 25-a-month cap
+    // below is for.
+    videoModel: optional('FAL_VIDEO_MODEL', 'fal-ai/veo3.1/fast'),
+    videoImageModel: optional('FAL_VIDEO_IMAGE_MODEL', 'fal-ai/veo3.1/fast/image-to-video'),
   },
 
   // Animated carousels cost roughly $0.20 each against a $7.99 plan, so past
@@ -78,6 +87,12 @@ export const env = {
   // Configurable because the right number depends on the price, and the price
   // lives in the plans table rather than here.
   animatedMonthlyLimit: Number(optional('ANIMATED_MONTHLY_LIMIT', '30')),
+
+  // Blink AI runs on Veo, which is the most expensive thing the product does
+  // per use, against the $25.99 Growth plan. Twenty-five generations a month is
+  // what that plan can carry and it is what the pricing page promises, so the
+  // two numbers have to move together — see 0017_blink_monthly_cap.sql.
+  blinkMonthlyLimit: Number(optional('BLINK_MONTHLY_LIMIT', '25')),
 }
 
 env.razorpay.configured = Boolean(

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import CreatorPicker from '../components/CreatorPicker.jsx'
-import { LIMITS, startGeneration, awaitGeneration } from '../lib/blink.js'
+import { LIMITS, startGeneration, awaitGeneration, fetchUsage } from '../lib/blink.js'
 import { useStore } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import Upsell from '../components/Upsell.jsx'
@@ -28,8 +28,24 @@ export default function BlinkAI() {
   const [negative, setNegative] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
 
+  // { used, limit, remaining } — null until it has been read, and left null if
+  // the read fails. The server enforces the cap either way, so a failed usage
+  // call should cost a line of copy and never the ability to generate.
+  const [usage, setUsage] = useState(null)
+
   // Leaving the page must not leave a poll running.
   useEffect(() => () => abortRef.current?.abort(), [])
+
+  // The month's allowance, refreshed whenever a generation finishes so the
+  // count reflects what was just spent.
+  useEffect(() => {
+    if (!can.blink) return
+    let live = true
+    fetchUsage()
+      .then((u) => live && setUsage(u))
+      .catch(() => {})
+    return () => { live = false }
+  }, [can.blink, result])
 
   // A render that was in flight when the tab was closed is still running on the
   // server. Pick the newest one back up rather than stranding it.
@@ -120,7 +136,7 @@ export default function BlinkAI() {
 
         <Upsell
           feature="blink"
-          pitch="Write the scene instead of shooting it. 4–8 seconds at up to 1080p, vertical or wide, holding your actual product — rendered in the background and filed in your library."
+          pitch="Write the scene instead of shooting it. 25 videos a month, 4–8 seconds at up to 1080p with generated audio, vertical or wide, holding your actual product — rendered in the background and filed in your library."
         />
       </div>
     )
@@ -172,20 +188,34 @@ export default function BlinkAI() {
             )}
           </div>
 
-          <button className="btn primary" disabled={!prompt.trim() || busy} onClick={run}>
-            {busy ? '✦ Generating…' : '✦ Generate video'}
-          </button>
+          <div className="row" style={{ gap: 12 }}>
+            {usage && (
+              <span className="small muted">
+                {usage.remaining > 0
+                  ? `${usage.remaining} of ${usage.limit} left this month`
+                  : `You have used all ${usage.limit} this month — resets on the 1st`}
+              </span>
+            )}
+            <button
+              className="btn primary"
+              disabled={!prompt.trim() || busy || usage?.remaining === 0}
+              onClick={run}
+            >
+              {busy ? '✦ Generating…' : '✦ Generate video'}
+            </button>
+          </div>
         </div>
 
         {/* ── settings ── */}
         <div style={{ borderTop: '1px solid var(--line-soft)', marginTop: 18, paddingTop: 16 }}>
           <div className="grid cols-3 stack-sm" style={{ gap: 18 }}>
             <div className="field" style={{ marginBottom: 0 }}>
-              <label>Duration — {duration}s</label>
-              <input
-                type="range" min={LIMITS.duration.min} max={LIMITS.duration.max} step="1"
-                value={duration} onChange={(e) => setDuration(+e.target.value)}
-              />
+              <label>Duration</label>
+              <div className="seg">
+                {LIMITS.duration.options.map((d) => (
+                  <button key={d} className={duration === d ? 'on' : ''} onClick={() => setDuration(d)}>{d}s</button>
+                ))}
+              </div>
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
               <label>Aspect ratio</label>
@@ -208,7 +238,7 @@ export default function BlinkAI() {
           </div>
 
           <div className="row between mt-4">
-            <span className="small muted">Veo generates its own audio automatically.</span>
+            <span className="small muted">Every clip comes back with generated audio.</span>
             <button className="btn ghost xs" onClick={() => setShowAdvanced((v) => !v)}>
               {showAdvanced ? 'Hide' : 'More options'}
             </button>

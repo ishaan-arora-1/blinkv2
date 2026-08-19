@@ -2,39 +2,40 @@ import { env } from './env.js'
 import { badRequest, ApiError } from './middleware/errors.js'
 
 /**
- * Blink AI video generation, on fal.
+ * Blink AI video generation: Veo 3.1 Fast, through fal.
  *
- * This replaced Google Veo. Two reasons, in order of how much they cost:
+ * The vendor is fal for everything in the product — images, slide copy and
+ * video — because Google Veo billed against a separate Google AI balance, and
+ * when that balance ran dry Blink AI went dark for every paying subscriber
+ * while the rest of the app carried on. One balance, one way to fail.
  *
- *  1. Veo billed against a Google AI balance that ran dry, and when it did,
- *     every Growth subscriber's generation failed. Images and slide copy had
- *     already moved to fal, so keeping video on a second vendor meant two
- *     balances to keep funded and two ways for the product to go dark.
- *  2. Veo is priced per second of output well above what this feature needs.
+ * The model underneath that has changed once. It was Wan 2.2, which is cheap
+ * and silent: Wan emits frames and nothing else, so every clip shipped with no
+ * audio while the app claimed otherwise. A UGC ad with no voice or room tone is
+ * not something a customer can post. Veo 3.1 generates the soundtrack in the
+ * same pass as the picture, which is why it is worth the higher per-second
+ * price and why there is no separate audio model to stitch on afterwards.
  *
- * The exported shape is unchanged from the Veo module on purpose — the route,
- * the blinks table and the browser's polling all still work the same way, and
- * a swap of the engine underneath should not be a rewrite of everything above.
+ * The exported shape is deliberately unchanged across both swaps — the route,
+ * the blinks table and the browser's polling all still work the same way.
  *
- * The queue API rather than the synchronous one: a clip takes 40-60 seconds,
+ * The queue API rather than the synchronous one: a clip takes 40-90 seconds,
  * which no proxy will hold open.
  */
 
 const QUEUE = 'https://queue.fal.run'
 
-// What Wan 2.2 actually does. This is the honest list, not the aspirational
-// one: the model tops out at 720p, so offering 1080p would be advertising a
-// resolution the generator cannot produce.
+// What Veo 3.1 Fast actually accepts. Duration is an enum of three values, not
+// a range — the model takes `4s`, `6s` or `8s` and rejects anything else, so
+// this is a list rather than the min/max Wan allowed.
 export const LIMITS = {
-  duration: { min: 4, max: 8, default: 5 },
+  duration: { options: [4, 6, 8], default: 8 },
   aspectRatios: ['9:16', '16:9'],
-  resolutions: ['480p', '720p'],
+  resolutions: ['720p', '1080p'],
+  // Every clip comes back with generated audio. Stated here because the UI
+  // labels it, and because it is the reason this model was chosen.
+  audio: true,
 }
-
-// Wan counts frames, not seconds. 16 fps is the model's native rate; the extra
-// frame is because a clip of n seconds spans n*fps + 1 frames inclusive.
-const FPS = 16
-const framesFor = (seconds) => Math.round(seconds * FPS) + 1
 
 /**
  * The creator roster, mirrored from the web app's src/lib/creators.js.
@@ -104,17 +105,25 @@ export async function fetchCreatorImage(creatorId) {
 }
 
 export function validateOptions(opts = {}) {
-  const duration = Math.round(Number(opts.durationSeconds ?? LIMITS.duration.default))
-  if (!Number.isFinite(duration) || duration < LIMITS.duration.min || duration > LIMITS.duration.max) {
-    throw badRequest(`Duration must be between ${LIMITS.duration.min} and ${LIMITS.duration.max} seconds.`)
-  }
+  const asked = Math.round(Number(opts.durationSeconds ?? LIMITS.duration.default))
+  if (!Number.isFinite(asked) || asked < 1 || asked > 60) throw badRequest('Duration must be a number of seconds.')
+
+  // Snapped to the nearest value the model takes rather than rejected. A client
+  // that still offers a 5-second slider is asking for something reasonable, and
+  // the difference between the 5 they asked for and the 4 or 6 they get is not
+  // worth an error page.
+  const duration = LIMITS.duration.options.reduce((best, v) =>
+    Math.abs(v - asked) < Math.abs(best - asked) ? v : best
+  )
+
   const aspectRatio = opts.aspectRatio || '9:16'
   if (!LIMITS.aspectRatios.includes(aspectRatio)) throw badRequest('Unsupported aspect ratio.')
 
-  // An older client still asks for 1080p, which this model cannot do. Clamping
-  // beats rejecting: the request is otherwise fine and the person gets a video.
-  const asked = opts.resolution || '720p'
-  const resolution = LIMITS.resolutions.includes(asked) ? asked : '720p'
+  // An older client may still ask for 480p, which Wan offered and Veo does not.
+  // Clamping beats rejecting: the request is otherwise fine and the person gets
+  // a video — a better one than they asked for.
+  const askedRes = opts.resolution || '720p'
+  const resolution = LIMITS.resolutions.includes(askedRes) ? askedRes : '720p'
 
   const negativePrompt = String(opts.negativePrompt || '').trim().slice(0, 500)
   return { duration, aspectRatio, resolution, negativePrompt }
@@ -181,7 +190,7 @@ function isContentPolicy(data) {
  * Kick off a generation. Returns the status URL to poll.
  *
  * fal's status URL collapses the model's sub-path — a request against
- * `fal-ai/wan/v2.2-a14b/image-to-video` is polled at `fal-ai/wan/requests/...`
+ * `fal-ai/veo3.1/fast/image-to-video` is polled at `fal-ai/veo3.1/requests/...`
  * — so the URL it hands back is stored and reused rather than rebuilt from the
  * model name, which would 404.
  */
@@ -194,18 +203,23 @@ export async function startGeneration({ prompt, creatorImage, productImage, opti
     .filter(Boolean)
     .join(' ')
 
-  // One driving image. Veo could take a second as a reference asset; Wan takes
-  // only the one, so when both are supplied the creator drives the shot and the
-  // product is described in words. Worth knowing before wondering why a product
-  // photo did not survive into the frame.
+  // One driving image. When both are supplied the creator drives the shot and
+  // the product is described in words — worth knowing before wondering why a
+  // product photo did not survive into the frame.
   const image = creatorImage || productImage
 
   const model = image ? env.fal.videoImageModel : env.fal.videoModel
   const input = {
     prompt: notes ? `${prompt}\n\n${notes}` : prompt,
     resolution: options.resolution,
-    num_frames: framesFor(options.duration),
-    ...(image ? { image_url: image } : { aspect_ratio: options.aspectRatio }),
+    // Veo takes the duration as an enum string, not a frame count.
+    duration: `${options.duration}s`,
+    // The whole reason for this model. It defaults to true, but a default is a
+    // thing that can change under you, and this one is a product promise.
+    generate_audio: true,
+    // On image-to-video 'auto' means "follow the still", which is what anyone
+    // anchoring to a creator wants — forcing 9:16 onto a 16:9 still crops it.
+    ...(image ? { image_url: image, aspect_ratio: 'auto' } : { aspect_ratio: options.aspectRatio }),
     ...(options.negativePrompt ? { negative_prompt: options.negativePrompt } : {}),
   }
 
