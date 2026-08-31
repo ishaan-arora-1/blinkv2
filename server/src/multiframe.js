@@ -92,6 +92,7 @@ export const VIDEO_NEGATIVE = [
   'cinematic, film look, advertisement, stock footage, studio lighting, dramatic lighting,',
   'shallow depth of field, bokeh, background blur, lens flare, vignette, colour grading, oversaturated,',
   'airbrushed skin, plastic skin, model face, glamour, slow motion,',
+  'talking, speaking, mouth moving, lip sync, singing,',
   'text, captions, subtitles, watermark, logo, user interface, distorted hands, extra fingers, morphing objects',
 ].join(' ')
 
@@ -167,6 +168,14 @@ export async function planReel({ brand, idea, sceneCount, durationSeconds, produ
     'That person must be an ordinary, average-looking adult — not a model, not conventionally beautiful,',
     'plainly dressed, in an unremarkable real home. Never use words like beautiful, stunning, perfect,',
     'flawless, cinematic, sleek, modern or aesthetic. Describe what is there, plainly.',
+    '',
+    // The reel carries one narration track over the whole thing, so nobody on
+    // screen may be talking: a shot written as a piece to camera comes back
+    // with a mouth moving out of sync with a voice that is not theirs, which
+    // reads as broken in a way silence never does.
+    'Nobody in the video speaks on camera. A single narrator is heard over the whole thing, so write',
+    'every scene as something being done, not said: hands using the product, a look, a movement across',
+    'the room, a close shot of the object. Never write a scene where the person talks to the camera.',
     '',
     `Then write ONE voiceover script for the whole video, spoken aloud in about ${totalSeconds} seconds`,
     `(roughly ${Math.max(12, Math.round(totalSeconds * 2.4))} words). It must read as continuous narration,`,
@@ -250,7 +259,8 @@ export const motionPrompt = (scene, { hasProduct = false } = {}) =>
   (hasProduct
     ? ` The product stays exactly as it appears in the starting frame — same shape, same colour, same label — and does not morph or change.`
     : '') +
-  ` Natural spoken audio and ambient room tone. Handheld, with the small unsteadiness of a real phone.`
+  ` The person does not speak and does not mouth any words — this is filmed for a voiceover laid over it.` +
+  ` Handheld, with the small unsteadiness of a real phone.`
 
 /**
  * Read the customer's product photo, so the director can write about it.

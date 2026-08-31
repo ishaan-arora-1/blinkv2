@@ -250,9 +250,16 @@ export async function startSceneGeneration({ prompt, imageUrl, options }) {
     prompt,
     resolution: options.resolution,
     duration: `${options.duration}s`,
-    // A reel with sound on shot one and silence on shot two is worse than a
-    // silent reel. Stated per call rather than trusted to the model default.
-    generate_audio: true,
+    // Silent on purpose, and this is the one place it is decided.
+    //
+    // Veo generates audio in the same pass, which is exactly right for Blink
+    // AI: one clip, one voice, done. It is wrong for a reel. Each scene is an
+    // independent generation with no shared voice identity, so four scenes came
+    // back in four different voices, and no sentence could carry across a cut
+    // because every clip's audio restarted at the join. The reel gets one
+    // narration track laid over the whole thing instead — see voice.js — and
+    // dialogue baked into the picture would fight it.
+    generate_audio: false,
     image_url: imageUrl,
     aspect_ratio: 'auto',
     ...(options.negativePrompt ? { negative_prompt: options.negativePrompt } : {}),

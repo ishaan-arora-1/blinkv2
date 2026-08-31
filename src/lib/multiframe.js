@@ -1,5 +1,7 @@
 import { api } from './api.js'
 import { fileToDataURL } from './blink.js'
+import { UPLOADS, uploadFile } from './storage.js'
+import { supabase } from './supabase.js'
 
 // Mirrors server/src/multiframe.js so the form can render its controls without
 // a round trip. The server re-validates everything regardless.
@@ -127,4 +129,55 @@ export const SCENE_LABEL = {
   rendering: 'Filming…',
   ready: 'Filmed',
   failed: 'Failed',
+}
+
+// ── the finish: script, voice, timing, and the cuts ──────────────────────────
+
+/** Save the script. Text only — it does not pay for a new reading. */
+export function saveScript(id, script) {
+  return api(`/api/multiframe/${id}/script`, { method: 'PATCH', body: { script } })
+}
+
+/** Read the script aloud. Returns { voiceoverUrl, durationSeconds, words }. */
+export function generateVoiceover(id, { script, voice } = {}) {
+  return api(`/api/multiframe/${id}/voiceover`, { method: 'POST', body: { script, voice } })
+}
+
+/**
+ * How long each scene is held, and when the narration comes in. Costs nothing —
+ * the clips are filmed and the voice is read, so this is only an edit.
+ */
+export function saveTiming(id, { voOffsetSeconds, trims } = {}) {
+  return api(`/api/multiframe/${id}/timing`, { method: 'PATCH', body: { voOffsetSeconds, trims } })
+}
+
+/**
+ * Store a finished cut.
+ *
+ * The bytes go straight from the browser to the uploads bucket, where this
+ * user's own storage policy already lets them write under their own prefix. The
+ * API is only told where it landed — pushing twenty megabytes through it to
+ * re-upload them server-side would buy nothing but latency.
+ */
+export async function saveCut(id, { kind, blob, durationSeconds }) {
+  const { data } = await supabase.auth.getUser()
+  const userId = data?.user?.id
+  if (!userId) throw new Error('You are signed out — sign in again to save this cut.')
+
+  const storagePath = `${userId}/multiframe/${id}/${kind}.webm`
+  await uploadFile(UPLOADS, storagePath, new File([blob], `${kind}.webm`, { type: blob.type || 'video/webm' }), {
+    upsert: true,
+  })
+
+  return api(`/api/multiframe/${id}/renders`, {
+    method: 'POST',
+    body: { kind, storagePath, durationSeconds },
+  })
+}
+
+/** What a cut is called, in the order they are made. */
+export const CUT_LABEL = {
+  plain: 'Clips joined',
+  voiceover: 'With voiceover',
+  subtitled: 'With subtitles',
 }

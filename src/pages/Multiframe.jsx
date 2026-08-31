@@ -10,7 +10,9 @@ import {
   awaitReel,
   startVideos,
   redrawFrame,
+  checkStatus,
   fetchUsage,
+  fetchOptions,
 } from '../lib/multiframe.js'
 import ReelPlayer from '../components/ReelPlayer.jsx'
 import SceneCard from '../components/SceneCard.jsx'
@@ -45,6 +47,7 @@ export default function Multiframe() {
   const [reel, setReel] = useState(null)
   const [error, setError] = useState(null)
   const [usage, setUsage] = useState(null)
+  const [voices, setVoices] = useState(null)
 
   const abortRef = useRef(null)
 
@@ -53,6 +56,16 @@ export default function Multiframe() {
 
   // The preview is an object URL, which stays allocated until it is revoked.
   useEffect(() => () => { if (productURL) URL.revokeObjectURL(productURL) }, [productURL])
+
+  // The voice roster lives on the server so the two lists cannot drift.
+  useEffect(() => {
+    if (!can.multiframe) return
+    let live = true
+    fetchOptions()
+      .then((o) => live && setVoices(o.voices || null))
+      .catch(() => {})
+    return () => { live = false }
+  }, [can.multiframe])
 
   // The month's allowance, re-read whenever a reel settles so the count
   // reflects what was just spent.
@@ -123,6 +136,15 @@ export default function Multiframe() {
       if (err.name !== 'AbortError') setError(err.message)
     } finally {
       setFilming(false)
+    }
+  }
+
+  /** Re-read the reel — after a voiceover, a saved cut, or a script edit. */
+  async function refresh() {
+    try {
+      setReel(await checkStatus(reel.multiframeId))
+    } catch (err) {
+      setError(err.message)
     }
   }
 
@@ -314,7 +336,7 @@ export default function Multiframe() {
         />
       )}
 
-      {reel?.status === 'ready' && <ReelPlayer reel={reel} />}
+      {reel?.status === 'ready' && <ReelPlayer reel={reel} voices={voices} onRefresh={refresh} />}
     </div>
   )
 }

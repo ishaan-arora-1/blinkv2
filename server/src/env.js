@@ -80,6 +80,14 @@ export const env = {
     // below is for.
     videoModel: optional('FAL_VIDEO_MODEL', 'fal-ai/veo3.1/fast'),
     videoImageModel: optional('FAL_VIDEO_IMAGE_MODEL', 'fal-ai/veo3.1/fast/image-to-video'),
+
+    // Multiframe's narration. ElevenLabs through fal, so it bills against the
+    // same key as everything else — the reason video left Google's own balance.
+    //
+    // Multiframe clips are rendered silent and this is the only voice in the
+    // reel: Veo cannot hold one voice across separate generations, so a
+    // four-scene reel came back in four of them.
+    voiceModel: optional('FAL_VOICE_MODEL', 'fal-ai/elevenlabs/tts/eleven-v3'),
   },
 
   // Animated carousels cost roughly $0.20 each against a $7.99 plan, so past

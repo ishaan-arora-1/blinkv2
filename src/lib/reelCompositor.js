@@ -29,6 +29,97 @@
 export const REEL_W = 540
 export const REEL_H = 960
 
+/**
+ * Group the narration's word timings into caption lines.
+ *
+ * Cut on the words themselves rather than on an even division of the script
+ * across the runtime: an even split drifts inside any sentence not spoken at
+ * the average rate, and is visibly out by the end of a long one.
+ *
+ * Lines break on sentence punctuation, on a gap in the speech, or on length —
+ * whichever comes first. Short lines are the point: a caption that fills the
+ * lower third of a phone screen is read instead of the picture.
+ */
+export function buildCues(words, { maxChars = 42, maxGap = 0.45, offset = 0 } = {}) {
+  const cues = []
+  let cur = null
+
+  for (const w of words || []) {
+    if (!w?.word || !Number.isFinite(w.start) || !Number.isFinite(w.end)) continue
+
+    const gap = cur ? w.start - cur.end : 0
+    const tooLong = cur && `${cur.text} ${w.word}`.length > maxChars
+    const broke = cur && (gap > maxGap || tooLong)
+
+    if (!cur || broke) {
+      if (cur) cues.push(cur)
+      cur = { text: w.word, start: w.start + offset, end: w.end + offset }
+    } else {
+      cur.text += ` ${w.word}`
+      cur.end = w.end + offset
+    }
+
+    // A sentence ending is the most natural break there is, so take it even if
+    // the line has room left.
+    if (/[.!?]$/.test(w.word)) {
+      cues.push(cur)
+      cur = null
+    }
+  }
+  if (cur) cues.push(cur)
+  return cues
+}
+
+export function cueAt(cues, t) {
+  for (const c of cues) if (t >= c.start && t <= c.end) return c
+  return null
+}
+
+/**
+ * Draw one caption, centred in the lower third.
+ *
+ * Wrapped by measurement rather than by character count, because the same
+ * number of characters is a different width in every string. Drawn with a
+ * stroke under the fill so it survives a light frame — a white caption over a
+ * white wall is invisible, and this footage is deliberately full of plain
+ * walls.
+ */
+export function drawCaption(ctx, text) {
+  const size = Math.round(REEL_W * 0.062)
+  ctx.save()
+  ctx.font = `700 ${size}px "Familjen Grotesk", system-ui, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+
+  const maxWidth = REEL_W * 0.84
+  const lines = []
+  let line = ''
+  for (const word of text.split(' ')) {
+    const test = line ? `${line} ${word}` : word
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line)
+      line = word
+    } else {
+      line = test
+    }
+  }
+  if (line) lines.push(line)
+
+  const lh = size * 1.25
+  const baseY = REEL_H * 0.8 - ((lines.length - 1) * lh) / 2
+
+  lines.forEach((ln, i) => {
+    const y = baseY + i * lh
+    ctx.lineWidth = Math.max(3, size * 0.16)
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)'
+    ctx.lineJoin = 'round'
+    ctx.strokeText(ln, REEL_W / 2, y)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillText(ln, REEL_W / 2, y)
+  })
+  ctx.restore()
+}
+
 /** Which clip is playing at time t, and how far into it we are. */
 export function locate(clips, t) {
   let acc = 0
@@ -87,13 +178,35 @@ function sync(video, local, playing, active) {
 
 /**
  * @param canvas  the visible canvas, REEL_W x REEL_H
- * @param clips   [{ video: HTMLVideoElement, duration: number }] in order
+ * @param clips   [{ video: HTMLVideoElement, duration: number }] in order.
+ *                `duration` is how long the scene is *held*, which may be less
+ *                than the clip's own runtime — trimming is the only way to fit
+ *                the picture to the narration, since a clip's length was fixed
+ *                when it was filmed.
+ * @param voice   an <audio> element carrying the narration, or null. The clips
+ *                are rendered silent, so this is the only sound in the reel.
+ * @param cues    subtitle cues from buildCues, or null for no captions
  * @param onTick  called with the current time each frame
  * @param onEnd   called when playback reaches the end
  */
-export function createCompositor({ canvas, clips, onTick, onEnd }) {
+export function createCompositor({ canvas, clips, voice = null, cues = null, onTick, onEnd }) {
   const ctx = canvas.getContext('2d')
-  const total = totalDuration(clips)
+
+  // Both are switched at runtime rather than being fixed when the compositor is
+  // built, because the alternative does not work. Turning narration on would
+  // mean rebuilding, rebuilding means a new AudioContext, and a media element
+  // can only ever be bound to one — createMediaElementSource throws the second
+  // time. So the element is bound once and a gain node decides whether it is
+  // heard, and the captions are just a variable the draw loop reads.
+  let voiceOn = Boolean(voice)
+  let activeCues = cues
+
+  // Held separately from the clips so trimming does not rebuild anything. A
+  // rebuild would mean a new AudioContext, and the narration element cannot be
+  // bound to a second one — so every slider drag would silently cost the reel
+  // its voice.
+  let timeline = clips.map((c) => ({ video: c.video, duration: c.duration }))
+  const totalOf = () => timeline.reduce((n, c) => n + c.duration, 0)
 
   let t = 0
   let playing = false
@@ -104,6 +217,10 @@ export function createCompositor({ canvas, clips, onTick, onEnd }) {
   // can only be created once per element, and creating one redirects that
   // element's audio into the graph — so the graph must also feed the speakers
   // or preview goes silent from the first export onward.
+  //
+  // Only the narration is routed. The clips are rendered silent now (see
+  // generate_audio in video.js), so there is nothing in them to mix and
+  // binding them would only risk a CORS failure for no sound.
   let audio = null
 
   function buildAudio() {
@@ -111,16 +228,18 @@ export function createCompositor({ canvas, clips, onTick, onEnd }) {
     const actx = new AudioContext()
     const mix = actx.createGain()
     mix.connect(actx.destination)
-    for (const clip of clips) {
+    const gain = actx.createGain()
+    gain.gain.value = voiceOn ? 1 : 0
+    gain.connect(mix)
+    if (voice) {
       try {
-        actx.createMediaElementSource(clip.video).connect(mix)
+        actx.createMediaElementSource(voice).connect(gain)
       } catch {
-        // Already bound to another context, or the element is not CORS-clean.
-        // Preview still works; the export loses this clip's audio rather than
-        // failing outright.
+        // Already bound to another context, or not CORS-clean. The picture
+        // still records; it records without narration rather than not at all.
       }
     }
-    audio = { actx, mix }
+    audio = { actx, mix, gain }
     return audio
   }
 
@@ -130,8 +249,8 @@ export function createCompositor({ canvas, clips, onTick, onEnd }) {
 
     if (playing) {
       t += dt
-      if (t >= total) {
-        t = total
+      if (t >= totalOf()) {
+        t = totalOf()
         playing = false
         pauseAll()
         onEnd?.()
@@ -139,24 +258,62 @@ export function createCompositor({ canvas, clips, onTick, onEnd }) {
       onTick?.(t)
     }
 
-    const { index, local } = locate(clips, Math.min(t, total))
-    clips.forEach((clip, i) => sync(clip.video, i === index ? local : 0, playing, i === index))
-    drawFrame(ctx, clips[index]?.video)
+    const { index, local } = locate(timeline, Math.min(t, totalOf()))
+    timeline.forEach((clip, i) => sync(clip.video, i === index ? local : 0, playing, i === index))
+    drawFrame(ctx, timeline[index]?.video)
+
+    // The narration runs on the compositor clock like everything else, so
+    // scrubbing moves the voice with the picture.
+    if (voice && voiceOn) {
+      if (playing) {
+        if (voice.paused) {
+          voice.currentTime = Math.min(t, voice.duration || t)
+          voice.play().catch(() => {})
+        } else if (Math.abs(voice.currentTime - t) > 0.35) {
+          voice.currentTime = Math.min(t, voice.duration || t)
+        }
+      } else if (!voice.paused) {
+        voice.pause()
+      }
+    } else if (voice && !voice.paused) {
+      voice.pause()
+    }
+
+    if (activeCues?.length) {
+      const cue = cueAt(activeCues, t)
+      if (cue) drawCaption(ctx, cue.text)
+    }
 
     raf = requestAnimationFrame(loop)
   }
 
   function pauseAll() {
-    for (const c of clips) c.video.pause()
+    for (const c of timeline) c.video.pause()
+    if (voice && !voice.paused) voice.pause()
   }
 
   raf = requestAnimationFrame(loop)
 
   return {
-    total,
+    get total() {
+      return totalOf()
+    },
+
+    /** New on-screen durations, one per clip, without rebuilding anything. */
+    setDurations(next) {
+      timeline = timeline.map((c, i) => ({
+        ...c,
+        duration: Number.isFinite(next?.[i]) ? Math.max(0.1, next[i]) : c.duration,
+      }))
+      if (t > totalOf()) t = totalOf()
+      onTick?.(t)
+    },
 
     play() {
-      if (t >= total) t = 0
+      if (t >= totalOf()) {
+        t = 0
+        if (voice) voice.currentTime = 0
+      }
       playing = true
       last = performance.now()
       audio?.actx.resume().catch(() => {})
@@ -168,11 +325,26 @@ export function createCompositor({ canvas, clips, onTick, onEnd }) {
     },
 
     seek(next) {
-      t = Math.max(0, Math.min(total, next))
+      t = Math.max(0, Math.min(totalOf(), next))
+      if (voice) {
+        try { voice.currentTime = Math.min(t, voice.duration || t) } catch { /* not loaded yet */ }
+      }
       onTick?.(t)
     },
 
     isPlaying: () => playing,
+
+    /** Whether the narration is heard, and therefore recorded. */
+    setVoiceEnabled(on) {
+      voiceOn = Boolean(on) && Boolean(voice)
+      if (audio) audio.gain.gain.value = voiceOn ? 1 : 0
+      if (!voiceOn && voice && !voice.paused) voice.pause()
+    },
+
+    /** Captions to burn in, or null for none. */
+    setCues(next) {
+      activeCues = next
+    },
 
     /**
      * Record the reel start to finish and hand back a blob.
@@ -200,6 +372,9 @@ export function createCompositor({ canvas, clips, onTick, onEnd }) {
       const stopped = new Promise((resolve) => { rec.onstop = resolve })
 
       t = 0
+      if (voice) {
+        try { voice.currentTime = 0 } catch { /* not loaded yet */ }
+      }
       onTick?.(0)
       // One frame at t=0 before the recorder starts, so the first chunk is the
       // opening frame rather than whatever was last drawn.
@@ -211,8 +386,8 @@ export function createCompositor({ canvas, clips, onTick, onEnd }) {
 
       await new Promise((resolve) => {
         const tick = () => {
-          onProgress?.(Math.min(99, Math.round((t / total) * 100)))
-          if (t >= total || !playing) resolve()
+          onProgress?.(Math.min(99, Math.round((t / totalOf()) * 100)))
+          if (t >= totalOf() || !playing) resolve()
           else setTimeout(tick, 120)
         }
         tick()

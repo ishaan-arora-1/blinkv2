@@ -23,6 +23,7 @@ import {
   motionPrompt,
 } from '../multiframe.js'
 import { MONTHLY_LIMIT, CREDIT_KIND, usedThisMonth, usage } from '../blinkCredits.js'
+import { VOICES, DEFAULT_VOICE, MAX_SCRIPT, voiceById, synthesize, downloadAudio } from '../voice.js'
 
 // requireAuth is applied where this router is mounted, so every route below can
 // assume req.user exists.
@@ -46,7 +47,13 @@ const MAX_FRAME_REVISIONS = 6
 const PENDING = ['pending', 'scripting', 'rendering']
 
 multiframeRouter.get('/options', (_req, res) =>
-  res.json({ sceneCount: SCENE_COUNT, maxIdea: MAX_IDEA, monthlyLimit: MONTHLY_LIMIT })
+  res.json({
+    sceneCount: SCENE_COUNT,
+    maxIdea: MAX_IDEA,
+    monthlyLimit: MONTHLY_LIMIT,
+    voices: VOICES,
+    maxScript: MAX_SCRIPT,
+  })
 )
 
 /**
@@ -455,6 +462,171 @@ multiframeRouter.post(
   })
 )
 
+/**
+ * Rewrite the script.
+ *
+ * Text only — it does not re-synthesise. Editing the words and paying for a new
+ * reading are separate acts, and someone fixing a typo in three places should
+ * not buy three narrations on the way. The client asks for the voice when it
+ * wants it.
+ */
+multiframeRouter.patch(
+  '/:id/script',
+  requireFeature('multiframe'),
+  wrap(async (req, res) => {
+    const { reel } = await load(req)
+
+    const script = String(req.body?.script ?? '').trim()
+    if (!script) throw badRequest('The script cannot be empty.')
+    if (script.length > MAX_SCRIPT) throw badRequest(`Keep the script under ${MAX_SCRIPT} characters.`)
+
+    await admin.from('multiframes').update({ script }).eq('id', reel.id)
+    res.json({ script, stale: Boolean(reel.vo_path) })
+  })
+)
+
+/**
+ * Read the script aloud.
+ *
+ * Overwrites whatever narration was there: unlike the cuts, there is only ever
+ * one voice for a reel, and keeping every take of it would be hoarding rather
+ * than versioning. The renders that used the old one are untouched — they are
+ * already recorded files.
+ */
+multiframeRouter.post(
+  '/:id/voiceover',
+  requireFeature('multiframe'),
+  wrap(async (req, res) => {
+    const { reel } = await load(req)
+
+    const script = String(req.body?.script ?? reel.script ?? '').trim()
+    if (!script) throw badRequest('Write a script before generating the voiceover.')
+    if (script.length > MAX_SCRIPT) throw badRequest(`Keep the script under ${MAX_SCRIPT} characters.`)
+
+    const voice = voiceById(req.body?.voice)?.id || reel.voice_id || DEFAULT_VOICE
+
+    const { audioUrl, words, duration } = await synthesize({ script, voice })
+
+    const { buffer, contentType } = await downloadAudio(audioUrl)
+    const path = `${reel.user_id}/multiframes/${reel.id}/voiceover.mp3`
+
+    const { error: upErr } = await admin.storage
+      .from('generations')
+      .upload(path, buffer, { contentType, upsert: true })
+    if (upErr) throw new Error(`could not archive the narration: ${upErr.message}`)
+
+    await admin
+      .from('multiframes')
+      .update({
+        script,
+        voice_id: voice,
+        vo_path: path,
+        vo_words: words,
+        vo_duration_seconds: duration,
+      })
+      .eq('id', reel.id)
+
+    res.json({
+      voice,
+      script,
+      voiceoverUrl: await signedUrl(path),
+      durationSeconds: duration,
+      words,
+    })
+  })
+)
+
+/**
+ * The edit: how long each scene is held, and when the narration comes in.
+ *
+ * Neither costs anything to change — the clips are already filmed and the
+ * narration is already read — so this is a plain write with no vendor call
+ * behind it. Trimming is the only lever there is for making the picture match
+ * the length of the voice, since a clip's own runtime was fixed when Veo made
+ * it.
+ */
+multiframeRouter.patch(
+  '/:id/timing',
+  requireFeature('multiframe'),
+  wrap(async (req, res) => {
+    const { reel, scenes } = await load(req)
+
+    if (req.body?.voOffsetSeconds !== undefined) {
+      const offset = Number(req.body.voOffsetSeconds)
+      if (!Number.isFinite(offset) || offset < 0 || offset > 60) {
+        throw badRequest('The voiceover offset must be between 0 and 60 seconds.')
+      }
+      await admin.from('multiframes').update({ vo_offset_seconds: offset }).eq('id', reel.id)
+    }
+
+    const trims = Array.isArray(req.body?.trims) ? req.body.trims : []
+    for (const t of trims) {
+      const scene = scenes.find((sc) => sc.idx === Number(t?.idx))
+      if (!scene) continue
+
+      // Null restores the whole clip. Anything else is clamped to what was
+      // actually filmed — a scene cannot be held for longer than it exists,
+      // and a half-second of a shot is not a shot.
+      const raw = t?.seconds
+      const seconds =
+        raw === null || raw === undefined
+          ? null
+          : Math.min(Math.max(Number(raw), 0.5), reel.duration_seconds)
+
+      if (seconds !== null && !Number.isFinite(seconds)) continue
+      await admin.from('multiframe_scenes').update({ trim_seconds: seconds }).eq('id', scene.id)
+    }
+
+    res.json({ ok: true })
+  })
+)
+
+/**
+ * Record a finished cut.
+ *
+ * The bytes never come through here. The compositor records the canvas in the
+ * browser and uploads straight to the uploads bucket, where that user's own
+ * storage policy already lets them write under their own prefix; this only
+ * notes where it went. Proxying twenty megabytes of video through the API to
+ * re-upload it with the service role would buy nothing but latency and memory.
+ *
+ * Upserted per kind, so re-recording the subtitled cut refreshes that row and
+ * leaves the plain and voiceover cuts exactly where they are.
+ */
+multiframeRouter.post(
+  '/:id/renders',
+  requireFeature('multiframe'),
+  wrap(async (req, res) => {
+    const { reel } = await load(req)
+
+    const kind = String(req.body?.kind || '')
+    if (!['plain', 'voiceover', 'subtitled'].includes(kind)) throw badRequest('Unknown render kind.')
+
+    const storagePath = String(req.body?.storagePath || '')
+    // The path is supplied by the browser, so it is checked rather than
+    // trusted: without this an account could point a row at another user's
+    // prefix and read their video back out through its own signed URL.
+    if (!storagePath.startsWith(`${req.user.id}/`)) throw badRequest('That storage path is not yours.')
+
+    const duration = Number(req.body?.durationSeconds)
+
+    const { error } = await admin.from('multiframe_renders').upsert(
+      {
+        multiframe_id: reel.id,
+        user_id: req.user.id,
+        kind,
+        storage_path: storagePath,
+        duration_seconds: Number.isFinite(duration) ? duration : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'multiframe_id,kind' }
+    )
+    if (error) throw new Error(error.message)
+
+    res.status(201).json({ kind, storagePath })
+  })
+)
+
 /** The reel and its scenes, scoped to the caller. */
 async function load(req) {
   const { data: reel } = await admin
@@ -516,6 +688,11 @@ multiframeRouter.get(
 
     const settled = await settle(reel, fresh || [])
 
+    const { data: renders } = await admin
+      .from('multiframe_renders')
+      .select('kind, storage_path, duration_seconds, updated_at')
+      .eq('multiframe_id', reel.id)
+
     res.json({
       multiframeId: reel.id,
       name: reel.name,
@@ -530,6 +707,26 @@ multiframeRouter.get(
       total: reel.scene_count,
       hasProduct: Boolean(reel.product_path),
       maxFrameRevisions: MAX_FRAME_REVISIONS,
+
+      // The narration, if it has been read yet. Words are sent in full because
+      // subtitles are cut from them in the browser, at the moment the subtitled
+      // version is recorded.
+      voice: reel.voice_id,
+      voiceoverUrl: await signedUrl(reel.vo_path),
+      voiceoverDuration: reel.vo_duration_seconds,
+      voiceoverWords: reel.vo_words || [],
+      voOffsetSeconds: reel.vo_offset_seconds ?? 0,
+
+      // Every finished cut, side by side. Adding subtitles does not replace the
+      // version without them.
+      cuts: await Promise.all(
+        (renders || []).map(async (r) => ({
+          kind: r.kind,
+          url: await signedUrl(r.storage_path, 'uploads'),
+          durationSeconds: r.duration_seconds,
+          updatedAt: r.updated_at,
+        }))
+      ),
       scenes: await Promise.all(
         (fresh || []).map(async (s) => ({
           idx: s.idx,
@@ -537,6 +734,7 @@ multiframeRouter.get(
           status: s.status,
           error: s.error,
           revisions: s.frame_revisions ?? 0,
+          trimSeconds: s.trim_seconds,
           frameUrl: await signedUrl(s.frame_path),
           videoUrl: await signedUrl(s.video_path),
         }))
@@ -612,11 +810,11 @@ async function settle(reel, scenes) {
   return next
 }
 
-async function signedUrl(path) {
+async function signedUrl(path, bucket = 'generations') {
   if (!path) return null
-  const { data, error } = await admin.storage.from('generations').createSignedUrl(path, SIGNED_URL_TTL)
+  const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, SIGNED_URL_TTL)
   if (error) {
-    console.warn(`[multiframe] could not sign ${path}: ${error.message}`)
+    console.warn(`[multiframe] could not sign ${bucket}/${path}: ${error.message}`)
     return null
   }
   return data.signedUrl
