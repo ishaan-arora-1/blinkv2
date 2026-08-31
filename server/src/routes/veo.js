@@ -12,6 +12,7 @@ import {
   pollOperation,
   downloadVideo,
 } from '../video.js'
+import { MONTHLY_LIMIT, CREDIT_KIND, usedThisMonth, usage } from '../blinkCredits.js'
 
 // requireAuth is applied where this router is mounted, so the rate limiter can
 // key on req.user. Every route below can assume req.user exists.
@@ -19,34 +20,6 @@ export const veoRouter = Router()
 
 const SIGNED_URL_TTL = 60 * 60 // 1 hour
 const MAX_IN_FLIGHT = 3
-const MONTHLY_LIMIT = env.blinkMonthlyLimit
-
-/** Start of the current calendar month, UTC — the window the cap is counted in. */
-function monthStart() {
-  const d = new Date()
-  d.setUTCDate(1)
-  d.setUTCHours(0, 0, 0, 0)
-  return d
-}
-
-/**
- * How many generations this account has spent this month.
- *
- * Counted from generation_events rather than from blinks, for the same reason
- * animated carousels are: a row in blinks can be deleted by its owner, and a
- * cap you can reset by emptying your own library is not a cap. The event is
- * written only once the vendor has accepted the request, so a generation that
- * failed before it cost anything does not come out of the allowance.
- */
-async function usedThisMonth(userId) {
-  const { count } = await admin
-    .from('generation_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('kind', 'blink.generate')
-    .gte('created_at', monthStart().toISOString())
-  return count ?? 0
-}
 
 veoRouter.get('/limits', (_req, res) => res.json({ limits: LIMITS, monthlyLimit: MONTHLY_LIMIT }))
 
@@ -58,15 +31,7 @@ veoRouter.get('/limits', (_req, res) => res.json({ limits: LIMITS, monthlyLimit:
 veoRouter.get(
   '/usage',
   wrap(async (req, res) => {
-    const used = await usedThisMonth(req.user.id)
-    const start = monthStart()
-    res.json({
-      used,
-      limit: MONTHLY_LIMIT,
-      remaining: Math.max(0, MONTHLY_LIMIT - used),
-      // The 1st of next month, UTC — what the copy means by "resets".
-      resetsAt: new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1)).toISOString(),
-    })
+    res.json(await usage(req.user.id))
   })
 )
 
@@ -159,7 +124,7 @@ veoRouter.post(
 
       await admin.from('generation_events').insert({
         user_id: req.user.id,
-        kind: 'blink.generate',
+        kind: CREDIT_KIND,
         cost_units: 1,
         meta: {
           blink_id: blink.id,

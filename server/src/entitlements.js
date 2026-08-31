@@ -26,6 +26,10 @@ export const FEATURE_TIER = {
   animated: 'starter',
   sets: 'starter',
   blink: 'growth',
+  // Multiframe renders the same Veo clips Blink AI does, several at a time, and
+  // spends the same monthly allowance. Anything cheaper than Growth would be
+  // selling a discount on the most expensive thing the product does.
+  multiframe: 'growth',
 }
 
 /**
@@ -41,7 +45,7 @@ export const FEATURE_TIER = {
  * comp'd or promotional tier being a pricing decision and it being an
  * unmetered vendor bill nobody notices until it arrives.
  */
-export const METERED = new Set(['animated', 'blink'])
+export const METERED = new Set(['animated', 'blink', 'multiframe'])
 
 /** The plan name a user must be on to unlock a feature, for error copy. */
 export const PLAN_NAME = { starter: 'Starter', growth: 'Growth' }
@@ -53,6 +57,7 @@ export const FEATURE_LABEL = {
   animated: 'Animated carousels',
   sets: 'Custom image sets',
   blink: 'Blink AI',
+  multiframe: 'Multiframe',
 }
 
 export function tierAllows(tier, feature) {

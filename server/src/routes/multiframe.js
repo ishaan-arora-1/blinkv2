@@ -1,0 +1,398 @@
+import { Router } from 'express'
+import { admin } from '../supabase.js'
+import { env } from '../env.js'
+import { requireFeature } from '../middleware/auth.js'
+import { wrap, notFound, ApiError } from '../middleware/errors.js'
+import { download } from '../fal.js'
+import { validateOptions, startSceneGeneration, pollOperation, downloadVideo } from '../video.js'
+import { SCENE_COUNT, MAX_IDEA, validate, planReel, renderFrames, motionPrompt } from '../multiframe.js'
+import { MONTHLY_LIMIT, CREDIT_KIND, usedThisMonth, usage } from '../blinkCredits.js'
+
+// requireAuth is applied where this router is mounted, so every route below can
+// assume req.user exists.
+export const multiframeRouter = Router()
+
+const SIGNED_URL_TTL = 60 * 60 // 1 hour
+
+// One reel at a time. Blink AI allows three in flight because each is one clip;
+// a reel is up to six, so three of them is eighteen concurrent Veo jobs from a
+// single account, which is both a vendor rate-limit problem and a bill.
+const MAX_IN_FLIGHT = 1
+
+const PENDING = ['pending', 'scripting', 'rendering']
+
+multiframeRouter.get('/options', (_req, res) =>
+  res.json({ sceneCount: SCENE_COUNT, maxIdea: MAX_IDEA, monthlyLimit: MONTHLY_LIMIT })
+)
+
+/**
+ * What is left this month — the same allowance Blink AI spends, deliberately.
+ * The form reads it to say how many scenes it can afford before anyone writes
+ * an idea they cannot render.
+ */
+multiframeRouter.get(
+  '/usage',
+  wrap(async (req, res) => {
+    res.json(await usage(req.user.id))
+  })
+)
+
+/**
+ * Start a reel.
+ *
+ * Answers as soon as the row exists and does the work behind it, the shape both
+ * Blink AI and animated carousels use. The difference here is where the
+ * background work stops: it plans, renders the frames, and hands every scene to
+ * Veo — then it ends, having stored a status URL per scene. The waiting is done
+ * by /status, one poll at a time, because a reel is several minutes long and a
+ * background task that owns those minutes dies with the next Railway redeploy,
+ * taking six paid-for clips with it. Storing the status URLs makes the work
+ * recoverable by anyone who asks for it later.
+ */
+multiframeRouter.post(
+  '/generate',
+  requireFeature('multiframe'),
+  wrap(async (req, res) => {
+    if (!env.fal.configured) {
+      throw new ApiError(503, 'generation_not_configured', 'Multiframe is not set up on this server yet.')
+    }
+
+    const { idea, sceneCount } = validate(req.body)
+    const options = validateOptions(req.body)
+
+    const { count: inFlight } = await admin
+      .from('multiframes')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', req.user.id)
+      .in('status', PENDING)
+
+    if ((inFlight ?? 0) >= MAX_IN_FLIGHT) {
+      throw new ApiError(
+        429,
+        'too_many_in_flight',
+        'You already have a reel rendering. Wait for it to finish before starting another.'
+      )
+    }
+
+    // The whole reel is checked against the allowance up front, not scene by
+    // scene as it renders. Reserving four and stopping at two would leave
+    // somebody with half a video and no way to finish it, having spent the
+    // allowance that would have completed it.
+    const used = await usedThisMonth(req.user.id)
+    const remaining = Math.max(0, MONTHLY_LIMIT - used)
+    if (remaining < sceneCount) {
+      throw new ApiError(
+        429,
+        'monthly_limit_reached',
+        remaining === 0
+          ? `You have used all ${MONTHLY_LIMIT} videos included this month. It resets on the 1st.`
+          : `A ${sceneCount}-scene reel costs ${sceneCount} of your ${MONTHLY_LIMIT} monthly videos, and you have ${remaining} left. Try fewer scenes.`
+      )
+    }
+
+    // Scoped to the caller: the brand id comes from the browser, so without the
+    // user_id filter one account could generate against another's brand and read
+    // its positioning back out of the finished script.
+    const brandId = req.body?.brandId ? String(req.body.brandId) : null
+    let brandQuery = admin
+      .from('brands')
+      .select('id, app_name, category, tagline')
+      .eq('user_id', req.user.id)
+
+    brandQuery = brandId
+      ? brandQuery.eq('id', brandId)
+      : brandQuery.order('created_at', { ascending: true }).limit(1)
+
+    const { data: brand } = await brandQuery.maybeSingle()
+    if (brandId && !brand) throw notFound('That brand is not on your account.')
+
+    const { data: reel, error: insertErr } = await admin
+      .from('multiframes')
+      .insert({
+        user_id: req.user.id,
+        brand_id: brand?.id ?? null,
+        idea,
+        scene_count: sceneCount,
+        aspect_ratio: options.aspectRatio,
+        resolution: options.resolution,
+        duration_seconds: options.duration,
+        status: 'scripting',
+      })
+      .select('*')
+      .single()
+
+    if (insertErr) throw new Error(insertErr.message)
+
+    // Fire and forget. Failures are written onto the row the client is polling —
+    // an unhandled rejection here would strand a reel on 'scripting' forever
+    // with nothing explaining why.
+    build({
+      reel,
+      brand: { appName: brand?.app_name, category: brand?.category, tagline: brand?.tagline },
+      idea,
+      sceneCount,
+      options,
+      userId: req.user.id,
+    }).catch(async (err) => {
+      console.error(`[multiframe] ${reel.id} failed:`, err?.message || err)
+      await admin
+        .from('multiframes')
+        .update({ status: 'failed', error: String(err?.message || err).slice(0, 500) })
+        .eq('id', reel.id)
+    })
+
+    res.status(201).json({ multiframeId: reel.id, status: 'scripting' })
+  })
+)
+
+/**
+ * Plan the reel, render the opening frames, and hand every scene to Veo.
+ *
+ * Frames are archived as they land rather than in one batch at the end: they
+ * arrive out of order, they are the first evidence the split understood the
+ * idea, and one failing should not throw away the ones already paid for.
+ */
+async function build({ reel, brand, idea, sceneCount, options, userId }) {
+  const plan = await planReel({
+    brand,
+    idea,
+    sceneCount,
+    durationSeconds: options.duration,
+  })
+
+  await admin
+    .from('multiframes')
+    .update({ name: plan.title, script: plan.script, status: 'rendering' })
+    .eq('id', reel.id)
+
+  await admin.from('multiframe_scenes').insert(
+    plan.scenes.map((s, i) => ({
+      multiframe_id: reel.id,
+      user_id: userId,
+      idx: i,
+      description: s.description,
+      frame_prompt: s.frame,
+      motion_prompt: s.motion,
+      status: 'framing',
+    }))
+  )
+
+  const framePaths = new Array(plan.scenes.length).fill(null)
+
+  await renderFrames({
+    scenes: plan.scenes,
+    aspectRatio: options.aspectRatio,
+    onFrame: async (i, url) => {
+      try {
+        const { buffer, contentType } = await download(url)
+        const path = `${userId}/multiframes/${reel.id}/${String(i).padStart(2, '0')}-frame.png`
+
+        const { error: upErr } = await admin.storage
+          .from('generations')
+          .upload(path, buffer, { contentType, upsert: true })
+        if (upErr) throw new Error(upErr.message)
+
+        framePaths[i] = path
+        await admin
+          .from('multiframe_scenes')
+          .update({ status: 'frame_ready', frame_path: path, error: null })
+          .eq('multiframe_id', reel.id)
+          .eq('idx', i)
+      } catch (err) {
+        await admin
+          .from('multiframe_scenes')
+          .update({ status: 'failed', error: String(err?.message || err).slice(0, 300) })
+          .eq('multiframe_id', reel.id)
+          .eq('idx', i)
+        throw err
+      }
+    },
+  })
+
+  // Every clip is started from the still we just archived, signed for long
+  // enough that fal can fetch it. The fal URL from the render is not reused:
+  // it is short-lived, and a scene that gets retried an hour from now would
+  // find it dead.
+  await Promise.all(
+    plan.scenes.map(async (scene, i) => {
+      if (!framePaths[i]) return
+      try {
+        const imageUrl = await signedUrl(framePaths[i])
+        const { operationName } = await startSceneGeneration({
+          prompt: motionPrompt(scene),
+          imageUrl,
+          options,
+        })
+
+        // Recorded the moment fal accepts the scene, one event per clip. This is
+        // the drawdown the monthly cap counts, and it is written per scene
+        // rather than once per reel because the cost is per scene.
+        await admin.from('generation_events').insert({
+          user_id: userId,
+          kind: CREDIT_KIND,
+          cost_units: 1,
+          meta: {
+            multiframe_id: reel.id,
+            scene_idx: i,
+            duration: options.duration,
+            resolution: options.resolution,
+            aspect_ratio: options.aspectRatio,
+          },
+        })
+
+        await admin
+          .from('multiframe_scenes')
+          .update({ status: 'rendering', operation_name: operationName, error: null })
+          .eq('multiframe_id', reel.id)
+          .eq('idx', i)
+      } catch (err) {
+        // One scene failing does not fail the reel. The others are already
+        // running and paid for, and /status settles the reel once they land.
+        console.warn(`[multiframe] ${reel.id} scene ${i} could not start:`, err?.message || err)
+        await admin
+          .from('multiframe_scenes')
+          .update({ status: 'failed', error: String(err?.message || err).slice(0, 300) })
+          .eq('multiframe_id', reel.id)
+          .eq('idx', i)
+      }
+    })
+  )
+}
+
+/**
+ * Poll a reel. The browser calls this every few seconds.
+ *
+ * Not gated on the feature, for the reason /api/veo/status is not: a reel
+ * already started and paid for stays collectable if the plan lapses mid-render.
+ * Scoped to the caller's own rows, which is what keeps that from being a way
+ * around the gate.
+ */
+multiframeRouter.get(
+  '/status/:id',
+  wrap(async (req, res) => {
+    const { data: reel } = await admin
+      .from('multiframes')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('user_id', req.user.id)
+      .maybeSingle()
+
+    if (!reel) throw notFound('That reel does not exist.')
+
+    const { data: scenes } = await admin
+      .from('multiframe_scenes')
+      .select('*')
+      .eq('multiframe_id', reel.id)
+      .order('idx', { ascending: true })
+
+    const rows = scenes || []
+
+    // Collect the clips that finished since the last poll. Concurrent, and each
+    // one guarded on its own — a scene whose download fails must not stop the
+    // others being banked.
+    await Promise.all(rows.map((s) => collect(s).catch(() => {})))
+
+    const { data: fresh } = await admin
+      .from('multiframe_scenes')
+      .select('*')
+      .eq('multiframe_id', reel.id)
+      .order('idx', { ascending: true })
+
+    const settled = await settle(reel, fresh || [])
+
+    res.json({
+      multiframeId: reel.id,
+      name: reel.name,
+      idea: reel.idea,
+      script: reel.script,
+      status: settled.status,
+      error: settled.error,
+      aspectRatio: reel.aspect_ratio,
+      durationSeconds: reel.duration_seconds,
+      ready: (fresh || []).filter((s) => s.status === 'ready').length,
+      total: reel.scene_count,
+      scenes: await Promise.all(
+        (fresh || []).map(async (s) => ({
+          idx: s.idx,
+          description: s.description,
+          status: s.status,
+          error: s.error,
+          frameUrl: await signedUrl(s.frame_path),
+          videoUrl: await signedUrl(s.video_path),
+        }))
+      ),
+    })
+  })
+)
+
+/** One scene: poll fal, and archive the clip if it is done. */
+async function collect(scene) {
+  if (scene.status !== 'rendering' || !scene.operation_name) return
+
+  try {
+    const { done, videoUri } = await pollOperation(scene.operation_name)
+    if (!done) return
+
+    const path = `${scene.user_id}/multiframes/${scene.multiframe_id}/${String(scene.idx).padStart(2, '0')}.mp4`
+    const { buffer, contentType } = await downloadVideo(videoUri)
+
+    const { error: upErr } = await admin.storage
+      .from('generations')
+      .upload(path, buffer, { contentType, upsert: true })
+    if (upErr) throw new Error(`could not archive the scene: ${upErr.message}`)
+
+    await admin
+      .from('multiframe_scenes')
+      .update({ status: 'ready', video_path: path, error: null })
+      .eq('id', scene.id)
+  } catch (err) {
+    await admin
+      .from('multiframe_scenes')
+      .update({ status: 'failed', error: String(err?.message || err).slice(0, 300) })
+      .eq('id', scene.id)
+  }
+}
+
+/**
+ * Decide whether the reel is finished, and say so on the row.
+ *
+ * A reel with one dead scene is still a reel. The clips that rendered are paid
+ * for and watchable, and the browser can play and export the ones it has, so a
+ * partial result resolves to 'ready' with the shortfall named in `error` rather
+ * than to 'failed' — which would discard work somebody was charged for. Only a
+ * reel where nothing survived is a failure.
+ */
+async function settle(reel, scenes) {
+  if (reel.status === 'ready' || reel.status === 'failed') {
+    return { status: reel.status, error: reel.error }
+  }
+  // Scenes are inserted after the plan returns, so an empty set here means the
+  // split has not finished yet — not that every scene vanished.
+  if (!scenes.length) return { status: reel.status, error: reel.error }
+
+  const terminal = scenes.filter((s) => s.status === 'ready' || s.status === 'failed')
+  if (terminal.length < reel.scene_count) return { status: reel.status, error: reel.error }
+
+  const ok = scenes.filter((s) => s.status === 'ready').length
+  const lost = reel.scene_count - ok
+
+  const next = ok === 0
+    ? { status: 'failed', error: scenes.find((s) => s.error)?.error || 'No scenes could be rendered.' }
+    : {
+        status: 'ready',
+        error: lost > 0 ? `${lost} of ${reel.scene_count} scenes could not be rendered.` : null,
+      }
+
+  await admin.from('multiframes').update(next).eq('id', reel.id)
+  return next
+}
+
+async function signedUrl(path) {
+  if (!path) return null
+  const { data, error } = await admin.storage.from('generations').createSignedUrl(path, SIGNED_URL_TTL)
+  if (error) {
+    console.warn(`[multiframe] could not sign ${path}: ${error.message}`)
+    return null
+  }
+  return data.signedUrl
+}

@@ -230,6 +230,41 @@ export async function startGeneration({ prompt, creatorImage, productImage, opti
   return { operationName: data.status_url, videoUri: null }
 }
 
+/**
+ * Kick off one Multiframe scene: a clip driven from a still we generated.
+ *
+ * Separate from startGeneration rather than a third image source inside it. The
+ * two calls differ in what the image *means*. There, the image is a reference
+ * the prompt has to be talked into respecting — hence the notes about keeping
+ * the creator's face and outfit — because the prompt describes a whole video
+ * and the still is an anchor bolted onto it. Here the still IS the opening
+ * frame of this shot, generated from this shot's own description a moment ago,
+ * and the prompt says only what should move. Folding both into one function
+ * would mean a parameter that silently rewrites the prompt.
+ *
+ * `aspect_ratio: 'auto'` for the same reason as there: the frame was rendered
+ * at the reel's ratio already, and forcing a ratio on top of it crops the shot.
+ */
+export async function startSceneGeneration({ prompt, imageUrl, options }) {
+  const input = {
+    prompt,
+    resolution: options.resolution,
+    duration: `${options.duration}s`,
+    // A reel with sound on shot one and silence on shot two is worse than a
+    // silent reel. Stated per call rather than trusted to the model default.
+    generate_audio: true,
+    image_url: imageUrl,
+    aspect_ratio: 'auto',
+    ...(options.negativePrompt ? { negative_prompt: options.negativePrompt } : {}),
+  }
+
+  const data = await callQueue(env.fal.videoImageModel, { method: 'POST', body: input })
+  if (!data.status_url) {
+    throw new ApiError(502, 'generation_no_operation', 'The generator accepted the scene but returned nothing to poll.')
+  }
+  return { operationName: data.status_url }
+}
+
 /** One poll. `operationName` is the status URL handed back at submit time. */
 export async function pollOperation(operationName) {
   const st = await callQueue(operationName)

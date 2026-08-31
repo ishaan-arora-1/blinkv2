@@ -95,10 +95,17 @@ async function image(model, input) {
 }
 
 /**
+ * The carousel ratio. Multiframe passes 9:16 instead — a reel frame is the
+ * first frame of a video, and generating it at 4:5 and letting the video model
+ * letterbox it wastes most of the shot.
+ */
+const DEFAULT_ASPECT = '4:5'
+
+/**
  * Slide 1: invents the character and fixes the look every later slide inherits.
  */
-export function generateFirstSlide(prompt) {
-  return image(env.fal.imageModel, { prompt, aspect_ratio: '4:5', num_images: 1 })
+export function generateFirstSlide(prompt, { aspectRatio = DEFAULT_ASPECT } = {}) {
+  return image(env.fal.imageModel, { prompt, aspect_ratio: aspectRatio, num_images: 1 })
 }
 
 /**
@@ -109,11 +116,11 @@ export function generateFirstSlide(prompt) {
  * quietly become someone else — and it also serialises the whole batch. Every
  * slide referencing slide 1 keeps them identical and lets them run at once.
  */
-export function generateSlideFrom(referenceUrl, prompt) {
+export function generateSlideFrom(referenceUrl, prompt, { aspectRatio = DEFAULT_ASPECT } = {}) {
   return image(env.fal.editModel, {
     prompt,
     image_urls: [referenceUrl],
-    aspect_ratio: '4:5',
+    aspect_ratio: aspectRatio,
     num_images: 1,
   })
 }

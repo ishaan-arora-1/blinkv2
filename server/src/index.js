@@ -11,6 +11,7 @@ import { billingRouter } from './routes/billing.js'
 import { webhooksRouter } from './routes/webhooks.js'
 import { veoRouter } from './routes/veo.js'
 import { animatedRouter } from './routes/animated.js'
+import { multiframeRouter } from './routes/multiframe.js'
 import { requireAuth } from './middleware/auth.js'
 import { notFoundHandler, errorHandler } from './middleware/errors.js'
 
@@ -126,6 +127,10 @@ app.use('/api/veo', requireAuth, byUser(60_000, 90, 'Too many requests. Try agai
 // Same shape as Blink AI: the browser polls /status while a carousel renders,
 // so the budget has to cover a poll every few seconds per carousel in flight.
 app.use('/api/animated', requireAuth, byUser(60_000, 90, 'Too many requests. Try again shortly.'), animatedRouter)
+// Multiframe polls /status on the same cadence, and one poll fans out to a fal
+// request per scene still rendering. The budget is the same as the other two —
+// the fan-out is bounded by MAX_IN_FLIGHT of one reel, not by the caller.
+app.use('/api/multiframe', requireAuth, byUser(60_000, 90, 'Too many requests. Try again shortly.'), multiframeRouter)
 
 app.use(notFoundHandler)
 app.use(errorHandler)

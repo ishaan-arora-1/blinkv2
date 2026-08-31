@@ -15,6 +15,7 @@ export const FEATURE_TIER = {
   animated: 'starter',
   sets: 'starter',
   blink: 'growth',
+  multiframe: 'growth',
 }
 
 /** The plan name that unlocks a feature — 'Growth' for Blink AI. */

@@ -14,6 +14,7 @@ import CarouselEditor from './pages/CarouselEditor.jsx'
 import Videos from './pages/Videos.jsx'
 import VideoEditor from './pages/VideoEditor.jsx'
 import BlinkAI from './pages/BlinkAI.jsx'
+import Multiframe from './pages/Multiframe.jsx'
 import Library from './pages/Library.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Landing from './pages/Landing.jsx'
@@ -34,6 +35,7 @@ const NAV = [
   { path: '/carousels', label: 'Carousels', ico: '❏', section: 'Create' },
   { path: '/videos', label: 'Videos', ico: '▶', section: null, feature: 'videos' },
   { path: '/blink', label: 'Blink AI', ico: '✦', section: null, feature: 'blink' },
+  { path: '/multiframe', label: 'Multiframe', ico: '⛶', section: null, feature: 'multiframe' },
   { path: '/library', label: 'Library', ico: '▤', section: null },
   { path: '/sets', label: 'Image Sets', ico: '❖', section: 'Setup' },
   { path: '/brand', label: 'Brand', ico: '✧', section: null },
@@ -126,6 +128,7 @@ function Routed({ route, auth }) {
   if (route === '/carousels') return <Carousels />
   if (route === '/videos') return <Videos />
   if (route === '/blink') return <BlinkAI />
+  if (route === '/multiframe') return <Multiframe />
   if (route === '/library') return <Library />
   if (route === '/sets') return <Sets />
   if (route === '/brand') return <Brand />
