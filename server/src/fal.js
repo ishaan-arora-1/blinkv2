@@ -116,13 +116,63 @@ export function generateFirstSlide(prompt, { aspectRatio = DEFAULT_ASPECT } = {}
  * quietly become someone else — and it also serialises the whole batch. Every
  * slide referencing slide 1 keeps them identical and lets them run at once.
  */
-export function generateSlideFrom(referenceUrl, prompt, { aspectRatio = DEFAULT_ASPECT } = {}) {
+export function generateSlideFrom(reference, prompt, { aspectRatio = DEFAULT_ASPECT } = {}) {
+  // One reference or several. Multiframe passes two — the frame that fixes the
+  // person and the photo of the product the ad is about — because the edit
+  // model takes a list and holding both identities at once is the whole job.
+  const image_urls = Array.isArray(reference) ? reference.filter(Boolean) : [reference]
   return image(env.fal.editModel, {
     prompt,
-    image_urls: [referenceUrl],
+    image_urls,
     aspect_ratio: aspectRatio,
     num_images: 1,
   })
+}
+
+/**
+ * Build a still that contains a real object the customer gave us.
+ *
+ * The edit model rather than the text-to-image one, with the product photo as
+ * the only reference. Describing a product in words and hoping the generator
+ * invents the same one is how you get an ad for a candle that is not the
+ * customer's candle — the shape, the label and the colour all drift. Handing it
+ * the actual photograph is the only thing that holds them.
+ */
+export function generateSceneWithProduct(productUrl, prompt, { aspectRatio = DEFAULT_ASPECT } = {}) {
+  return image(env.fal.editModel, {
+    prompt,
+    image_urls: [productUrl],
+    aspect_ratio: aspectRatio,
+    num_images: 1,
+  })
+}
+
+/**
+ * Ask the text model to look at an image and say what it is.
+ *
+ * Used once per reel, to tell the director what it is writing an ad about. The
+ * idea someone types is often just "a reel for my candle", which is not enough
+ * for a model to place the thing in a room convincingly — it needs the colour,
+ * the material, the size in the hand.
+ *
+ * Deliberately best-effort. any-llm only accepts an image for models that can
+ * see, and the configured text model can change under us in env. A reel is
+ * worth more than a perfect description, so a failure here returns null and the
+ * caller carries on with the words it already had.
+ */
+export async function describeImage(imageUrl, question) {
+  try {
+    const data = await call(
+      'fal-ai/any-llm',
+      { model: env.fal.textModel, prompt: question, image_url: imageUrl },
+      { timeoutMs: 30_000 }
+    )
+    const out = String(data?.output || '').trim()
+    return out ? out.slice(0, 600) : null
+  } catch (err) {
+    console.warn('[fal] product description unavailable:', err?.message || err)
+    return null
+  }
 }
 
 /** Slide copy. Returns raw model text; the caller parses it. */

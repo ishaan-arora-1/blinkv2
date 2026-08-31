@@ -1,4 +1,5 @@
 import { api } from './api.js'
+import { fileToDataURL } from './blink.js'
 
 // Mirrors server/src/multiframe.js so the form can render its controls without
 // a round trip. The server re-validates everything regardless.
@@ -27,13 +28,18 @@ export function fetchUsage({ signal } = {}) {
  * Start a reel. Returns { multiframeId, status } as soon as the row exists —
  * the planning and rendering happen behind it.
  */
-export function startReel({ idea, sceneCount, brandId, options }) {
+export async function startReel({ idea, sceneCount, brandId, productFile, options }) {
+  // Sent as a base64 data URL, the same shape Blink AI uses for its product
+  // photo, so both features are validated by one function on the server.
+  const productImage = productFile ? await fileToDataURL(productFile) : null
+
   return api('/api/multiframe/generate', {
     method: 'POST',
     body: {
       idea,
       sceneCount,
       brandId: brandId || null,
+      productImage,
       durationSeconds: options.durationSeconds,
       aspectRatio: options.aspectRatio,
       resolution: options.resolution,

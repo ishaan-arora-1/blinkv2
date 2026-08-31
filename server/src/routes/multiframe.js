@@ -2,10 +2,25 @@ import { Router } from 'express'
 import { admin } from '../supabase.js'
 import { env } from '../env.js'
 import { requireFeature } from '../middleware/auth.js'
-import { wrap, notFound, ApiError } from '../middleware/errors.js'
+import { wrap, badRequest, notFound, ApiError } from '../middleware/errors.js'
 import { download } from '../fal.js'
-import { validateOptions, startSceneGeneration, pollOperation, downloadVideo } from '../video.js'
-import { SCENE_COUNT, MAX_IDEA, validate, planReel, renderFrames, motionPrompt } from '../multiframe.js'
+import {
+  validateOptions,
+  decodeProductImage,
+  startSceneGeneration,
+  pollOperation,
+  downloadVideo,
+} from '../video.js'
+import {
+  SCENE_COUNT,
+  MAX_IDEA,
+  VIDEO_NEGATIVE,
+  validate,
+  planReel,
+  renderFrames,
+  describeProduct,
+  motionPrompt,
+} from '../multiframe.js'
 import { MONTHLY_LIMIT, CREDIT_KIND, usedThisMonth, usage } from '../blinkCredits.js'
 
 // requireAuth is applied where this router is mounted, so every route below can
@@ -59,6 +74,13 @@ multiframeRouter.post(
 
     const { idea, sceneCount } = validate(req.body)
     const options = validateOptions(req.body)
+
+    // Validated before anything is inserted or spent. decodeProductImage is the
+    // same check Blink AI puts a product photo through — a real image data URL,
+    // under 8 MB — so the two features refuse the same uploads for the same
+    // reasons and say the same thing when they do.
+    const productImage = decodeProductImage(req.body?.productImage)
+    assertStorableImage(productImage)
 
     const { count: inFlight } = await admin
       .from('multiframes')
@@ -123,6 +145,29 @@ multiframeRouter.post(
 
     if (insertErr) throw new Error(insertErr.message)
 
+    // Archived before the build starts, so every later reference to the product
+    // is a short signed URL rather than several megabytes of base64 repeated
+    // once per scene. A failure here is fatal to the reel on purpose: the whole
+    // point of the upload is that the reel is about this object, and silently
+    // generating a different one would be worse than saying no.
+    let productPath = null
+    if (productImage) {
+      productPath = `${req.user.id}/multiframes/${reel.id}/product`
+      const { bytes, contentType } = decodeToBytes(productImage)
+      const { error: upErr } = await admin.storage
+        .from('generations')
+        .upload(productPath, bytes, { contentType, upsert: true })
+
+      if (upErr) {
+        await admin
+          .from('multiframes')
+          .update({ status: 'failed', error: `could not store the product photo: ${upErr.message}` })
+          .eq('id', reel.id)
+        throw new ApiError(502, 'product_upload_failed', 'We could not store that product photo. Try again.')
+      }
+      await admin.from('multiframes').update({ product_path: productPath }).eq('id', reel.id)
+    }
+
     // Fire and forget. Failures are written onto the row the client is polling —
     // an unhandled rejection here would strand a reel on 'scripting' forever
     // with nothing explaining why.
@@ -132,6 +177,7 @@ multiframeRouter.post(
       idea,
       sceneCount,
       options,
+      productPath,
       userId: req.user.id,
     }).catch(async (err) => {
       console.error(`[multiframe] ${reel.id} failed:`, err?.message || err)
@@ -152,12 +198,21 @@ multiframeRouter.post(
  * arrive out of order, they are the first evidence the split understood the
  * idea, and one failing should not throw away the ones already paid for.
  */
-async function build({ reel, brand, idea, sceneCount, options, userId }) {
+async function build({ reel, brand, idea, sceneCount, options, productPath, userId }) {
+  // Signed for the whole render: the same URL is handed to the image model once
+  // per scene, and the frames run concurrently well inside the hour.
+  const productUrl = await signedUrl(productPath)
+
+  // Read the photo before planning, so the director is writing about the object
+  // the customer actually sells rather than one implied by a sentence.
+  const product = await describeProduct(productUrl)
+
   const plan = await planReel({
     brand,
     idea,
     sceneCount,
     durationSeconds: options.duration,
+    product,
   })
 
   await admin
@@ -182,6 +237,7 @@ async function build({ reel, brand, idea, sceneCount, options, userId }) {
   await renderFrames({
     scenes: plan.scenes,
     aspectRatio: options.aspectRatio,
+    productUrl,
     onFrame: async (i, url) => {
       try {
         const { buffer, contentType } = await download(url)
@@ -219,9 +275,12 @@ async function build({ reel, brand, idea, sceneCount, options, userId }) {
       try {
         const imageUrl = await signedUrl(framePaths[i])
         const { operationName } = await startSceneGeneration({
-          prompt: motionPrompt(scene),
+          prompt: motionPrompt(scene, { hasProduct: Boolean(productUrl) }),
           imageUrl,
-          options,
+          // Veo re-renders every frame and drifts back toward a polished,
+          // advertisement look over eight seconds if nothing holds it. The
+          // still sets the look; this is what keeps it there.
+          options: { ...options, negativePrompt: options.negativePrompt || VIDEO_NEGATIVE },
         })
 
         // Recorded the moment fal accepts the scene, one event per clip. This is
@@ -395,4 +454,36 @@ async function signedUrl(path) {
     return null
   }
   return data.signedUrl
+}
+
+/** Split a validated image data URL into the bytes and mime storage wants. */
+function decodeToBytes(dataUrl) {
+  const m = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(dataUrl)
+  return { bytes: Buffer.from(m[2], 'base64'), contentType: m[1] }
+}
+
+/**
+ * The generations bucket accepts png, jpeg and webp and nothing else, so a
+ * format it does not take has to be refused here rather than three seconds
+ * later as an opaque storage error.
+ *
+ * This is not hypothetical: an iPhone photo is HEIC, `accept="image/*"` lets
+ * the picker return it, and Safari uploads it unconverted. decodeProductImage
+ * passes it happily — it only checks that the thing is an image — and the
+ * upload is what fails, after the row exists.
+ */
+// Exactly the bucket's allowed_mime_types. 'image/jpg' is deliberately absent:
+// it is not a real media type, no browser emits it, and allowing it here would
+// only let a request past this check to fail at the upload instead.
+const STORABLE = new Set(['image/png', 'image/jpeg', 'image/webp'])
+
+function assertStorableImage(dataUrl) {
+  if (!dataUrl) return
+  const mime = /^data:(image\/[a-z0-9.+-]+);base64,/i.exec(dataUrl)?.[1]?.toLowerCase()
+  if (!STORABLE.has(mime)) {
+    throw badRequest(
+      `That image is ${mime || 'an unsupported format'}. Save it as JPEG, PNG or WebP and try again — ` +
+        `photos straight off an iPhone are often HEIC, which we cannot store.`
+    )
+  }
 }

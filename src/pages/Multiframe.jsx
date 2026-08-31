@@ -34,6 +34,10 @@ export default function Multiframe() {
   const [aspect, setAspect] = useState('9:16')
   const [resolution, setResolution] = useState('720p')
 
+  const [product, setProduct] = useState(null)
+  const [productURL, setProductURL] = useState(null)
+  const fileRef = useRef(null)
+
   const [busy, setBusy] = useState(false)
   const [reel, setReel] = useState(null)
   const [error, setError] = useState(null)
@@ -43,6 +47,9 @@ export default function Multiframe() {
 
   // Leaving the page must not leave a poll running.
   useEffect(() => () => abortRef.current?.abort(), [])
+
+  // The preview is an object URL, which stays allocated until it is revoked.
+  useEffect(() => () => { if (productURL) URL.revokeObjectURL(productURL) }, [productURL])
 
   // The month's allowance, re-read whenever a reel settles so the count
   // reflects what was just spent.
@@ -73,6 +80,7 @@ export default function Multiframe() {
         idea: idea.trim(),
         sceneCount,
         brandId,
+        productFile: product,
         options: { durationSeconds: duration, aspectRatio: aspect, resolution },
       })
 
@@ -92,7 +100,7 @@ export default function Multiframe() {
         <Head />
         <Upsell
           feature="multiframe"
-          pitch="One idea becomes a whole reel: we break it into shots, draw the opening frame of each, film every one with generated audio, write the voiceover, and play them back as a single video you can export. Scenes come out of the same monthly video allowance as Blink AI."
+          pitch="One idea becomes a whole reel: we break it into shots, draw the opening frame of each, film every one with generated audio, write the voiceover, and play them back as a single video you can export. Upload your product and it is held identical through every scene. Scenes come out of the same monthly video allowance as Blink AI."
         />
       </div>
     )
@@ -114,6 +122,53 @@ export default function Multiframe() {
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) run() }}
           disabled={busy}
         />
+
+        {/* The product the ad is about. Optional — a reel can be written from the
+            idea alone — but when it is supplied every frame is generated from
+            this photograph, so the object in the video is the real one. */}
+        <div className="row wrap mt-4" style={{ gap: 10, alignItems: 'center' }}>
+          {productURL ? (
+            <>
+              <img
+                src={productURL}
+                alt="your product"
+                style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--line)' }}
+              />
+              <span className="chip accent">held through every scene</span>
+              <button className="btn xs" disabled={busy} onClick={() => fileRef.current?.click()}>Change</button>
+              <button
+                className="btn xs"
+                disabled={busy}
+                onClick={() => { setProduct(null); setProductURL(null) }}
+              >
+                Remove
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn sm" disabled={busy} onClick={() => fileRef.current?.click()}>
+                ⬆ Upload your product
+              </button>
+              <span className="small muted">
+                Optional. Add it and the same object appears in every scene, unchanged.
+              </span>
+            </>
+          )}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) {
+                setProduct(f)
+                setProductURL(URL.createObjectURL(f))
+              }
+              e.target.value = ''
+            }}
+          />
+        </div>
 
         <div style={{ borderTop: '1px solid var(--line-soft)', marginTop: 18, paddingTop: 16 }}>
           <div className="grid cols-3 stack-sm" style={{ gap: 18 }}>
@@ -228,7 +283,7 @@ function Progress({ reel, busy, onStopWatching }) {
         <div className="row" style={{ gap: 12 }}>
           <span className="tick" style={{ fontSize: 22 }}>✦</span>
           <div>
-            <b>{planning ? 'Planning your scenes…' : `${reel.ready} of ${reel.total} scenes filmed`}</b>
+            <b>{planning ? 'Reading your product and planning the scenes…' : `${reel.ready} of ${reel.total} scenes filmed`}</b>
             <div className="small muted">
               {busy
                 ? 'A reel takes a few minutes. You can leave this page — it keeps rendering.'
