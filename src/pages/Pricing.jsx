@@ -47,7 +47,19 @@ export default function Pricing() {
     else if (periods.length && !periods.includes(period)) setPeriod(periods[0])
   }, [currentPlanId, plans.length])
 
-  const shownPlans = plans.filter((p) => p.period === period)
+  // One card per tier, always. If a tier has no plan for the selected period —
+  // Agency has no annual while Razorpay's transaction limit blocks the $1,290
+  // charge — it falls back to its monthly plan rather than vanishing from the
+  // page the moment someone flips to Yearly, which reads as the page being
+  // broken rather than as the plan being monthly-only.
+  const shownPlans = [...new Set(plans.map((p) => p.tier))]
+    .map(
+      (t) =>
+        plans.find((p) => p.tier === t && p.period === period) ||
+        plans.find((p) => p.tier === t && p.period === 'monthly')
+    )
+    .filter(Boolean)
+    .sort((a, b) => a.rank - b.rank)
 
   const bestSaving = Math.max(
     0,
@@ -161,6 +173,11 @@ export default function Pricing() {
                   {money(plan.price, plan.currency)}
                   <span className="small muted"> /{plan.period === 'yearly' ? 'year' : 'month'}</span>
                 </div>
+                {period === 'yearly' && plan.period === 'monthly' && (
+                  <div className="small muted" style={{ marginTop: -2 }}>
+                    Billed monthly — annual coming soon
+                  </div>
+                )}
                 {plan.period === 'yearly' && monthlyTwin && (
                   <div className="small muted" style={{ marginTop: -2 }}>
                     {perMonth(plan.price, plan.currency)}/month, billed yearly

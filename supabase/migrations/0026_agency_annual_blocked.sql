@@ -1,0 +1,25 @@
+-- ============================================================================
+-- Blink UGC · 0026_agency_annual_blocked
+--
+-- Agency Annual is hidden until Razorpay will accept the charge.
+--
+-- The account rejects any single transaction above roughly $525 with "Amount
+-- exceeds maximum amount allowed." Found by probing orders in test mode: $525
+-- is accepted, $529 is not. That is nowhere near the ₹5,00,000 default the docs
+-- describe — it is the account's international transaction limit, which is a
+-- separate setting and is raised by asking Razorpay support.
+--
+-- So $1,290 cannot be collected today. The plan row is kept, with its price and
+-- its features intact, and only deactivated: the pricing page reads `active`,
+-- so this takes it off the page without losing anything. Leaving it visible
+-- would have sent somebody through checkout to a gateway error, which is the
+-- worst possible place to discover a limit.
+--
+-- Studio Annual at $490 clears the same ceiling by $35. Worth remembering
+-- before any future price rise: it is the next thing that breaks.
+--
+-- TO UNDO, once support has raised the limit:
+--   update public.plans set active = true where id = 'agency_annual';
+-- ============================================================================
+
+update public.plans set active = false where id = 'agency_annual';
