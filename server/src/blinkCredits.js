@@ -1,33 +1,34 @@
 import { admin } from './supabase.js'
-import { env } from './env.js'
+import { allowanceFor } from './entitlements.js'
 
 /**
- * The Growth video allowance, and the one place that counts it.
+ * The video allowance, and the one place that counts it.
  *
- * This used to live inside routes/veo.js, which was correct while Blink AI was
- * the only thing spending it. Multiframe spends the same allowance — a scene is
- * a Veo clip, billed and rendered exactly like a Blink one — so the counter has
- * to be shared or the two routes will eventually disagree about what somebody
- * has left.
+ * Counted in SECONDS OF FINISHED VIDEO. That is the unit fal bills in — $0.10
+ * a second with audio off — so it is the only one that stays honest as the
+ * product changes. The previous meter counted clips, which cost forty cents at
+ * four seconds and eighty at eight while spending the same single credit: the
+ * longer clip was strictly better for the customer and strictly worse for us,
+ * and nobody had to notice that to take it.
  *
- * One allowance rather than two on purpose. The cost to us is per clip, so a
- * budget denominated in clips is the only one that stays true when the mix of
- * features changes; a separate multiframe cap would be a second number to keep
- * in step with the pricing page, and the first one is already hard enough (see
- * 0017 — BLINK_MONTHLY_LIMIT and the plans row have to move together).
+ * It is also the unit a buyer understands. "Two minutes a month" needs no
+ * footnote, where "25 videos a month" turned out to mean about six once each
+ * one was four scenes long.
+ *
+ * The allowance is per tier — see ALLOWANCE in entitlements.js — rather than a
+ * single environment variable, because there are now three plans and the number
+ * is what separates two of them.
  */
-export const MONTHLY_LIMIT = env.blinkMonthlyLimit
 
 /**
- * Every event kind that draws down the allowance.
+ * The event kind seconds are recorded under.
  *
- * Multiframe scenes are recorded under the same 'blink.generate' kind rather
- * than a kind of their own. The kind names what was spent, not what spent it —
- * one Veo clip either way — and keeping them identical means the count is a
- * single equality rather than an `in` list that someone has to remember to
- * extend the next time a feature renders video. What it was for is in `meta`.
+ * Deliberately not the old 'blink.generate'. Those rows carry a cost_units of 1
+ * meaning one clip, and summing them together with rows where 1 means one
+ * second would quietly undercount every historical generation by a factor of
+ * eight. A new kind keeps the two units from ever being added up.
  */
-export const CREDIT_KIND = 'blink.generate'
+export const CREDIT_KIND = 'video.seconds'
 
 /** Start of the current calendar month, UTC — the window the cap is counted in. */
 export function monthStart() {
@@ -44,31 +45,38 @@ export function resetsAt() {
 }
 
 /**
- * How many clips this account has spent this month.
+ * Seconds of video this account has spent this month.
  *
- * Counted from generation_events rather than from the rows the clips belong to,
- * for the reason 0017 gives: a blink or a reel can be deleted by its owner, and
- * a cap you can reset by emptying your own library is not a cap. The event is
- * written only once the vendor has accepted the request, so a generation that
- * failed before it cost anything does not come out of the allowance.
+ * Summed from generation_events rather than from the reels themselves, for the
+ * reason 0017 gives: a reel can be deleted by its owner, and an allowance you
+ * can reset by emptying your own library is not an allowance. The event is
+ * written only once the vendor has accepted the request, so a scene that failed
+ * before it cost anything does not come out of it.
  */
 export async function usedThisMonth(userId) {
-  const { count } = await admin
+  const { data, error } = await admin
     .from('generation_events')
-    .select('id', { count: 'exact', head: true })
+    .select('cost_units')
     .eq('user_id', userId)
     .eq('kind', CREDIT_KIND)
     .gte('created_at', monthStart().toISOString())
-  return count ?? 0
+
+  if (error) throw new Error(error.message)
+  return (data || []).reduce((n, row) => n + (row.cost_units || 0), 0)
 }
 
-/** { used, limit, remaining, resetsAt } — the shape both routes report. */
-export async function usage(userId) {
+/**
+ * { usedSeconds, limitSeconds, remainingSeconds, resetsAt } — the shape the
+ * form and the composer both read before anyone spends anything, because
+ * finding out you are out of video by being refused is a bad way to find out.
+ */
+export async function usage(userId, tier) {
   const used = await usedThisMonth(userId)
+  const limit = allowanceFor(tier).videoSeconds
   return {
-    used,
-    limit: MONTHLY_LIMIT,
-    remaining: Math.max(0, MONTHLY_LIMIT - used),
+    usedSeconds: used,
+    limitSeconds: limit,
+    remainingSeconds: Math.max(0, limit - used),
     resetsAt: resetsAt(),
   }
 }

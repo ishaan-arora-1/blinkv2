@@ -14,6 +14,7 @@ import {
   fetchUsage,
   fetchOptions,
   listReels,
+  fmtSeconds,
 } from '../lib/multiframe.js'
 import { go } from '../lib/router.js'
 import ReelPlayer from '../components/ReelPlayer.jsx'
@@ -155,8 +156,10 @@ export default function BlinkAI({ reelId }) {
   }
 
   const brandId = store.state.brand?.id || null
-  const affordable = usage ? usage.remaining >= sceneCount : true
   const totalSeconds = sceneCount * duration
+  // The allowance is spent in seconds of finished video, so what a reel costs
+  // is its runtime — not how many scenes it happens to be cut into.
+  const affordable = usage ? usage.remainingSeconds >= totalSeconds : true
 
   async function run() {
     if (!idea.trim() || busy) return
@@ -236,7 +239,7 @@ export default function BlinkAI({ reelId }) {
         </div>
         <Upsell
           feature="multiframe"
-          pitch="One idea becomes a whole video: we break it into scenes, draw the opening frame of each, film every one, narrate it in a single voice and cut them together — with subtitles if you want them. Upload your product and it is held identical through every scene."
+          pitch="One idea becomes a whole video: we break it into scenes, draw the opening frame of each, film every one, narrate it in a single voice and cut them together — with subtitles if you want them. Upload your product and it is held identical through every scene. Studio includes two minutes of finished video a month; Agency, six."
         />
       </div>
     )
@@ -248,7 +251,11 @@ export default function BlinkAI({ reelId }) {
         <a href="#/blink" style={{ textDecoration: 'none' }}>
           <b style={{ fontSize: 18 }}>✦ Blink AI</b>
         </a>
-        {usage && <span className="small muted">{usage.remaining} of {usage.limit} videos left this month</span>}
+        {usage && (
+          <span className="small muted">
+            {fmtSeconds(usage.remainingSeconds)} of {fmtSeconds(usage.limitSeconds)} video left this month
+          </span>
+        )}
       </div>
       <ReelHistory
         reels={reels}
@@ -397,8 +404,11 @@ export default function BlinkAI({ reelId }) {
 
         <div className="row between mt-4" style={{ alignItems: 'flex-end' }}>
           <div className="small muted">
-            {sceneCount} scenes × {duration}s — a {totalSeconds}-second reel. Costs {sceneCount} of your monthly videos when you film it.
-            {usage && !affordable && <b style={{ color: 'var(--hot, #e2725b)' }}> You have {usage.remaining} left — pick fewer scenes.</b>}
+            {sceneCount} scenes × {duration}s — a {totalSeconds}-second reel, which is {fmtSeconds(totalSeconds)} of your
+            monthly video when you film it.
+            {usage && !affordable && (
+              <b style={{ color: 'var(--hot, #e2725b)' }}> You have {fmtSeconds(usage.remainingSeconds)} left — try fewer or shorter scenes.</b>
+            )}
           </div>
           <button className="btn primary" disabled={!idea.trim() || busy || !affordable} onClick={run}>
             {busy ? '✦ Starting…' : '✦ Make the reel'}
@@ -436,7 +446,8 @@ function Progress({ reel, busy, filming, usage, onFilm, onEditFrame, onStopWatch
   const drawing = scenes.some((s) => s.status === 'framing')
 
   const filmable = scenes.filter((s) => s.frameUrl && s.status !== 'failed').length
-  const affordable = usage ? usage.remaining >= filmable : true
+  const wantedSeconds = filmable * (reel.durationSeconds || 8)
+  const affordable = usage ? usage.remainingSeconds >= wantedSeconds : true
 
   const heading = planning
     ? 'Reading your product and planning the scenes…'
@@ -488,14 +499,14 @@ function Progress({ reel, busy, filming, usage, onFilm, onEditFrame, onStopWatch
       {awaitingGo && (
         <div className="row between mt-6" style={{ alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
           <div className="small muted">
-            Filming {filmable} {filmable === 1 ? 'scene' : 'scenes'} costs {filmable} of your monthly videos.
+            Filming {filmable} {filmable === 1 ? 'scene' : 'scenes'} spends {fmtSeconds(wantedSeconds)} of your monthly video.
             {usage && (
               <>
                 {' '}
                 <b style={{ color: affordable ? 'inherit' : 'var(--hot, #e2725b)' }}>
-                  {usage.remaining} of {usage.limit} left
+                  {fmtSeconds(usage.remainingSeconds)} of {fmtSeconds(usage.limitSeconds)} left
                 </b>
-                {!affordable && ' — not enough to film them all.'}
+                {!affordable && ' — not enough for all of them.'}
               </>
             )}
           </div>

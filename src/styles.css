@@ -827,7 +827,10 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 .lp-step p { color: var(--muted); font-size: 13.5px; }
 
 /* ── Pricing on the landing page ── */
-.lp-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; max-width: 780px; margin: 0 auto; align-items: start; }
+/* Four cards now — Free plus three paid — where there were three. The minimum
+   column drops to 240px and the row widens to 1120 so all four sit on one line
+   on a desktop; auto-fit still folds them to two and then one below that. */
+.lp-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; max-width: 1120px; margin: 0 auto; align-items: start; }
 
 /* ── FAQ ── */
 .lp-faq { display: grid; gap: 10px; max-width: 780px; margin: 0 auto; }

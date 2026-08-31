@@ -90,17 +90,10 @@ export const env = {
     voiceModel: optional('FAL_VOICE_MODEL', 'fal-ai/elevenlabs/tts/eleven-v3'),
   },
 
-  // Animated carousels cost roughly $0.20 each against a $7.99 plan, so past
-  // this many in a calendar month a Starter subscription is losing money.
-  // Configurable because the right number depends on the price, and the price
-  // lives in the plans table rather than here.
-  animatedMonthlyLimit: Number(optional('ANIMATED_MONTHLY_LIMIT', '30')),
-
-  // Blink AI runs on Veo, which is the most expensive thing the product does
-  // per use, against the $25.99 Growth plan. Twenty-five generations a month is
-  // what that plan can carry and it is what the pricing page promises, so the
-  // two numbers have to move together — see 0017_blink_monthly_cap.sql.
-  blinkMonthlyLimit: Number(optional('BLINK_MONTHLY_LIMIT', '25')),
+  // The monthly allowances used to live here as two flat numbers. They are now
+  // per tier — see ALLOWANCE in entitlements.js — because there are three plans
+  // and the allowance is what separates two of them. A number that differs by
+  // plan is product policy, not deployment configuration.
 }
 
 env.razorpay.configured = Boolean(

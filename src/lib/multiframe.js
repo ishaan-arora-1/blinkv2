@@ -21,7 +21,7 @@ export function fetchOptions({ signal } = {}) {
   return api('/api/multiframe/options', { signal })
 }
 
-/** { used, limit, remaining, resetsAt } — the shared Blink allowance. */
+/** { usedSeconds, limitSeconds, remainingSeconds, resetsAt } — this tier's video allowance. */
 export function fetchUsage({ signal } = {}) {
   return api('/api/multiframe/usage', { signal })
 }
@@ -229,4 +229,13 @@ export const REEL_STATE = {
   rendering: 'filming',
   ready: 'done',
   failed: 'failed',
+}
+
+/** Seconds, written the way the plans describe them. */
+export function fmtSeconds(seconds) {
+  const s = Math.max(0, Math.round(seconds || 0))
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return r ? `${m}m ${r}s` : `${m} min`
 }

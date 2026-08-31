@@ -5,11 +5,11 @@ import { admin } from './supabase.js'
 // reimplementing the rules, so the two cannot drift.
 
 // Tier names match the customer-facing plan names on purpose, so a support
-// question about "Growth" does not need translating to read the database.
+// question about "Studio" does not need translating to read the database.
 //
 // 'free' is a real tier, not the absence of one. Every signed-in account has at
 // least this, permanently — there is no lapsed state below it to fall into.
-export const TIER_RANK = { free: 0, starter: 1, growth: 2 }
+export const TIER_RANK = { free: 0, creator: 1, studio: 2, agency: 3 }
 
 /**
  * What each feature costs you in tier.
@@ -22,14 +22,15 @@ export const TIER_RANK = { free: 0, starter: 1, growth: 2 }
  */
 export const FEATURE_TIER = {
   carousels: 'free',
-  videos: 'starter',
-  animated: 'starter',
-  sets: 'starter',
-  blink: 'growth',
-  // Multiframe renders the same Veo clips Blink AI does, several at a time, and
-  // spends the same monthly allowance. Anything cheaper than Growth would be
-  // selling a discount on the most expensive thing the product does.
-  multiframe: 'growth',
+  videos: 'creator',
+  animated: 'creator',
+  sets: 'creator',
+  // The retired single-clip route. Left at the same tier as multiframe so a
+  // legacy subscriber can still collect anything it made.
+  blink: 'studio',
+  // Blink AI. The only feature that spends real money per second, and the
+  // reason Studio exists.
+  multiframe: 'studio',
 }
 
 /**
@@ -48,7 +49,7 @@ export const FEATURE_TIER = {
 export const METERED = new Set(['animated', 'blink', 'multiframe'])
 
 /** The plan name a user must be on to unlock a feature, for error copy. */
-export const PLAN_NAME = { starter: 'Starter', growth: 'Growth' }
+export const PLAN_NAME = { creator: 'Creator', studio: 'Studio', agency: 'Agency' }
 
 /** What to call a feature when telling someone they cannot use it. */
 export const FEATURE_LABEL = {
@@ -56,8 +57,38 @@ export const FEATURE_LABEL = {
   videos: 'Hook videos',
   animated: 'Animated carousels',
   sets: 'Custom image sets',
-  blink: 'Blink AI',
-  multiframe: 'Multiframe',
+  blink: 'Blink AI clips',
+  multiframe: 'Blink AI',
+}
+
+/**
+ * What each tier includes per calendar month.
+ *
+ * Video is counted in SECONDS OF FINISHED VIDEO, not in clips, because seconds
+ * are what the vendor bills for. A clip-denominated credit cost us forty cents
+ * at four seconds and eighty at eight, which made the longer option strictly
+ * better for the customer and strictly worse for us — an arbitrage nobody has
+ * to notice to take.
+ *
+ * These numbers are one half of a promise; the other half is the feature list
+ * on the plans row, which the pricing page renders verbatim. 0017 is the
+ * migration that exists because those two drifted apart, so they move together
+ * or not at all.
+ *
+ * The costs they are set against, at fal's published rates: video is $0.10 a
+ * second with audio off, a frame is $0.039, and narration is $0.10 per
+ * thousand characters — about $0.11 an all-in second.
+ */
+export const ALLOWANCE = {
+  free:    { videoSeconds: 0,   animatedSlides: 0 },
+  creator: { videoSeconds: 0,   animatedSlides: 60 },
+  studio:  { videoSeconds: 120, animatedSlides: 120 },
+  agency:  { videoSeconds: 360, animatedSlides: 300 },
+}
+
+/** What this tier gets, falling back to nothing for an unknown one. */
+export function allowanceFor(tier) {
+  return ALLOWANCE[tier] || ALLOWANCE.free
 }
 
 export function tierAllows(tier, feature) {

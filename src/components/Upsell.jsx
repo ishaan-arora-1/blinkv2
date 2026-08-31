@@ -9,8 +9,8 @@ import { go } from '../lib/router.js'
  * Three pages needed the same thing the moment the free tier arrived — Videos,
  * Blink AI and Image Sets — and the part that is easy to get subtly wrong in
  * three places is the verb. Someone on the free tier is being asked to
- * subscribe; someone already paying for Starter and looking at Blink AI is
- * being asked to upgrade. "Upgrade to Growth" shown to a free account promises
+ * subscribe; someone already paying for Creator and looking at Blink AI is
+ * being asked to upgrade. "Upgrade to Studio" shown to a free account promises
  * a thing they do not have, and "See plans" shown to a customer sends them to a
  * page to work out for themselves what they are missing.
  *

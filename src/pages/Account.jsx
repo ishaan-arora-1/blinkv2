@@ -131,7 +131,7 @@ export default function Account() {
               <div style={{ fontFamily: 'var(--display)', fontSize: 18 }}>Free</div>
               <div className="small muted mt-2">
                 Unlimited photo carousels over the built-in photography, with no card on file and no
-                end date. Starter adds hook videos, animated carousels and your own image sets.
+                end date. Creator adds hook videos, animated carousels and your own image sets.
               </div>
               <button className="btn primary sm mt-4" onClick={() => go('/pricing')}>See plans →</button>
             </div>

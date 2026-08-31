@@ -3,16 +3,8 @@ import { admin } from '../supabase.js'
 import { env } from '../env.js'
 import { requireFeature } from '../middleware/auth.js'
 import { wrap, badRequest, notFound, ApiError } from '../middleware/errors.js'
-import {
-  LIMITS,
-  decodeProductImage,
-  fetchCreatorImage,
-  validateOptions,
-  startGeneration,
-  pollOperation,
-  downloadVideo,
-} from '../video.js'
-import { MONTHLY_LIMIT, CREDIT_KIND, usedThisMonth, usage } from '../blinkCredits.js'
+import { LIMITS, pollOperation, downloadVideo } from '../video.js'
+
 
 // requireAuth is applied where this router is mounted, so the rate limiter can
 // key on req.user. Every route below can assume req.user exists.
@@ -21,138 +13,28 @@ export const veoRouter = Router()
 const SIGNED_URL_TTL = 60 * 60 // 1 hour
 const MAX_IN_FLIGHT = 3
 
-veoRouter.get('/limits', (_req, res) => res.json({ limits: LIMITS, monthlyLimit: MONTHLY_LIMIT }))
+veoRouter.get('/limits', (_req, res) => res.json({ limits: LIMITS }))
 
 /**
- * What is left this month. The form shows this before anyone spends anything,
- * because finding out you are at your limit by being refused is a bad way to
- * find out.
- */
-veoRouter.get(
-  '/usage',
-  wrap(async (req, res) => {
-    res.json(await usage(req.user.id))
-  })
-)
-
-/**
- * Start a generation.
+ * The single-clip generator is closed.
  *
- * Requires the Studio tier, checked server-side. The Google key lives only in
- * this process — a generation is the one thing here that costs real money, so
- * it is the one thing the browser is never trusted to initiate directly.
+ * This route made one eight-second Veo clip and had its own page; Blink AI now
+ * means a multi-scene reel and that page is gone. The generator is refused
+ * rather than deleted for one reason: /status below still has to work, because
+ * three finished clips exist on real accounts and their owners can still play
+ * and download them from the library.
+ *
+ * Refusing here also closes an unmetered hole. This path spent money at the
+ * vendor against the old clip-denominated cap, which no longer exists — left
+ * open, it would bill with nothing counting it.
  */
-veoRouter.post(
-  '/generate',
-  requireFeature('blink'),
-  wrap(async (req, res) => {
-    if (!env.fal.configured) {
-      throw new ApiError(
-        503,
-        'generation_not_configured',
-        'Video generation is not set up on this server yet.'
-      )
-    }
-
-    const prompt = String(req.body?.prompt || '').trim()
-    if (!prompt) throw badRequest('Describe the video you want.')
-    if (prompt.length > 2000) throw badRequest('Keep the prompt under 2000 characters.')
-
-    const options = validateOptions(req.body)
-    const creatorId = req.body?.creatorId ? String(req.body.creatorId) : null
-
-    // Rendering is slow and expensive. Cap what one account can have running.
-    const { count } = await admin
-      .from('blinks')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', req.user.id)
-      .in('status', ['pending', 'rendering'])
-
-    if ((count ?? 0) >= MAX_IN_FLIGHT) {
-      throw new ApiError(
-        429,
-        'too_many_in_flight',
-        `You already have ${count} generations rendering. Wait for one to finish.`
-      )
-    }
-
-    // The monthly allowance. Blink AI is the most expensive thing this product
-    // does per use and Growth is a flat $25.99, so the plan is sold with a
-    // number on it rather than as "unlimited" — this is that number, and it is
-    // checked here because the browser is never the thing that decides.
-    const used = await usedThisMonth(req.user.id)
-    if (used >= MONTHLY_LIMIT) {
-      throw new ApiError(
-        429,
-        'monthly_limit_reached',
-        `You have used all ${MONTHLY_LIMIT} Blink AI videos included this month. It resets on the 1st.`
-      )
-    }
-
-    // Record the intent before spending anything, so a generation is always
-    // accounted for even if the call to Veo fails.
-    const { data: blink, error: insertError } = await admin
-      .from('blinks')
-      .insert({
-        user_id: req.user.id,
-        prompt,
-        creator_id: creatorId,
-        creator_name: req.body?.creatorName ? String(req.body.creatorName).slice(0, 80) : null,
-        duration_seconds: options.duration,
-        aspect_ratio: options.aspectRatio,
-        resolution: options.resolution,
-        negative_prompt: options.negativePrompt || null,
-        status: 'pending',
-      })
-      .select('*')
-      .single()
-
-    if (insertError) throw new Error(insertError.message)
-
-    try {
-      const [creatorImage, productImage] = await Promise.all([
-        fetchCreatorImage(creatorId),
-        Promise.resolve(decodeProductImage(req.body?.productImage)),
-      ])
-
-      const { operationName, videoUri } = await startGeneration({
-        prompt,
-        creatorImage,
-        productImage,
-        options,
-      })
-
-      await admin.from('generation_events').insert({
-        user_id: req.user.id,
-        kind: CREDIT_KIND,
-        cost_units: 1,
-        meta: {
-          blink_id: blink.id,
-          duration: options.duration,
-          resolution: options.resolution,
-          aspect_ratio: options.aspectRatio,
-        },
-      })
-
-      // Rare path: the response came back inline rather than as an operation.
-      if (!operationName && videoUri) {
-        const finished = await finalize(blink, videoUri)
-        return res.status(201).json(finished)
-      }
-
-      await admin
-        .from('blinks')
-        .update({ status: 'rendering', operation_name: operationName })
-        .eq('id', blink.id)
-
-      res.status(201).json({ blinkId: blink.id, status: 'rendering', url: null })
-    } catch (err) {
-      await admin
-        .from('blinks')
-        .update({ status: 'failed', error: String(err?.message || err).slice(0, 500) })
-        .eq('id', blink.id)
-      throw err
-    }
+veoRouter.post('/generate', (_req, res) =>
+  res.status(410).json({
+    error: {
+      code: 'gone',
+      message:
+        'Single-clip generation has been replaced by Blink AI, which makes multi-scene videos. Your existing clips are still in your library.',
+    },
   })
 )
 

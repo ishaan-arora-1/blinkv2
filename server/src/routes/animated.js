@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { admin } from '../supabase.js'
 import { env } from '../env.js'
 import { requireFeature } from '../middleware/auth.js'
+import { allowanceFor } from '../entitlements.js'
 import { wrap, notFound, ApiError } from '../middleware/errors.js'
 import { CHARACTERS } from '../characters.js'
 import { download } from '../fal.js'
@@ -12,7 +13,6 @@ import { SLIDE_COUNT, validate, writeCopy, renderSlides } from '../animated.js'
 export const animatedRouter = Router()
 
 const MAX_IN_FLIGHT = 2
-const MONTHLY_LIMIT = env.animatedMonthlyLimit
 
 animatedRouter.get('/options', (_req, res) =>
   res.json({
@@ -61,18 +61,31 @@ animatedRouter.post(
     monthStart.setUTCDate(1)
     monthStart.setUTCHours(0, 0, 0, 0)
 
-    const { count: usedThisMonth } = await admin
+    // Counted in slides, not carousels. Every slide is its own image
+    // generation, so a cap on carousels priced a three-slide one and an
+    // eight-slide one identically and let the tier cost us nearly three times
+    // what it was set against. The event has always recorded slides in
+    // cost_units; this now sums them rather than counting rows.
+    const { data: spent, error: spentErr } = await admin
       .from('generation_events')
-      .select('id', { count: 'exact', head: true })
+      .select('cost_units')
       .eq('user_id', req.user.id)
       .eq('kind', 'animated.generate')
       .gte('created_at', monthStart.toISOString())
 
-    if ((usedThisMonth ?? 0) >= MONTHLY_LIMIT) {
+    if (spentErr) throw new Error(spentErr.message)
+
+    const usedSlides = (spent || []).reduce((n, r) => n + (r.cost_units || 0), 0)
+    const limitSlides = allowanceFor(req.entitlement.paidTier).animatedSlides
+    const remaining = Math.max(0, limitSlides - usedSlides)
+
+    if (remaining < slideCount) {
       throw new ApiError(
         429,
         'monthly_limit_reached',
-        `You have used all ${MONTHLY_LIMIT} animated carousels for this month. It resets on the 1st.`
+        remaining === 0
+          ? `You have used all ${limitSlides} animated carousel slides included this month. It resets on the 1st.`
+          : `That carousel is ${slideCount} slides and you have ${remaining} left this month. Try fewer slides.`
       )
     }
 

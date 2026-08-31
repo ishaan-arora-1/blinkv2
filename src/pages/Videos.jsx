@@ -15,7 +15,7 @@ export default function Videos() {
   const valid = videos.filter((p) => store.getCharacter(p.characterId))
 
   // Videos a free account made before this was a paid feature stay listed and
-  // openable below. What Starter buys is making another one, so only the
+  // openable below. What Creator buys is making another one, so only the
   // wizard is behind the lock.
   const head = (
     <div className="page-head row between" style={{ alignItems: 'flex-end' }}>

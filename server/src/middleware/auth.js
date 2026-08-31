@@ -41,7 +41,7 @@ export const requireFeature = (feature) =>
 
       // Two different noes, and telling them apart is the difference between a
       // useful button and a confusing one. Someone on the free tier is being
-      // asked to buy; someone already paying for Starter is being asked to move
+      // asked to buy; someone already paying for Creator is being asked to move
       // up. "Upgrade" to a customer with nothing to upgrade from reads as a bug.
       const onPaidPlan = Boolean(PLAN_NAME[ent.tier])
       const message = onPaidPlan

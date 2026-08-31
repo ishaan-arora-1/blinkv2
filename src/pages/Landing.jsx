@@ -346,7 +346,7 @@ export default function Landing() {
                 </ul>
                 <div className="row mt-6" style={{ gap: 10, flexWrap: 'wrap' }}>
                   <SignInButton label="Make one free to watch" className="btn primary" />
-                  <span className="small muted">Photo carousels are free forever. Blink AI is on Growth.</span>
+                  <span className="small muted">Photo carousels are free forever. Blink AI starts on Studio.</span>
                 </div>
               </div>
 
@@ -607,9 +607,9 @@ export default function Landing() {
             </div>
 
             <div className="row" style={{ gap: 10, marginTop: 24 }}>
-              <span className="chip accent">Starter plan</span>
+              <span className="chip accent">Creator plan</span>
               <span className="small muted">
-                Every slide is drawn to order, so this one is on Starter rather than free.
+                Every slide is drawn to order, so this one is on Creator rather than free.
               </span>
             </div>
           </div>
@@ -710,8 +710,9 @@ export default function Landing() {
             </h2>
             <p>
               Photo carousels cost nothing and always will — no card, no countdown, no day eight where
-              it stops working. Starter adds hook videos, animated carousels and your own image sets;
-              Growth adds Blink AI, 25 videos a month. Change or cancel whenever you like.
+              it stops working. Creator adds unlimited hook videos and animated carousels. Studio and
+              Agency add Blink AI: multi-scene video, one voiceover, subtitles — two minutes a month or
+              six. Annual is two months free. Change or cancel whenever you like.
             </p>
           </div>
 
@@ -762,8 +763,8 @@ export default function Landing() {
                     ? Math.round((1 - plan.price / (twin.price * 12)) * 100)
                     : 0
                 return (
-                  <div key={plan.id} className={`card plan ${plan.tier === 'growth' ? 'featured' : ''}`}>
-                    {plan.tier === 'growth' && <span className="plan-flag">25 Blink AI videos/mo</span>}
+                  <div key={plan.id} className={`card plan ${plan.tier === 'studio' ? 'featured' : ''}`}>
+                    {plan.tier === 'studio' && <span className="plan-flag">Most popular</span>}
                     <h3 style={{ fontSize: 20 }}>{plan.name}</h3>
                     <div className="plan-price">
                       {money(plan.price, plan.currency)}
@@ -784,7 +785,7 @@ export default function Landing() {
                     <div style={{ marginTop: 18 }}>
                       <SignInButton
                         label={`Get ${plan.name}`}
-                        className={`btn ${plan.tier === 'growth' ? 'primary' : ''}`}
+                        className={`btn ${plan.tier === 'studio' ? 'primary' : ''}`}
                       />
                     </div>
                   </div>
@@ -843,7 +844,7 @@ export default function Landing() {
                 ours or your own — and is free and instant. An animated one has no photography in
                 it: you pick a 3D character and every slide is drawn to order, with that same
                 character doing something that matches the words on that slide. Both open in the
-                same editor and export the same way. Animated carousels are on Starter, because
+                same editor and export the same way. Animated carousels are on Creator, because
                 each slide is an image somebody bills us to render.
               </p>
             </details>
@@ -867,9 +868,9 @@ export default function Landing() {
               <p>
                 Photo carousels — unlimited, over our built-in photography, with the copy written from
                 your brand. No card, no countdown. Hook videos, animated carousels and your own image
-                sets are on Starter; Blink AI is on Growth and capped at 25 videos a month, because
-                those render on hardware somebody bills us for. If you cancel later you drop back to
-                free and keep everything you made.
+                sets are on Creator. Blink AI is on Studio and Agency, with two or six minutes of
+                finished video a month, because every second of it renders on hardware somebody bills
+                us for. If you cancel later you drop back to free and keep everything you made.
               </p>
             </details>
           </div>

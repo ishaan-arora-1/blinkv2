@@ -7,18 +7,18 @@
  * told no, which it needs to do before any request is made.
  */
 
-export const PLAN_NAME = { starter: 'Starter', growth: 'Growth' }
+export const PLAN_NAME = { creator: 'Creator', studio: 'Studio', agency: 'Agency' }
 
 export const FEATURE_TIER = {
   carousels: 'free',
-  videos: 'starter',
-  animated: 'starter',
-  sets: 'starter',
-  blink: 'growth',
-  multiframe: 'growth',
+  videos: 'creator',
+  animated: 'creator',
+  sets: 'creator',
+  blink: 'studio',
+  multiframe: 'studio',
 }
 
-/** The plan name that unlocks a feature — 'Growth' for Blink AI. */
+/** The plan name that unlocks a feature — 'Studio' for Blink AI. */
 export function planFor(feature) {
   return PLAN_NAME[FEATURE_TIER[feature]] ?? 'a paid'
 }
@@ -27,7 +27,7 @@ export function planFor(feature) {
  * Why a feature is locked, in the words the user needs.
  *
  * Two states, because they call for different buttons: a free account is being
- * asked to subscribe, a Starter customer looking at Blink AI is being asked to
+ * asked to subscribe, a Creator customer looking at Blink AI is being asked to
  * move up. Naming the plan works for both, so the label is the same shape and
  * only the verb around it changes at the call site.
  */

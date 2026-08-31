@@ -309,7 +309,7 @@ function PlanBadge({ entitlement }) {
     return (
       <a className="plan-badge trial" href="#/pricing">
         <b>Free plan</b>
-        <span>photo carousels — see what's on Starter</span>
+        <span>photo carousels — see what's on Creator</span>
       </a>
     )
   }

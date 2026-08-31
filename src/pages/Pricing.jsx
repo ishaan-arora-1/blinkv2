@@ -85,8 +85,9 @@ export default function Pricing() {
         <p className="page-sub">
           {onFree ? (
             <>
-              Photo carousels are free on your account and stay that way. Starter adds hook videos,
-              animated carousels and your own image sets; Growth adds Blink AI, 25 videos a month.
+              Photo carousels are free on your account and stay that way. Creator adds unlimited hook
+              videos, animated carousels and your own image sets. Studio and Agency add Blink AI —
+              multi-scene video with one voiceover and subtitles, at two and six minutes a month.
               You're charged today and your billing month starts today — no trial to wait out.
             </>
           ) : (
@@ -137,7 +138,7 @@ export default function Pricing() {
             </div>
           )}
 
-        <div className="grid cols-2" style={{ maxWidth: 860, alignItems: 'start' }}>
+        <div className="grid cols-3 stack-sm" style={{ maxWidth: 1080, alignItems: 'start' }}>
           {shownPlans.map((plan) => {
             const isCurrent = plan.id === currentPlanId
             const isUpgrade = currentPlanId && plan.rank > (plans.find((p) => p.id === currentPlanId)?.rank ?? 0)
@@ -150,8 +151,8 @@ export default function Pricing() {
                 : 0
 
             return (
-              <div key={plan.id} className={`card plan ${plan.tier === 'growth' ? 'featured' : ''}`}>
-                {plan.tier === 'growth' && <span className="plan-flag">25 Blink AI videos/mo</span>}
+              <div key={plan.id} className={`card plan ${plan.tier === 'studio' ? 'featured' : ''}`}>
+                {plan.tier === 'studio' && <span className="plan-flag">Most popular</span>}
                 <div className="row between">
                   <h3 style={{ fontSize: 20 }}>{plan.name}</h3>
                   {isCurrent && <span className="chip brand">current</span>}
@@ -175,7 +176,7 @@ export default function Pricing() {
                 </ul>
 
                 <button
-                  className={`btn ${plan.tier === 'growth' ? 'primary' : ''}`}
+                  className={`btn ${plan.tier === 'studio' ? 'primary' : ''}`}
                   style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
                   disabled={isCurrent || busyPlan !== null || !billingEnabled}
                   onClick={() => subscribe(plan)}

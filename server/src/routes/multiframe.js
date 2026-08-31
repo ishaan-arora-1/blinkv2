@@ -22,7 +22,8 @@ import {
   redrawFrame,
   motionPrompt,
 } from '../multiframe.js'
-import { MONTHLY_LIMIT, CREDIT_KIND, usedThisMonth, usage } from '../blinkCredits.js'
+import { CREDIT_KIND, usedThisMonth, usage } from '../blinkCredits.js'
+import { allowanceFor } from '../entitlements.js'
 import { VOICES, DEFAULT_VOICE, MAX_SCRIPT, voiceById, synthesize, downloadAudio } from '../voice.js'
 
 // requireAuth is applied where this router is mounted, so every route below can
@@ -47,13 +48,7 @@ const MAX_FRAME_REVISIONS = 6
 const PENDING = ['pending', 'scripting', 'rendering']
 
 multiframeRouter.get('/options', (_req, res) =>
-  res.json({
-    sceneCount: SCENE_COUNT,
-    maxIdea: MAX_IDEA,
-    monthlyLimit: MONTHLY_LIMIT,
-    voices: VOICES,
-    maxScript: MAX_SCRIPT,
-  })
+  res.json({ sceneCount: SCENE_COUNT, maxIdea: MAX_IDEA, voices: VOICES, maxScript: MAX_SCRIPT })
 )
 
 /**
@@ -63,8 +58,9 @@ multiframeRouter.get('/options', (_req, res) =>
  */
 multiframeRouter.get(
   '/usage',
+  requireFeature('multiframe'),
   wrap(async (req, res) => {
-    res.json(await usage(req.user.id))
+    res.json(await usage(req.user.id, req.entitlement.paidTier))
   })
 )
 
@@ -116,15 +112,22 @@ multiframeRouter.post(
     // scene as it renders. Reserving four and stopping at two would leave
     // somebody with half a video and no way to finish it, having spent the
     // allowance that would have completed it.
+    // The whole reel is checked against the allowance before anything is
+    // planned, not scene by scene as it films. Reserving half of one would
+    // leave somebody with an unfinishable video and no seconds left to finish
+    // it — see the same reasoning on /videos.
+    const wanted = sceneCount * options.duration
     const used = await usedThisMonth(req.user.id)
-    const remaining = Math.max(0, MONTHLY_LIMIT - used)
-    if (remaining < sceneCount) {
+    const limit = allowanceFor(req.entitlement.paidTier).videoSeconds
+    const remaining = Math.max(0, limit - used)
+
+    if (remaining < wanted) {
       throw new ApiError(
         429,
         'monthly_limit_reached',
         remaining === 0
-          ? `You have used all ${MONTHLY_LIMIT} videos included this month. It resets on the 1st.`
-          : `A ${sceneCount}-scene reel costs ${sceneCount} of your ${MONTHLY_LIMIT} monthly videos, and you have ${remaining} left. Try fewer scenes.`
+          ? `You have used all ${fmt(limit)} of video included this month. It resets on the 1st.`
+          : `That reel is ${fmt(wanted)} of video and you have ${fmt(remaining)} left this month. Try fewer or shorter scenes.`
       )
     }
 
@@ -311,15 +314,18 @@ multiframeRouter.post(
     const filmable = scenes.filter((sc) => sc.frame_path && sc.status === 'frame_ready')
     if (!filmable.length) throw new ApiError(409, 'no_frames', 'None of this reel\'s frames finished.')
 
+    const wanted = filmable.length * reel.duration_seconds
     const used = await usedThisMonth(req.user.id)
-    const remaining = Math.max(0, MONTHLY_LIMIT - used)
-    if (remaining < filmable.length) {
+    const limit = allowanceFor(req.entitlement.paidTier).videoSeconds
+    const remaining = Math.max(0, limit - used)
+
+    if (remaining < wanted) {
       throw new ApiError(
         429,
         'monthly_limit_reached',
         remaining === 0
-          ? `You have used all ${MONTHLY_LIMIT} videos included this month. It resets on the 1st.`
-          : `Filming ${filmable.length} scenes costs ${filmable.length} of your ${MONTHLY_LIMIT} monthly videos, and you have ${remaining} left.`
+          ? `You have used all ${fmt(limit)} of video included this month. It resets on the 1st.`
+          : `Filming these ${filmable.length} scenes is ${fmt(wanted)} of video and you have ${fmt(remaining)} left this month.`
       )
     }
 
@@ -346,7 +352,8 @@ multiframeRouter.post(
           await admin.from('generation_events').insert({
             user_id: req.user.id,
             kind: CREDIT_KIND,
-            cost_units: 1,
+            // Seconds, not scenes. This is the number the cap is summed from.
+            cost_units: reel.duration_seconds,
             meta: {
               multiframe_id: reel.id,
               scene_idx: sc.idx,
@@ -850,4 +857,12 @@ function assertStorableImage(dataUrl) {
         `photos straight off an iPhone are often HEIC, which we cannot store.`
     )
   }
+}
+
+/** Seconds, in the words the customer's allowance is written in. */
+function fmt(seconds) {
+  if (seconds < 60) return `${Math.round(seconds)}s`
+  const m = Math.floor(seconds / 60)
+  const r = Math.round(seconds % 60)
+  return r ? `${m}m ${r}s` : `${m} minute${m === 1 ? '' : 's'}`
 }
