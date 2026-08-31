@@ -346,6 +346,64 @@ export async function renderFrames({ scenes, aspectRatio, productUrl, onFrame })
   return [first, ...rest]
 }
 
+/**
+ * Redraw one frame, either as a plain re-roll or as an edit.
+ *
+ * Two different jobs behind one function, separated by whether the caller
+ * supplied an instruction.
+ *
+ * With one, this is an edit: the frame that already exists is the reference and
+ * the instruction says what to change about it. That is what someone means by
+ * "make it warmer" or "move the candle to the left" — they want this picture,
+ * adjusted, not a different picture of the same brief.
+ *
+ * Without one, it is a re-roll: the frame is drawn again from the scene's own
+ * description, conditioned on the establishing frame the way it was the first
+ * time. That is what someone means when they just do not like the result.
+ *
+ * The product photo rides along in both cases, for the reason it does
+ * everywhere else in this file — it is the one reference that must not be
+ * allowed to drift.
+ */
+export async function redrawFrame({
+  scene,
+  establishingUrl,
+  currentUrl,
+  productUrl,
+  instruction,
+  aspectRatio,
+}) {
+  const edit = String(instruction || '').trim()
+
+  const refs = edit
+    ? [currentUrl, productUrl].filter(Boolean)
+    : [establishingUrl, productUrl].filter(Boolean)
+
+  const body = edit
+    ? `Change this photograph as follows: ${edit}\n\n` +
+      `Keep everything else identical — the same person with the same face and clothes, the same room, ` +
+      `the same light, the same framing. Change only what was asked for.` +
+      (productUrl ? `\n\n${productClause(2)}` : '') +
+      `\n\n${STYLE}\n\n${AVOID}`
+    : (productUrl
+        ? `Reference image 1 fixes the person and the place: keep the EXACT same person — identical face, ` +
+          `identical hair, identical clothing — in the same room, with the same light and the same ordinary ` +
+          `phone-camera look.\n\n${productClause(2)}\n\nNow: ${scene.frame_prompt}`
+        : `Keep the EXACT same person from the reference image — identical face, identical hair, identical ` +
+          `clothing — and the same location, lighting and photographic style.\n\nNow: ${scene.frame_prompt}`) +
+      `\n\n${STYLE}\n\n${AVOID}`
+
+  // Same fallback as renderFrames: two references is the better result and the
+  // less certain call, and a refusal must not cost someone their frame.
+  try {
+    return await generateSlideFrom(refs, body, { aspectRatio })
+  } catch (err) {
+    if (refs.length < 2) throw err
+    console.warn('[multiframe] redraw: two-reference edit failed, retrying with one —', err?.message || err)
+    return generateSlideFrom(refs[0], body, { aspectRatio })
+  }
+}
+
 function truncate(s, n) {
   return s.length > n ? `${s.slice(0, n)}…` : s
 }

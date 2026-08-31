@@ -6,12 +6,14 @@ import {
   SCENE_COUNT,
   MAX_IDEA,
   DURATIONS,
-  SCENE_LABEL,
   startReel,
   awaitReel,
+  startVideos,
+  redrawFrame,
   fetchUsage,
 } from '../lib/multiframe.js'
 import ReelPlayer from '../components/ReelPlayer.jsx'
+import SceneCard from '../components/SceneCard.jsx'
 
 /**
  * Multiframe: one idea becomes a several-shot reel.
@@ -39,6 +41,7 @@ export default function Multiframe() {
   const fileRef = useRef(null)
 
   const [busy, setBusy] = useState(false)
+  const [filming, setFilming] = useState(false)
   const [reel, setReel] = useState(null)
   const [error, setError] = useState(null)
   const [usage, setUsage] = useState(null)
@@ -84,12 +87,68 @@ export default function Multiframe() {
         options: { durationSeconds: duration, aspectRatio: aspect, resolution },
       })
 
-      const done = await awaitReel(multiframeId, { onUpdate: setReel, signal: ctrl.signal })
+      // Stops when the frames are drawn. Filming is a separate decision, and
+      // it is the one that costs the month's allowance.
+      const done = await awaitReel(multiframeId, {
+        onUpdate: setReel,
+        signal: ctrl.signal,
+        until: ['frames_ready', 'ready'],
+      })
       setReel(done)
     } catch (err) {
       if (err.name !== 'AbortError') setError(err.message)
     } finally {
       setBusy(false)
+    }
+  }
+
+  /** Hand the finished frames to Veo. This is the step that spends credits. */
+  async function film() {
+    if (!reel || filming) return
+    setFilming(true)
+    setError(null)
+
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+
+    try {
+      await startVideos(reel.multiframeId)
+      const done = await awaitReel(reel.multiframeId, {
+        onUpdate: setReel,
+        signal: ctrl.signal,
+        until: ['ready'],
+      })
+      setReel(done)
+    } catch (err) {
+      if (err.name !== 'AbortError') setError(err.message)
+    } finally {
+      setFilming(false)
+    }
+  }
+
+  /** Redraw one frame in place, leaving the rest of the reel alone. */
+  async function editFrame(idx, instruction) {
+    setError(null)
+    setReel((r) => ({
+      ...r,
+      scenes: r.scenes.map((sc) => (sc.idx === idx ? { ...sc, status: 'framing' } : sc)),
+    }))
+    try {
+      const next = await redrawFrame(reel.multiframeId, idx, instruction)
+      setReel((r) => ({
+        ...r,
+        scenes: r.scenes.map((sc) =>
+          sc.idx === idx
+            ? { ...sc, status: 'frame_ready', frameUrl: next.frameUrl, revisions: next.revisions, error: null }
+            : sc
+        ),
+      }))
+    } catch (err) {
+      setError(err.message)
+      setReel((r) => ({
+        ...r,
+        scenes: r.scenes.map((sc) => (sc.idx === idx ? { ...sc, status: 'frame_ready' } : sc)),
+      }))
     }
   }
 
@@ -244,7 +303,15 @@ export default function Multiframe() {
       )}
 
       {reel && (
-        <Progress reel={reel} busy={busy} onStopWatching={() => abortRef.current?.abort()} />
+        <Progress
+          reel={reel}
+          busy={busy}
+          filming={filming}
+          usage={usage}
+          onFilm={film}
+          onEditFrame={editFrame}
+          onStopWatching={() => abortRef.current?.abort()}
+        />
       )}
 
       {reel?.status === 'ready' && <ReelPlayer reel={reel} />}
@@ -266,32 +333,54 @@ function Head() {
 }
 
 /**
- * The scene strip.
+ * The scene board: what has been drawn, and what has been filmed.
  *
  * Every scene shows its own state rather than the reel showing one bar, because
  * the states are genuinely different work — a frame is a few seconds and a clip
  * is a minute or two — and a single bar sitting at "2 of 4" says nothing about
  * whether the thing is progressing or wedged.
+ *
+ * The board is also where filming is authorised. It stops here on purpose: the
+ * frames are cheap and arrive first, and they are the evidence for whether the
+ * scenes are worth the clips. Nothing is charged to the month's allowance until
+ * the button below is pressed.
  */
-function Progress({ reel, busy, onStopWatching }) {
+function Progress({ reel, busy, filming, usage, onFilm, onEditFrame, onStopWatching }) {
   const scenes = reel.scenes || []
   const planning = reel.status === 'scripting' || !scenes.length
+  const awaitingGo = reel.status === 'frames_ready'
+  const drawing = scenes.some((s) => s.status === 'framing')
+
+  const filmable = scenes.filter((s) => s.frameUrl && s.status !== 'failed').length
+  const affordable = usage ? usage.remaining >= filmable : true
+
+  const heading = planning
+    ? 'Reading your product and planning the scenes…'
+    : awaitingGo
+      ? `${reel.framesReady ?? filmable} frames drawn — have a look before we film them`
+      : reel.status === 'rendering'
+        ? `${reel.ready} of ${reel.total} scenes filmed`
+        : `${reel.ready} of ${reel.total} scenes filmed`
 
   return (
-    <div className="card mt-6" style={{ maxWidth: 780 }}>
+    <div className="card mt-6" style={{ maxWidth: 900 }}>
       <div className="row between">
         <div className="row" style={{ gap: 12 }}>
           <span className="tick" style={{ fontSize: 22 }}>✦</span>
           <div>
-            <b>{planning ? 'Reading your product and planning the scenes…' : `${reel.ready} of ${reel.total} scenes filmed`}</b>
+            <b>{heading}</b>
             <div className="small muted">
-              {busy
-                ? 'A reel takes a few minutes. You can leave this page — it keeps rendering.'
-                : 'Rendering continues in the background.'}
+              {awaitingGo
+                ? 'Nothing has been charged yet. Redraw any frame you do not like, then film them.'
+                : busy || filming
+                  ? 'This takes a few minutes. You can leave this page — it keeps rendering.'
+                  : 'Rendering continues in the background.'}
             </div>
           </div>
         </div>
-        {busy && <button className="btn ghost xs" onClick={onStopWatching}>Stop watching</button>}
+        {(busy || filming) && (
+          <button className="btn ghost xs" onClick={onStopWatching}>Stop watching</button>
+        )}
       </div>
 
       {reel.error && reel.status === 'ready' && (
@@ -301,27 +390,38 @@ function Progress({ reel, busy, onStopWatching }) {
       {scenes.length > 0 && (
         <div className="grid cols-4 stack-sm mt-4" style={{ gap: 12 }}>
           {scenes.map((s) => (
-            <div key={s.idx} className="tile" style={{ overflow: 'hidden' }}>
-              <div style={{ aspectRatio: '9/16', background: '#0d0f0e', position: 'relative' }}>
-                {s.videoUrl ? (
-                  <video src={s.videoUrl} muted loop playsInline preload="metadata"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : s.frameUrl ? (
-                  <img src={s.frameUrl} alt={`Scene ${s.idx + 1}`}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }} />
-                ) : null}
-                <span className={`chip ${s.status === 'ready' ? 'brand' : s.status === 'failed' ? 'hot' : 'accent'}`}
-                  style={{ position: 'absolute', left: 8, top: 8 }}>
-                  {SCENE_LABEL[s.status] || s.status}
-                </span>
-              </div>
-              <div className="tile-body" style={{ padding: '8px 10px' }}>
-                <div className="small muted" style={{ minHeight: 32 }}>
-                  {s.error || s.description || `Scene ${s.idx + 1}`}
-                </div>
-              </div>
-            </div>
+            <SceneCard
+              key={s.idx}
+              scene={s}
+              editable={awaitingGo}
+              maxRevisions={reel.maxFrameRevisions ?? 6}
+              onEdit={onEditFrame}
+            />
           ))}
+        </div>
+      )}
+
+      {awaitingGo && (
+        <div className="row between mt-6" style={{ alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+          <div className="small muted">
+            Filming {filmable} {filmable === 1 ? 'scene' : 'scenes'} costs {filmable} of your monthly videos.
+            {usage && (
+              <>
+                {' '}
+                <b style={{ color: affordable ? 'inherit' : 'var(--hot, #e2725b)' }}>
+                  {usage.remaining} of {usage.limit} left
+                </b>
+                {!affordable && ' — not enough to film them all.'}
+              </>
+            )}
+          </div>
+          <button
+            className="btn primary"
+            disabled={!filmable || drawing || filming || !affordable}
+            onClick={onFilm}
+          >
+            {filming ? '✦ Filming…' : drawing ? 'Waiting for the redraw…' : `▶ Generate videos (${filmable})`}
+          </button>
         </div>
       )}
     </div>

@@ -52,6 +52,28 @@ export function checkStatus(id, { signal } = {}) {
 }
 
 /**
+ * Film the reel — the step that actually spends the monthly allowance.
+ *
+ * Separate from starting one on purpose. The frames are cheap and arrive first,
+ * and they are what tells you whether the scenes are worth filming, so nothing
+ * is charged for video until this is called.
+ */
+export function startVideos(id) {
+  return api(`/api/multiframe/${id}/videos`, { method: 'POST' })
+}
+
+/**
+ * Redraw one frame. With an instruction it is an edit of the picture that is
+ * there; without one it is a straight re-roll of that scene.
+ */
+export function redrawFrame(id, idx, instruction) {
+  return api(`/api/multiframe/${id}/frames/${idx}`, {
+    method: 'POST',
+    body: { instruction: instruction || '' },
+  })
+}
+
+/**
  * Poll until every scene has settled.
  *
  * `onUpdate` receives each status payload, so the page can show frames and
@@ -62,8 +84,9 @@ export function checkStatus(id, { signal } = {}) {
  * Aborting stops the poll without stopping the render: the clips continue at
  * fal and the reel can be picked up again from its row.
  */
-export async function awaitReel(id, { onUpdate, signal } = {}) {
+export async function awaitReel(id, { onUpdate, signal, until = ['ready'] } = {}) {
   const startedAt = Date.now()
+  const stopOn = new Set(until)
 
   for (;;) {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError')
@@ -75,7 +98,7 @@ export async function awaitReel(id, { onUpdate, signal } = {}) {
     const res = await checkStatus(id, { signal })
     onUpdate?.(res)
 
-    if (res.status === 'ready') return res
+    if (stopOn.has(res.status)) return res
     if (res.status === 'failed') throw new Error(res.error || 'The reel could not be rendered.')
 
     await sleep(POLL_INTERVAL_MS, signal)
@@ -99,9 +122,9 @@ function sleep(ms, signal) {
 /** How the page labels a scene's half-finished state. */
 export const SCENE_LABEL = {
   pending: 'Queued',
-  framing: 'Drawing the frame…',
+  framing: 'Drawing…',
   frame_ready: 'Frame ready',
   rendering: 'Filming…',
-  ready: 'Done',
+  ready: 'Filmed',
   failed: 'Failed',
 }

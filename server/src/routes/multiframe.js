@@ -19,6 +19,7 @@ import {
   planReel,
   renderFrames,
   describeProduct,
+  redrawFrame,
   motionPrompt,
 } from '../multiframe.js'
 import { MONTHLY_LIMIT, CREDIT_KIND, usedThisMonth, usage } from '../blinkCredits.js'
@@ -34,6 +35,14 @@ const SIGNED_URL_TTL = 60 * 60 // 1 hour
 // single account, which is both a vendor rate-limit problem and a bill.
 const MAX_IN_FLIGHT = 1
 
+// Redraws per frame. Frames are cheap beside clips but they are not free, and a
+// button that costs money every time it is pressed needs a number on it.
+const MAX_FRAME_REVISIONS = 6
+
+// What counts as "in flight" for the one-reel-at-a-time cap: vendor work is
+// actually running. 'frames_ready' is deliberately absent — a reel resting
+// there has nothing queued and has spent nothing on video, so blocking a new
+// reel behind it would punish someone for not having decided yet.
 const PENDING = ['pending', 'scripting', 'rendering']
 
 multiframeRouter.get('/options', (_req, res) =>
@@ -265,57 +274,205 @@ async function build({ reel, brand, idea, sceneCount, options, productPath, user
     },
   })
 
-  // Every clip is started from the still we just archived, signed for long
-  // enough that fal can fetch it. The fal URL from the render is not reused:
-  // it is short-lived, and a scene that gets retried an hour from now would
-  // find it dead.
-  await Promise.all(
-    plan.scenes.map(async (scene, i) => {
-      if (!framePaths[i]) return
-      try {
-        const imageUrl = await signedUrl(framePaths[i])
-        const { operationName } = await startSceneGeneration({
-          prompt: motionPrompt(scene, { hasProduct: Boolean(productUrl) }),
-          imageUrl,
-          // Veo re-renders every frame and drifts back toward a polished,
-          // advertisement look over eight seconds if nothing holds it. The
-          // still sets the look; this is what keeps it there.
-          options: { ...options, negativePrompt: options.negativePrompt || VIDEO_NEGATIVE },
-        })
+  // Stop here. The clips are the expensive half — one Veo generation per scene
+  // out of a monthly 25 — and the frames are the evidence needed to decide
+  // whether they are worth spending. Nothing more happens until /videos.
+  await admin.from('multiframes').update({ status: 'frames_ready' }).eq('id', reel.id)
+}
 
-        // Recorded the moment fal accepts the scene, one event per clip. This is
-        // the drawdown the monthly cap counts, and it is written per scene
-        // rather than once per reel because the cost is per scene.
-        await admin.from('generation_events').insert({
-          user_id: userId,
-          kind: CREDIT_KIND,
-          cost_units: 1,
-          meta: {
-            multiframe_id: reel.id,
-            scene_idx: i,
-            duration: options.duration,
-            resolution: options.resolution,
-            aspect_ratio: options.aspectRatio,
-          },
-        })
+/**
+ * Film the reel: hand every drawn frame to Veo.
+ *
+ * This is where the money goes, so this is where the allowance is checked. The
+ * whole reel is reserved at once rather than scene by scene — stopping halfway
+ * would leave someone with an unfinishable video and no allowance left to
+ * finish it.
+ */
+multiframeRouter.post(
+  '/:id/videos',
+  requireFeature('multiframe'),
+  wrap(async (req, res) => {
+    const { reel, scenes } = await load(req)
 
-        await admin
-          .from('multiframe_scenes')
-          .update({ status: 'rendering', operation_name: operationName, error: null })
-          .eq('multiframe_id', reel.id)
-          .eq('idx', i)
-      } catch (err) {
-        // One scene failing does not fail the reel. The others are already
-        // running and paid for, and /status settles the reel once they land.
-        console.warn(`[multiframe] ${reel.id} scene ${i} could not start:`, err?.message || err)
-        await admin
-          .from('multiframe_scenes')
-          .update({ status: 'failed', error: String(err?.message || err).slice(0, 300) })
-          .eq('multiframe_id', reel.id)
-          .eq('idx', i)
-      }
-    })
-  )
+    if (reel.status === 'rendering') throw new ApiError(409, 'already_rendering', 'This reel is already being filmed.')
+    if (reel.status !== 'frames_ready') {
+      throw new ApiError(409, 'not_ready_to_film', 'This reel has no finished frames waiting to be filmed.')
+    }
+
+    // Only scenes that actually have a still. A frame that failed has nothing
+    // to drive a clip from, and paying for one would buy a black video.
+    const filmable = scenes.filter((sc) => sc.frame_path && sc.status === 'frame_ready')
+    if (!filmable.length) throw new ApiError(409, 'no_frames', 'None of this reel\'s frames finished.')
+
+    const used = await usedThisMonth(req.user.id)
+    const remaining = Math.max(0, MONTHLY_LIMIT - used)
+    if (remaining < filmable.length) {
+      throw new ApiError(
+        429,
+        'monthly_limit_reached',
+        remaining === 0
+          ? `You have used all ${MONTHLY_LIMIT} videos included this month. It resets on the 1st.`
+          : `Filming ${filmable.length} scenes costs ${filmable.length} of your ${MONTHLY_LIMIT} monthly videos, and you have ${remaining} left.`
+      )
+    }
+
+    await admin.from('multiframes').update({ status: 'rendering', error: null }).eq('id', reel.id)
+
+    const options = {
+      duration: reel.duration_seconds,
+      aspectRatio: reel.aspect_ratio,
+      resolution: reel.resolution,
+      negativePrompt: VIDEO_NEGATIVE,
+    }
+    const hasProduct = Boolean(reel.product_path)
+
+    await Promise.all(
+      filmable.map(async (sc) => {
+        try {
+          const imageUrl = await signedUrl(sc.frame_path)
+          const { operationName } = await startSceneGeneration({
+            prompt: motionPrompt({ motion: sc.motion_prompt }, { hasProduct }),
+            imageUrl,
+            options,
+          })
+
+          await admin.from('generation_events').insert({
+            user_id: req.user.id,
+            kind: CREDIT_KIND,
+            cost_units: 1,
+            meta: {
+              multiframe_id: reel.id,
+              scene_idx: sc.idx,
+              duration: options.duration,
+              resolution: options.resolution,
+              aspect_ratio: options.aspectRatio,
+            },
+          })
+
+          await admin
+            .from('multiframe_scenes')
+            .update({ status: 'rendering', operation_name: operationName, error: null })
+            .eq('id', sc.id)
+        } catch (err) {
+          console.warn(`[multiframe] ${reel.id} scene ${sc.idx} could not start:`, err?.message || err)
+          await admin
+            .from('multiframe_scenes')
+            .update({ status: 'failed', error: String(err?.message || err).slice(0, 300) })
+            .eq('id', sc.id)
+        }
+      })
+    )
+
+    res.status(202).json({ multiframeId: reel.id, status: 'rendering', filming: filmable.length })
+  })
+)
+
+/**
+ * Redraw one frame, as a re-roll or as an edit.
+ *
+ * Only while the reel is resting at frames_ready. Once filming has started the
+ * clip is driven from the frame that existed at that moment, so changing the
+ * picture afterwards would leave the two disagreeing with no way to tell from
+ * the UI which one the video came from.
+ */
+multiframeRouter.post(
+  '/:id/frames/:idx',
+  requireFeature('multiframe'),
+  wrap(async (req, res) => {
+    const { reel, scenes } = await load(req)
+
+    if (reel.status !== 'frames_ready') {
+      throw new ApiError(409, 'frames_locked', 'Frames can only be changed before the reel is filmed.')
+    }
+
+    const idx = Number(req.params.idx)
+    const scene = scenes.find((sc) => sc.idx === idx)
+    if (!scene) throw notFound('That scene does not exist.')
+
+    if (scene.frame_revisions >= MAX_FRAME_REVISIONS) {
+      throw new ApiError(
+        429,
+        'too_many_revisions',
+        `You have redrawn this frame ${MAX_FRAME_REVISIONS} times. Start a new reel if it still is not right.`
+      )
+    }
+
+    const instruction = String(req.body?.instruction || '').trim().slice(0, 400)
+    const establishing = scenes.find((sc) => sc.idx === 0) || scene
+
+    await admin.from('multiframe_scenes').update({ status: 'framing' }).eq('id', scene.id)
+
+    try {
+      const [establishingUrl, currentUrl, productUrl] = await Promise.all([
+        signedUrl(establishing.frame_path),
+        signedUrl(scene.frame_path),
+        signedUrl(reel.product_path),
+      ])
+
+      const url = await redrawFrame({
+        scene,
+        establishingUrl,
+        currentUrl,
+        productUrl,
+        instruction,
+        aspectRatio: reel.aspect_ratio,
+      })
+
+      const { buffer, contentType } = await download(url)
+      // A new path rather than overwriting: the browser is holding a signed URL
+      // for the old file, and an upsert to the same key hands back a picture the
+      // cache may or may not have replaced. A new key is unambiguously new.
+      const path = `${reel.user_id}/multiframes/${reel.id}/${String(idx).padStart(2, '0')}-frame-r${scene.frame_revisions + 1}.png`
+
+      const { error: upErr } = await admin.storage
+        .from('generations')
+        .upload(path, buffer, { contentType, upsert: true })
+      if (upErr) throw new Error(upErr.message)
+
+      const previous = scene.frame_path
+      await admin
+        .from('multiframe_scenes')
+        .update({
+          status: 'frame_ready',
+          frame_path: path,
+          error: null,
+          frame_revisions: scene.frame_revisions + 1,
+        })
+        .eq('id', scene.id)
+
+      // Only once the row points at the new file, so a failure above never
+      // leaves the scene referencing something that has been deleted.
+      if (previous) await admin.storage.from('generations').remove([previous]).catch(() => {})
+
+      res.json({ idx, status: 'frame_ready', frameUrl: await signedUrl(path), revisions: scene.frame_revisions + 1 })
+    } catch (err) {
+      await admin
+        .from('multiframe_scenes')
+        .update({ status: 'frame_ready', error: String(err?.message || err).slice(0, 300) })
+        .eq('id', scene.id)
+      throw err
+    }
+  })
+)
+
+/** The reel and its scenes, scoped to the caller. */
+async function load(req) {
+  const { data: reel } = await admin
+    .from('multiframes')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('user_id', req.user.id)
+    .maybeSingle()
+
+  if (!reel) throw notFound('That reel does not exist.')
+
+  const { data: scenes } = await admin
+    .from('multiframe_scenes')
+    .select('*')
+    .eq('multiframe_id', reel.id)
+    .order('idx', { ascending: true })
+
+  return { reel, scenes: scenes || [] }
 }
 
 /**
@@ -369,13 +526,17 @@ multiframeRouter.get(
       aspectRatio: reel.aspect_ratio,
       durationSeconds: reel.duration_seconds,
       ready: (fresh || []).filter((s) => s.status === 'ready').length,
+      framesReady: (fresh || []).filter((s) => s.frame_path).length,
       total: reel.scene_count,
+      hasProduct: Boolean(reel.product_path),
+      maxFrameRevisions: MAX_FRAME_REVISIONS,
       scenes: await Promise.all(
         (fresh || []).map(async (s) => ({
           idx: s.idx,
           description: s.description,
           status: s.status,
           error: s.error,
+          revisions: s.frame_revisions ?? 0,
           frameUrl: await signedUrl(s.frame_path),
           videoUrl: await signedUrl(s.video_path),
         }))
@@ -425,6 +586,11 @@ async function settle(reel, scenes) {
   if (reel.status === 'ready' || reel.status === 'failed') {
     return { status: reel.status, error: reel.error }
   }
+  // Only a reel that is actually filming can finish filming. Without this, a
+  // reel resting at frames_ready whose frames had all failed would settle
+  // itself straight to 'failed' — and, worse, one whose frames were all drawn
+  // could be read as finished before a single clip had been paid for.
+  if (reel.status !== 'rendering') return { status: reel.status, error: reel.error }
   // Scenes are inserted after the plan returns, so an empty set here means the
   // split has not finished yet — not that every scene vanished.
   if (!scenes.length) return { status: reel.status, error: reel.error }

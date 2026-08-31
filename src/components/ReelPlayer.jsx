@@ -18,6 +18,11 @@ export default function ReelPlayer({ reel }) {
   const videoRefs = useRef([])
   const compRef = useRef(null)
 
+  // The compositor is only built once someone asks for the combined cut. Until
+  // then the clips are just files, and mounting N hidden <video> elements plus a
+  // render loop to show something nobody asked for is work and memory spent on
+  // a maybe.
+  const [combining, setCombining] = useState(false)
   const [ready, setReady] = useState(false)
   const [playing, setPlaying] = useState(false)
   const [t, setT] = useState(0)
@@ -33,7 +38,7 @@ export default function ReelPlayer({ reel }) {
   // and the first seconds of the export would be empty.
   useEffect(() => {
     setReady(false)
-    if (!clips.length) return
+    if (!combining || !clips.length) return
 
     let cancelled = false
     const els = videoRefs.current.slice(0, clips.length).filter(Boolean)
@@ -66,7 +71,7 @@ export default function ReelPlayer({ reel }) {
       compRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reel.multiframeId, clips.length, perClip])
+  }, [reel.multiframeId, clips.length, perClip, combining])
 
   function toggle() {
     const c = compRef.current
@@ -119,85 +124,148 @@ export default function ReelPlayer({ reel }) {
   }
 
   return (
-    <div className="card mt-6" style={{ maxWidth: 780 }}>
+    <div className="card mt-6" style={{ maxWidth: 900 }}>
       <div className="row between" style={{ marginBottom: 12 }}>
         <h4 style={{ color: 'var(--accent)' }}>{reel.name || 'Your reel'}</h4>
-        <button className="btn sm" disabled={!ready || !!exporting} onClick={download}>
-          {exporting ? `⬇ Recording… ${exporting.pct}%` : '⬇ Download the reel'}
-        </button>
+        <span className="small muted">{clips.length} clips · {total}s total</span>
       </div>
 
-      <div className="row" style={{ gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div>
-          {/* crossOrigin is load-bearing, not decorative: these are Supabase
-              signed URLs, and without it the canvas is tainted and the export
-              produces an unusable file. */}
-          {clips.map((s, i) => (
-            <video
-              key={s.idx}
-              ref={(el) => { videoRefs.current[i] = el }}
-              src={s.videoUrl}
-              crossOrigin="anonymous"
-              playsInline
-              preload="auto"
-              style={{ display: 'none' }}
-            />
-          ))}
+      {/* ── the clips, as separate files ──
+          Shown before any combining, and never taken away by it. Each one is a
+          finished video in its own right: someone may want scene three on its
+          own, or want to post the clips as a series rather than a single cut. */}
+      <div className="grid cols-4 stack-sm" style={{ gap: 12 }}>
+        {clips.map((s) => (
+          <div key={s.idx} className="tile" style={{ overflow: 'hidden' }}>
+            <div style={{ aspectRatio: '9/16', background: '#0d0f0e' }}>
+              <video
+                src={s.videoUrl}
+                controls
+                loop
+                playsInline
+                preload="metadata"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
+            <div className="tile-body" style={{ padding: '8px 10px' }}>
+              <div className="row between">
+                <span className="small muted">Scene {s.idx + 1}</span>
+                <a className="btn xs" href={s.videoUrl} download={`${slug(reel.name || 'scene')}-${s.idx + 1}.mp4`}>
+                  ⬇
+                </a>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
 
-          <canvas
-            ref={canvasRef}
-            width={REEL_W}
-            height={REEL_H}
-            onClick={toggle}
-            style={{
-              width: 270,
-              borderRadius: 14,
-              display: 'block',
-              border: '1px solid var(--line)',
-              cursor: ready ? 'pointer' : 'default',
-              background: '#000',
-            }}
-          />
-
-          <div className="row between mt-2" style={{ width: 270 }}>
-            <button className="btn xs" disabled={!ready || !!exporting} onClick={toggle}>
-              {playing ? '❚❚ Pause' : '▶ Play'}
-            </button>
-            <span className="small muted">{t.toFixed(1)}s / {total}s</span>
+      {/* ── combining ── */}
+      {!combining ? (
+        <div className="row between mt-6" style={{ alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+          <div className="small muted">
+            Join the {clips.length} clips into one {total}-second video, in order.
+          </div>
+          <button className="btn primary" onClick={() => setCombining(true)}>⧉ Combine into one video</button>
+        </div>
+      ) : (
+        <div style={{ borderTop: '1px solid var(--line-soft)', marginTop: 22, paddingTop: 18 }}>
+          <div className="row between" style={{ marginBottom: 12 }}>
+            <b>Combined cut</b>
+            <div className="row" style={{ gap: 8 }}>
+              <button className="btn sm" disabled={!ready || !!exporting} onClick={download}>
+                {exporting ? `⬇ Recording… ${exporting.pct}%` : '⬇ Download the reel'}
+              </button>
+              <button className="btn ghost sm" disabled={!!exporting} onClick={() => setCombining(false)}>
+                Close
+              </button>
+            </div>
           </div>
 
-          <input
-            type="range" min="0" max={total} step="0.05" value={Math.min(t, total)}
-            disabled={!ready || !!exporting}
-            onChange={(e) => { compRef.current?.seek(parseFloat(e.target.value)) }}
-            style={{ width: 270, marginTop: 8 }}
-          />
-        </div>
+          <div className="row" style={{ gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div>
+              {/* crossOrigin is load-bearing, not decorative: these are Supabase
+                  signed URLs, and without it the canvas is tainted and the
+                  export produces an unusable file. */}
+              {clips.map((s, i) => (
+                <video
+                  key={s.idx}
+                  ref={(el) => { videoRefs.current[i] = el }}
+                  src={s.videoUrl}
+                  crossOrigin="anonymous"
+                  playsInline
+                  preload="auto"
+                  style={{ display: 'none' }}
+                />
+              ))}
 
-        <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+              <canvas
+                ref={canvasRef}
+                width={REEL_W}
+                height={REEL_H}
+                onClick={toggle}
+                style={{
+                  width: 270,
+                  borderRadius: 14,
+                  display: 'block',
+                  border: '1px solid var(--line)',
+                  cursor: ready ? 'pointer' : 'default',
+                  background: '#000',
+                }}
+              />
+
+              <div className="row between mt-2" style={{ width: 270 }}>
+                <button className="btn xs" disabled={!ready || !!exporting} onClick={toggle}>
+                  {playing ? '❚❚ Pause' : '▶ Play'}
+                </button>
+                <span className="small muted">
+                  {ready ? `${t.toFixed(1)}s / ${total}s` : 'loading clips…'}
+                </span>
+              </div>
+
+              <input
+                type="range" min="0" max={total} step="0.05" value={Math.min(t, total)}
+                disabled={!ready || !!exporting}
+                onChange={(e) => { compRef.current?.seek(parseFloat(e.target.value)) }}
+                style={{ width: 270, marginTop: 8 }}
+              />
+            </div>
+
+            <div style={{ flex: '1 1 300px', minWidth: 260 }}>
+              <div className="row between">
+                <label className="small muted">Voiceover script</label>
+                {reel.script && (
+                  <button className="btn ghost xs" onClick={copyScript}>{copied ? 'Copied' : 'Copy'}</button>
+                )}
+              </div>
+              <div className="small mt-2" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                {reel.script || 'No script was written for this reel.'}
+              </div>
+
+              <div className="row mt-4 wrap">
+                <span className="chip">{clips.length} scenes</span>
+                <span className="chip">{total}s</span>
+                <span className="chip">{reel.aspectRatio}</span>
+                <span className="chip accent">audio</span>
+              </div>
+
+              <div className="small muted mt-4">
+                The download is recorded in real time, so it takes about {total} seconds and needs this
+                tab to stay in front.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!combining && reel.script && (
+        <div style={{ borderTop: '1px solid var(--line-soft)', marginTop: 22, paddingTop: 18 }}>
           <div className="row between">
             <label className="small muted">Voiceover script</label>
-            {reel.script && (
-              <button className="btn ghost xs" onClick={copyScript}>{copied ? 'Copied' : 'Copy'}</button>
-            )}
+            <button className="btn ghost xs" onClick={copyScript}>{copied ? 'Copied' : 'Copy'}</button>
           </div>
-          <div className="small mt-2" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-            {reel.script || 'No script was written for this reel.'}
-          </div>
-
-          <div className="row mt-4 wrap">
-            <span className="chip">{clips.length} scenes</span>
-            <span className="chip">{total}s</span>
-            <span className="chip">{reel.aspectRatio}</span>
-            <span className="chip accent">audio</span>
-          </div>
+          <div className="small mt-2" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{reel.script}</div>
         </div>
-      </div>
-
-      <div className="small muted mt-4">
-        The download is recorded in real time, so it takes about {total} seconds and needs this tab
-        to stay in front.
-      </div>
+      )}
     </div>
   )
 }
