@@ -320,7 +320,24 @@ export async function renderFrames({ scenes, aspectRatio, productUrl, onFrame })
           `identical clothing — and the same location, lighting and photographic style. ` +
           `Change only the framing and what they are doing.\n\nNow: ${scene.frame}`
 
-      const url = await generateSlideFrom(refs, `${instruction}\n\n${STYLE}\n\n${AVOID}`, { aspectRatio })
+      const body = `${instruction}\n\n${STYLE}\n\n${AVOID}`
+
+      // Two references is the better result and the less certain call: it
+      // depends on the edit model accepting a list, which is a property of
+      // whatever model FAL_EDIT_MODEL currently names rather than something
+      // this code controls. If it refuses, fall back to conditioning on frame
+      // one alone — the product is still in that frame, so the scene is right,
+      // it just has one more generation between it and the original photo.
+      // A slightly drifted candle beats a reel that failed at scene two.
+      let url
+      try {
+        url = await generateSlideFrom(refs, body, { aspectRatio })
+      } catch (err) {
+        if (refs.length < 2) throw err
+        console.warn(`[multiframe] scene ${i + 1}: two-reference edit failed, retrying with the frame alone —`, err?.message || err)
+        url = await generateSlideFrom(first, body, { aspectRatio })
+      }
+
       await onFrame?.(i + 1, url)
       return url
     })
