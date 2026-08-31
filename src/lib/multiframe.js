@@ -181,3 +181,52 @@ export const CUT_LABEL = {
   voiceover: 'With voiceover',
   subtitled: 'With subtitles',
 }
+
+/**
+ * Every reel on this account, newest first.
+ *
+ * Read straight from Supabase rather than through the API, the way the store
+ * reads carousels and videos: row-level security already scopes it to the
+ * owner, and the dropdown only needs what the row itself holds. Opening one
+ * still goes through /status, which is what signs the frames and clips.
+ */
+export async function listReels({ limit = 50 } = {}) {
+  const { data, error } = await supabase
+    .from('multiframes')
+    .select('id, name, idea, status, scene_count, created_at, updated_at')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw new Error(error.message)
+
+  return (data || []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    idea: r.idea,
+    status: r.status,
+    sceneCount: r.scene_count,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }))
+}
+
+/** Delete a reel and everything under it. */
+export async function deleteReel(id) {
+  const { error } = await supabase.from('multiframes').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+/** Whether a reel is still doing something, for the dot in the list. */
+export function isWorking(status) {
+  return status === 'pending' || status === 'scripting' || status === 'rendering'
+}
+
+/** What a reel's state is called in the history list. */
+export const REEL_STATE = {
+  pending: 'starting',
+  scripting: 'planning',
+  frames_ready: 'frames ready',
+  rendering: 'filming',
+  ready: 'done',
+  failed: 'failed',
+}

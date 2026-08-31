@@ -8,10 +8,14 @@ const FILTERS = [
   { id: 'all', label: 'Everything', noun: 'anything' },
   { id: 'carousel', label: 'Carousels', noun: 'carousels' },
   { id: 'video', label: 'Hook videos', noun: 'hook videos' },
-  { id: 'blink', label: 'Blink AI', noun: 'Blink AI clips' },
+  // These are the single eight-second clips the old Blink AI page made. That
+  // name now means a multi-scene reel, so calling these by it would put two
+  // different things under one label in the same list. They are described by
+  // what they are instead; the rows and the files are untouched.
+  { id: 'blink', label: 'Single clips', noun: 'single clips' },
 ]
 
-const TAG = { carousel: 'Carousel', video: 'Hook video', blink: 'Blink AI' }
+const TAG = { carousel: 'Carousel', video: 'Hook video', blink: 'Single clip' }
 
 // Resolve each item's thumbnail once per set of ids. Depending on the items
 // array itself would re-run every render — same trap as in useImages.js.
@@ -177,7 +181,7 @@ export default function Library() {
         <div className="page-kicker">Create</div>
         <h1 className="page-title">Everything you've <em>minted</em></h1>
         <p className="page-sub">
-          Carousels, hook videos and Blink AI generations in one place, newest first.
+          Carousels, hook videos and generated clips in one place, newest first.
           Open anything to keep editing, or download it and post.
         </p>
       </div>
@@ -194,7 +198,7 @@ export default function Library() {
           <div className="row">
             <button className="btn sm" onClick={() => (window.location.hash = '/carousels')}>❏ New carousel</button>
             <button className="btn sm" onClick={() => (window.location.hash = '/videos')}>▶ New video</button>
-            <button className="btn sm" onClick={() => (window.location.hash = '/blink')}>✦ Blink AI</button>
+            <button className="btn sm" onClick={() => (window.location.hash = '/blink')}>✦ New Blink AI reel</button>
           </div>
         </div>
       )}
@@ -207,7 +211,7 @@ export default function Library() {
           <div className="row mt-4" style={{ justifyContent: 'center' }}>
             <button className="btn sm" onClick={() => (window.location.hash = '/carousels')}>❏ Carousels</button>
             <button className="btn sm" onClick={() => (window.location.hash = '/videos')}>▶ Hook videos</button>
-            <button className="btn sm" onClick={() => (window.location.hash = '/blink')}>✦ Blink AI</button>
+            <button className="btn sm" onClick={() => (window.location.hash = '/blink')}>✦ New Blink AI reel</button>
           </div>
         </div>
       ) : shown.length === 0 ? (

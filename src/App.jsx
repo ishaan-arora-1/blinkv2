@@ -14,7 +14,6 @@ import CarouselEditor from './pages/CarouselEditor.jsx'
 import Videos from './pages/Videos.jsx'
 import VideoEditor from './pages/VideoEditor.jsx'
 import BlinkAI from './pages/BlinkAI.jsx'
-import Multiframe from './pages/Multiframe.jsx'
 import Library from './pages/Library.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Landing from './pages/Landing.jsx'
@@ -32,10 +31,14 @@ export { go }
 // built from. It locks the uploading, not the looking.
 const NAV = [
   { path: '/dashboard', label: 'Studio', ico: '◍', section: null },
-  { path: '/carousels', label: 'Carousels', ico: '❏', section: 'Create' },
+  // Blink AI leads Create because it is the thing that makes a whole video.
+  // The name used to belong to a single eight-second Veo clip; that page is
+  // gone and this is what the product means by it now — one idea, several
+  // scenes, narrated and cut together. The feature key stays 'multiframe',
+  // which is what the server gates and meters on.
+  { path: '/blink', label: 'Blink AI', ico: '✦', section: 'Create', feature: 'multiframe' },
+  { path: '/carousels', label: 'Carousels', ico: '❏', section: null },
   { path: '/videos', label: 'Videos', ico: '▶', section: null, feature: 'videos' },
-  { path: '/blink', label: 'Blink AI', ico: '✦', section: null, feature: 'blink' },
-  { path: '/multiframe', label: 'Multiframe', ico: '⛶', section: null, feature: 'multiframe' },
   { path: '/library', label: 'Library', ico: '▤', section: null },
   { path: '/sets', label: 'Image Sets', ico: '❖', section: 'Setup' },
   { path: '/brand', label: 'Brand', ico: '✧', section: null },
@@ -127,8 +130,12 @@ function Routed({ route, auth }) {
   if (route.startsWith('/video/')) return <VideoEditor id={route.split('/')[2]} />
   if (route === '/carousels') return <Carousels />
   if (route === '/videos') return <Videos />
+  // A reel has its own URL so it can be left and come back to while it renders.
+  if (route.startsWith('/blink/')) return <BlinkAI reelId={route.split('/')[2]} />
   if (route === '/blink') return <BlinkAI />
-  if (route === '/multiframe') return <Multiframe />
+  // Where the feature used to live, kept so an open tab or a bookmark still
+  // lands somewhere real.
+  if (route === '/multiframe') return <BlinkAI />
   if (route === '/library') return <Library />
   if (route === '/sets') return <Sets />
   if (route === '/brand') return <Brand />

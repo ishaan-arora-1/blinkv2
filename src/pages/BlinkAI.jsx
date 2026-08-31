@@ -1,318 +1,519 @@
 import React, { useEffect, useRef, useState } from 'react'
-import CreatorPicker from '../components/CreatorPicker.jsx'
-import { LIMITS, startGeneration, awaitGeneration, fetchUsage } from '../lib/blink.js'
 import { useStore } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import Upsell from '../components/Upsell.jsx'
+import {
+  SCENE_COUNT,
+  MAX_IDEA,
+  DURATIONS,
+  startReel,
+  awaitReel,
+  startVideos,
+  redrawFrame,
+  checkStatus,
+  fetchUsage,
+  fetchOptions,
+  listReels,
+} from '../lib/multiframe.js'
+import { go } from '../lib/router.js'
+import ReelPlayer from '../components/ReelPlayer.jsx'
+import ReelHistory from '../components/ReelHistory.jsx'
+import SceneCard from '../components/SceneCard.jsx'
 
-export default function BlinkAI() {
+/**
+ * Blink AI: one idea becomes a several-shot reel.
+ *
+ * Two modes behind one route. With nothing open it is a composer; with a reel
+ * open it is that reel, and the marketing copy and the settings are gone —
+ * what someone wants to see when they come back to a render is their own words
+ * and the work, not the form they already filled in.
+ *
+ * Every reel has its own URL, which is what makes one worth leaving. A render
+ * runs for minutes on the server, and the history dropdown plus /blink/:id mean
+ * you can start one, go elsewhere, and pick it up mid-flight.
+ *
+ * The page is otherwise a straight line — write the idea, watch the shots
+ * arrive, finish the video — because the pipeline behind it is long enough that
+ * anything cleverer would be hiding progress rather than presenting it. The strip
+ * is the important part: frames land about a minute before the first clip does,
+ * and seeing them is what tells someone the split understood what they asked
+ * for, early enough to stop and rewrite rather than wait out a reel they do not
+ * want.
+ */
+export default function BlinkAI({ reelId }) {
   const store = useStore()
   const { can } = useAuth()
 
-  const [prompt, setPrompt] = useState('')
-  const [product, setProduct] = useState(null)
-  const [productURL, setProductURL] = useState(null)
-  const [creator, setCreator] = useState(null)
-  const [picking, setPicking] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [status, setStatus] = useState('')
-  const [result, setResult] = useState(null)
-  const [error, setError] = useState(null)
-  const fileRef = useRef(null)
-  const abortRef = useRef(null)
+  // ── history ──
+  const [reels, setReels] = useState([])
 
-  // generation settings
-  const [duration, setDuration] = useState(LIMITS.duration.default)
+  // ── the reel currently open, if any ──
+  const [reel, setReel] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  // ── the composer, only used when nothing is open ──
+  const [idea, setIdea] = useState('')
+  const [sceneCount, setSceneCount] = useState(SCENE_COUNT.default)
+  const [duration, setDuration] = useState(8)
   const [aspect, setAspect] = useState('9:16')
   const [resolution, setResolution] = useState('720p')
-  const [negative, setNegative] = useState('')
-  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [product, setProduct] = useState(null)
+  const [productURL, setProductURL] = useState(null)
+  const fileRef = useRef(null)
 
-  // { used, limit, remaining } — null until it has been read, and left null if
-  // the read fails. The server enforces the cap either way, so a failed usage
-  // call should cost a line of copy and never the ability to generate.
+  const [busy, setBusy] = useState(false)
+  const [filming, setFilming] = useState(false)
+  const [error, setError] = useState(null)
   const [usage, setUsage] = useState(null)
+  const [voices, setVoices] = useState(null)
 
-  // Leaving the page must not leave a poll running.
+  const abortRef = useRef(null)
+
   useEffect(() => () => abortRef.current?.abort(), [])
+  useEffect(() => () => { if (productURL) URL.revokeObjectURL(productURL) }, [productURL])
 
-  // The month's allowance, refreshed whenever a generation finishes so the
-  // count reflects what was just spent.
-  useEffect(() => {
-    if (!can.blink) return
-    let live = true
-    fetchUsage()
-      .then((u) => live && setUsage(u))
-      .catch(() => {})
-    return () => { live = false }
-  }, [can.blink, result])
-
-  // A render that was in flight when the tab was closed is still running on the
-  // server. Pick the newest one back up rather than stranding it.
-  useEffect(() => {
-    const pending = store.state.blinks.find((b) => b.status === 'rendering' || b.status === 'pending')
-    if (!pending || busy) return
-    resume(pending.id)
-    // Only ever re-attach once per mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const refreshHistory = React.useCallback(async () => {
+    try {
+      setReels(await listReels())
+    } catch {
+      // The dropdown is a convenience; failing to read it must not take the
+      // page down with it.
+    }
   }, [])
 
-  function onProduct(file) {
-    if (!file) return
-    setProduct(file)
-    setProductURL(URL.createObjectURL(file))
-  }
+  useEffect(() => { if (can.multiframe) refreshHistory() }, [can.multiframe, refreshHistory])
 
-  async function resume(blinkId) {
-    setBusy(true)
+  useEffect(() => {
+    if (!can.multiframe) return
+    let live = true
+    fetchOptions().then((o) => live && setVoices(o.voices || null)).catch(() => {})
+    return () => { live = false }
+  }, [can.multiframe])
+
+  useEffect(() => {
+    if (!can.multiframe) return
+    let live = true
+    fetchUsage().then((u) => live && setUsage(u)).catch(() => {})
+    return () => { live = false }
+  }, [can.multiframe, reel?.status])
+
+  // Opening a reel from its own URL. This is what makes one worth leaving:
+  // the render continues on the server, and coming back picks it up wherever
+  // it got to rather than starting again.
+  useEffect(() => {
+    abortRef.current?.abort()
     setError(null)
-    setResult(null)
-    setStatus('Picking up where you left off…')
+
+    if (!reelId) {
+      setReel(null)
+      return
+    }
+
+    let live = true
+    setLoading(true)
+    ;(async () => {
+      try {
+        const r = await checkStatus(reelId)
+        if (!live) return
+        setReel(r)
+        if (r.status === 'pending' || r.status === 'scripting') watch(reelId, ['frames_ready', 'ready'])
+        else if (r.status === 'rendering') watch(reelId, ['ready'])
+      } catch (err) {
+        if (live) setError(err.message)
+      } finally {
+        if (live) setLoading(false)
+      }
+    })()
+
+    return () => { live = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reelId])
+
+  /** Follow a reel until it reaches one of `until`, refreshing the list as it goes. */
+  async function watch(id, until) {
     const ctrl = new AbortController()
     abortRef.current = ctrl
+    const busySetter = until.includes('ready') && !until.includes('frames_ready') ? setFilming : setBusy
+    busySetter(true)
     try {
-      const done = await awaitGeneration(blinkId, { onStatus: setStatus, signal: ctrl.signal })
-      setResult(done)
-      await store.refreshBlinks()
+      const done = await awaitReel(id, { onUpdate: setReel, signal: ctrl.signal, until })
+      setReel(done)
     } catch (err) {
       if (err.name !== 'AbortError') setError(err.message)
-      await store.refreshBlinks()
     } finally {
-      setBusy(false)
-      setStatus('')
+      busySetter(false)
+      refreshHistory()
     }
   }
 
+  async function refresh() {
+    try {
+      setReel(await checkStatus(reel.multiframeId))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  const brandId = store.state.brand?.id || null
+  const affordable = usage ? usage.remaining >= sceneCount : true
+  const totalSeconds = sceneCount * duration
+
   async function run() {
-    if (!prompt.trim() || busy) return
+    if (!idea.trim() || busy) return
     setBusy(true)
     setError(null)
-    setResult(null)
-    setStatus('Sending to Veo…')
-
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
 
     try {
-      const { blinkId } = await startGeneration({
-        prompt: prompt.trim(),
+      const { multiframeId } = await startReel({
+        idea: idea.trim(),
+        sceneCount,
+        brandId,
         productFile: product,
-        creator,
-        options: {
-          durationSeconds: duration,
-          aspectRatio: aspect,
-          resolution,
-          negativePrompt: negative,
-        },
+        options: { durationSeconds: duration, aspectRatio: aspect, resolution },
       })
 
-      // The row exists now, so the library shows it rendering straight away.
-      await store.refreshBlinks()
+      // In the list before anything has rendered, so it can be left immediately.
+      await refreshHistory()
+      setIdea('')
+      setProduct(null)
+      setProductURL(null)
+      // The route change is what loads and starts watching it.
+      go(`/blink/${multiframeId}`)
+    } catch (err) {
+      setError(err.message)
+      setBusy(false)
+    }
+  }
 
-      const done = await awaitGeneration(blinkId, { onStatus: setStatus, signal: ctrl.signal })
-      setResult(done)
-      await store.refreshBlinks()
+  async function film() {
+    if (!reel || filming) return
+    setFilming(true)
+    setError(null)
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+    try {
+      await startVideos(reel.multiframeId)
+      const done = await awaitReel(reel.multiframeId, { onUpdate: setReel, signal: ctrl.signal, until: ['ready'] })
+      setReel(done)
     } catch (err) {
       if (err.name !== 'AbortError') setError(err.message)
-      await store.refreshBlinks()
     } finally {
-      setBusy(false)
-      setStatus('')
+      setFilming(false)
+      refreshHistory()
+    }
+  }
+
+  async function editFrame(idx, instruction) {
+    setError(null)
+    setReel((r) => ({ ...r, scenes: r.scenes.map((sc) => (sc.idx === idx ? { ...sc, status: 'framing' } : sc)) }))
+    try {
+      const next = await redrawFrame(reel.multiframeId, idx, instruction)
+      setReel((r) => ({
+        ...r,
+        scenes: r.scenes.map((sc) =>
+          sc.idx === idx
+            ? { ...sc, status: 'frame_ready', frameUrl: next.frameUrl, revisions: next.revisions, error: null }
+            : sc
+        ),
+      }))
+    } catch (err) {
+      setError(err.message)
+      setReel((r) => ({ ...r, scenes: r.scenes.map((sc) => (sc.idx === idx ? { ...sc, status: 'frame_ready' } : sc)) }))
     }
   }
 
   // ── gated ────────────────────────────────────────────────────────────────
-  if (!can.blink) {
+  if (!can.multiframe) {
     return (
       <div>
         <div className="page-head">
           <div className="page-kicker">Blink AI</div>
-          <h1 className="page-title">Say it, and <em>blink</em> it into a video</h1>
+          <h1 className="page-title">One idea, a whole <em>reel</em></h1>
           <p className="page-sub">
-            Describe the video you want and Blink renders it — optionally anchored to one of our
-            creators and your own product photo.
+            Describe the video. We break it into scenes, draw the opening frame of each, film every one,
+            write the voiceover and cut them together.
           </p>
         </div>
-
         <Upsell
-          feature="blink"
-          pitch="Write the scene instead of shooting it. 25 videos a month, 4–8 seconds at up to 1080p with generated audio, vertical or wide, holding your actual product — rendered in the background and filed in your library."
+          feature="multiframe"
+          pitch="One idea becomes a whole video: we break it into scenes, draw the opening frame of each, film every one, narrate it in a single voice and cut them together — with subtitles if you want them. Upload your product and it is held identical through every scene."
         />
       </div>
     )
   }
 
+  const bar = (
+    <div className="row between" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
+      <div className="row" style={{ gap: 10, alignItems: 'baseline' }}>
+        <a href="#/blink" style={{ textDecoration: 'none' }}>
+          <b style={{ fontSize: 18 }}>✦ Blink AI</b>
+        </a>
+        {usage && <span className="small muted">{usage.remaining} of {usage.limit} videos left this month</span>}
+      </div>
+      <ReelHistory
+        reels={reels}
+        activeId={reel?.multiframeId || reelId || null}
+        onNew={() => go('/blink')}
+        onChanged={refreshHistory}
+      />
+    </div>
+  )
+
+  // ── an open reel: their prompt, then the work ────────────────────────────
+  if (reelId) {
+    return (
+      <div>
+        {bar}
+
+        {loading && !reel ? (
+          <div className="empty">Opening…</div>
+        ) : reel ? (
+          <>
+            <div className="card" style={{ maxWidth: 900, padding: 18 }}>
+              <div className="row between" style={{ alignItems: 'flex-start', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="small muted" style={{ marginBottom: 6 }}>You asked for</div>
+                  <div style={{ fontSize: 16, lineHeight: 1.5 }}>{reel.idea}</div>
+                </div>
+                <span className="chip">{reel.total} scenes · {reel.durationSeconds}s each</span>
+              </div>
+            </div>
+
+            {error && (
+              <div className="card mt-4" style={{ maxWidth: 900, borderColor: 'rgba(226,114,91,0.4)' }}>
+                <div className="row"><span className="chip hot">error</span></div>
+                <div className="small mt-2">{error}</div>
+              </div>
+            )}
+
+            <Progress
+              reel={reel}
+              busy={busy}
+              filming={filming}
+              usage={usage}
+              onFilm={film}
+              onEditFrame={editFrame}
+              onStopWatching={() => abortRef.current?.abort()}
+            />
+
+            {reel.status === 'ready' && <ReelPlayer reel={reel} voices={voices} onRefresh={refresh} />}
+          </>
+        ) : (
+          <div className="empty">
+            That reel could not be opened. <a href="#/blink" style={{ color: 'var(--brand)' }}>Start a new one</a>.
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── nothing open: the composer ───────────────────────────────────────────
   return (
     <div>
+      {bar}
+
       <div className="page-head">
-        <div className="page-kicker">Blink AI</div>
-        <h1 className="page-title">Say it, and <em>blink</em> it into a video</h1>
+        <h1 className="page-title">One idea, a whole <em>reel</em></h1>
         <p className="page-sub">
-          Describe the video you want. Attach your product and pick a creator if it helps — both are optional.
+          Describe the video. We break it into scenes, draw the opening frame of each, film every one,
+          write the voiceover and cut them together.
         </p>
       </div>
 
-      {/* ── composer ── */}
       <div className="card" style={{ maxWidth: 780, padding: 22 }}>
         <textarea
           className="input"
           style={{ minHeight: 96, fontSize: 16, border: 'none', background: 'transparent', padding: 0, resize: 'none' }}
-          placeholder="A 6-second video of the creator holding the product up to the camera, smiling, bright kitchen…"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="A morning routine reel where someone discovers the app, uses it on the train, and recommends it to a friend…"
+          value={idea}
+          maxLength={MAX_IDEA}
+          onChange={(e) => setIdea(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) run() }}
+          disabled={busy}
         />
 
-        <div className="row between mt-4" style={{ alignItems: 'flex-end' }}>
-          <div className="row wrap">
-            {productURL ? (
-              <div className="row" style={{ gap: 8 }}>
-                <img src={productURL} alt="product" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--line)' }} />
-                <button className="btn xs" onClick={() => { setProduct(null); setProductURL(null) }}>Remove product</button>
-              </div>
-            ) : (
-              <button className="btn sm" onClick={() => fileRef.current?.click()}>⬆ Upload your product</button>
-            )}
-            <input ref={fileRef} type="file" accept="image/*" hidden
-              onChange={(e) => { onProduct(e.target.files[0]); e.target.value = '' }} />
-
-            {creator ? (
-              <div className="row" style={{ gap: 8 }}>
-                <img src={creator.img} alt={creator.name} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--line)' }} />
-                <span className="chip accent">{creator.name}</span>
-                <button className="btn xs" onClick={() => setPicking(true)}>Change</button>
-                <button className="btn xs" onClick={() => setCreator(null)}>Remove</button>
-              </div>
-            ) : (
-              <button className="btn sm" onClick={() => setPicking(true)}>◍ Choose creator</button>
-            )}
-          </div>
-
-          <div className="row" style={{ gap: 12 }}>
-            {usage && (
-              <span className="small muted">
-                {usage.remaining > 0
-                  ? `${usage.remaining} of ${usage.limit} left this month`
-                  : `You have used all ${usage.limit} this month — resets on the 1st`}
-              </span>
-            )}
-            <button
-              className="btn primary"
-              disabled={!prompt.trim() || busy || usage?.remaining === 0}
-              onClick={run}
-            >
-              {busy ? '✦ Generating…' : '✦ Generate video'}
-            </button>
-          </div>
+        <div className="row wrap mt-4" style={{ gap: 10, alignItems: 'center' }}>
+          {productURL ? (
+            <>
+              <img src={productURL} alt="your product"
+                style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--line)' }} />
+              <span className="chip accent">held through every scene</span>
+              <button className="btn xs" disabled={busy} onClick={() => fileRef.current?.click()}>Change</button>
+              <button className="btn xs" disabled={busy} onClick={() => { setProduct(null); setProductURL(null) }}>Remove</button>
+            </>
+          ) : (
+            <>
+              <button className="btn sm" disabled={busy} onClick={() => fileRef.current?.click()}>⬆ Upload your product</button>
+              <span className="small muted">Optional. Add it and the same object appears in every scene, unchanged.</span>
+            </>
+          )}
+          <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (f) { setProduct(f); setProductURL(URL.createObjectURL(f)) }
+              e.target.value = ''
+            }} />
         </div>
 
-        {/* ── settings ── */}
         <div style={{ borderTop: '1px solid var(--line-soft)', marginTop: 18, paddingTop: 16 }}>
           <div className="grid cols-3 stack-sm" style={{ gap: 18 }}>
             <div className="field" style={{ marginBottom: 0 }}>
-              <label>Duration</label>
+              <label>Scenes</label>
               <div className="seg">
-                {LIMITS.duration.options.map((d) => (
-                  <button key={d} className={duration === d ? 'on' : ''} onClick={() => setDuration(d)}>{d}s</button>
+                {counts().map((n) => (
+                  <button key={n} className={sceneCount === n ? 'on' : ''} disabled={busy} onClick={() => setSceneCount(n)}>{n}</button>
                 ))}
               </div>
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
-              <label>Aspect ratio</label>
+              <label>Each scene</label>
               <div className="seg">
-                {LIMITS.aspectRatios.map((a) => (
-                  <button key={a} className={aspect === a ? 'on' : ''} onClick={() => setAspect(a)}>
-                    {a === '9:16' ? '9:16 vertical' : '16:9 wide'}
-                  </button>
+                {DURATIONS.map((d) => (
+                  <button key={d} className={duration === d ? 'on' : ''} disabled={busy} onClick={() => setDuration(d)}>{d}s</button>
                 ))}
               </div>
             </div>
             <div className="field" style={{ marginBottom: 0 }}>
               <label>Resolution</label>
               <div className="seg">
-                {LIMITS.resolutions.map((r) => (
-                  <button key={r} className={resolution === r ? 'on' : ''} onClick={() => setResolution(r)}>{r}</button>
+                {['720p', '1080p'].map((r) => (
+                  <button key={r} className={resolution === r ? 'on' : ''} disabled={busy} onClick={() => setResolution(r)}>{r}</button>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="row between mt-4">
-            <span className="small muted">Every clip comes back with generated audio.</span>
-            <button className="btn ghost xs" onClick={() => setShowAdvanced((v) => !v)}>
-              {showAdvanced ? 'Hide' : 'More options'}
-            </button>
-          </div>
-
-          {showAdvanced && (
-            <div className="field mt-4" style={{ marginBottom: 0 }}>
-              <label>Avoid (negative prompt)</label>
-              <input
-                className="input" value={negative} onChange={(e) => setNegative(e.target.value)}
-                placeholder="e.g. blurry, text overlays, extra hands, cartoon"
-              />
+          <div className="field mt-4" style={{ marginBottom: 0 }}>
+            <label>Aspect ratio</label>
+            <div className="seg">
+              {['9:16', '16:9'].map((a) => (
+                <button key={a} className={aspect === a ? 'on' : ''} disabled={busy} onClick={() => setAspect(a)}>
+                  {a === '9:16' ? '9:16 vertical' : '16:9 wide'}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
+        </div>
+
+        <div className="row between mt-4" style={{ alignItems: 'flex-end' }}>
+          <div className="small muted">
+            {sceneCount} scenes × {duration}s — a {totalSeconds}-second reel. Costs {sceneCount} of your monthly videos when you film it.
+            {usage && !affordable && <b style={{ color: 'var(--hot, #e2725b)' }}> You have {usage.remaining} left — pick fewer scenes.</b>}
+          </div>
+          <button className="btn primary" disabled={!idea.trim() || busy || !affordable} onClick={run}>
+            {busy ? '✦ Starting…' : '✦ Make the reel'}
+          </button>
         </div>
       </div>
 
-      {/* ── output ── */}
-      {(busy || result || error) && (
+      {error && (
         <div className="card mt-6" style={{ maxWidth: 780 }}>
-          {busy && (
-            <div className="row between">
-              <div className="row" style={{ gap: 12 }}>
-                <span className="tick" style={{ fontSize: 22 }}>✦</span>
-                <div>
-                  <b>{status || 'Working…'}</b>
-                  <div className="small muted">
-                    Video generation usually takes 1–3 minutes. You can leave this page — it keeps
-                    rendering and lands in your library.
-                  </div>
-                </div>
-              </div>
-              <button className="btn ghost xs" onClick={() => abortRef.current?.abort()}>Stop watching</button>
-            </div>
-          )}
-
-          {error && (
-            <>
-              <div className="row"><span className="chip hot">error</span></div>
-              <div className="small mt-2">{error}</div>
-            </>
-          )}
-
-          {result?.status === 'ready' && result.url && (
-            <>
-              <div className="row between" style={{ marginBottom: 12 }}>
-                <h4 style={{ color: 'var(--accent)' }}>Your video</h4>
-                <a className="btn sm" href={result.url} download="blink-ai.mp4">⬇ Download</a>
-              </div>
-              <video src={result.url} controls autoPlay loop playsInline
-                style={{ width: aspect === '16:9' ? 460 : 300, borderRadius: 14, display: 'block', border: '1px solid var(--line)' }} />
-              <div className="row mt-4 wrap">
-                <span className="chip">{duration}s</span>
-                <span className="chip">{aspect}</span>
-                <span className="chip">{resolution}</span>
-                <span className="chip accent">audio</span>
-                <a className="chip brand" href="#/library" style={{ textDecoration: 'none' }}>
-                  saved to library ↗
-                </a>
-              </div>
-            </>
-          )}
+          <div className="row"><span className="chip hot">error</span></div>
+          <div className="small mt-2">{error}</div>
         </div>
-      )}
-
-      {picking && (
-        <CreatorPicker
-          selectedId={creator?.id}
-          title="Choose creator"
-          sub="They'll be the person in your generated video."
-          onSelect={(c) => { setCreator(c); setPicking(false) }}
-          onClose={() => setPicking(false)}
-        />
       )}
     </div>
   )
+}
+
+/**
+ * The scene board: what has been drawn, and what has been filmed.
+ *
+ * Every scene shows its own state rather than the reel showing one bar, because
+ * the states are genuinely different work — a frame is a few seconds and a clip
+ * is a minute or two — and a single bar sitting at "2 of 4" says nothing about
+ * whether the thing is progressing or wedged.
+ *
+ * The board is also where filming is authorised. It stops here on purpose: the
+ * frames are cheap and arrive first, and they are the evidence for whether the
+ * scenes are worth the clips. Nothing is charged to the month's allowance until
+ * the button below is pressed.
+ */
+function Progress({ reel, busy, filming, usage, onFilm, onEditFrame, onStopWatching }) {
+  const scenes = reel.scenes || []
+  const planning = reel.status === 'scripting' || !scenes.length
+  const awaitingGo = reel.status === 'frames_ready'
+  const drawing = scenes.some((s) => s.status === 'framing')
+
+  const filmable = scenes.filter((s) => s.frameUrl && s.status !== 'failed').length
+  const affordable = usage ? usage.remaining >= filmable : true
+
+  const heading = planning
+    ? 'Reading your product and planning the scenes…'
+    : awaitingGo
+      ? `${reel.framesReady ?? filmable} frames drawn — have a look before we film them`
+      : reel.status === 'rendering'
+        ? `${reel.ready} of ${reel.total} scenes filmed`
+        : `${reel.ready} of ${reel.total} scenes filmed`
+
+  return (
+    <div className="card mt-6" style={{ maxWidth: 900 }}>
+      <div className="row between">
+        <div className="row" style={{ gap: 12 }}>
+          <span className="tick" style={{ fontSize: 22 }}>✦</span>
+          <div>
+            <b>{heading}</b>
+            <div className="small muted">
+              {awaitingGo
+                ? 'Nothing has been charged yet. Redraw any frame you do not like, then film them.'
+                : busy || filming
+                  ? 'This takes a few minutes. You can leave this page — it keeps rendering.'
+                  : 'Rendering continues in the background.'}
+            </div>
+          </div>
+        </div>
+        {(busy || filming) && (
+          <button className="btn ghost xs" onClick={onStopWatching}>Stop watching</button>
+        )}
+      </div>
+
+      {reel.error && reel.status === 'ready' && (
+        <div className="small mt-4" style={{ color: 'var(--hot, #e2725b)' }}>{reel.error}</div>
+      )}
+
+      {scenes.length > 0 && (
+        <div className="grid cols-4 stack-sm mt-4" style={{ gap: 12 }}>
+          {scenes.map((s) => (
+            <SceneCard
+              key={s.idx}
+              scene={s}
+              editable={awaitingGo}
+              maxRevisions={reel.maxFrameRevisions ?? 6}
+              onEdit={onEditFrame}
+            />
+          ))}
+        </div>
+      )}
+
+      {awaitingGo && (
+        <div className="row between mt-6" style={{ alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+          <div className="small muted">
+            Filming {filmable} {filmable === 1 ? 'scene' : 'scenes'} costs {filmable} of your monthly videos.
+            {usage && (
+              <>
+                {' '}
+                <b style={{ color: affordable ? 'inherit' : 'var(--hot, #e2725b)' }}>
+                  {usage.remaining} of {usage.limit} left
+                </b>
+                {!affordable && ' — not enough to film them all.'}
+              </>
+            )}
+          </div>
+          <button
+            className="btn primary"
+            disabled={!filmable || drawing || filming || !affordable}
+            onClick={onFilm}
+          >
+            {filming ? '✦ Filming…' : drawing ? 'Waiting for the redraw…' : `▶ Generate videos (${filmable})`}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function counts() {
+  const out = []
+  for (let n = SCENE_COUNT.min; n <= SCENE_COUNT.max; n++) out.push(n)
+  return out
 }
