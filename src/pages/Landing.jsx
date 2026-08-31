@@ -213,10 +213,10 @@ export default function Landing() {
         <div className="lp-nav-inner">
           <Logo size={25} />
           <div className="lp-nav-links">
+            <SectionLink to="blink">Blink AI</SectionLink>
             <SectionLink to="creators">AI creators</SectionLink>
             <SectionLink to="carousels">Carousels</SectionLink>
             <SectionLink to="animated">Animated</SectionLink>
-            <SectionLink to="blink">Blink AI</SectionLink>
             <SectionLink to="pricing">Pricing</SectionLink>
           </div>
           <div className="spacer" />
@@ -228,21 +228,21 @@ export default function Landing() {
         {/* ── Hero ── */}
         <header className="lp-hero">
           <div>
-            <span className="chip brand">UGC studio for your product</span>
+            <span className="chip brand">AI video that doesn't stop at eight seconds</span>
             <h1>
-              Your product deserves <em>louder</em> marketing.
+              One idea in. A <em>finished ad</em> out.
             </h1>
             <p className="lp-lede">
-              AI creators who deliver your hook on camera. Photo carousels written from your pitch.
-              Animated ones where a 3D character acts the whole thing out. Prompt-to-video when you
-              need something that doesn't exist yet. Everything designed, written and exported in
-              minutes — no shoot, no agency, no editor.
+              Most AI video hands you an eight-second clip and leaves the rest to you. Blink AI writes
+              your idea into scenes, films every one of them holding the same person, the same room and
+              your actual product, then cuts them together with one voice over the top and subtitles
+              burned in. Up to forty-eight seconds of finished ad, from a sentence.
             </p>
             <div className="lp-cta">
               <SignInButton />
               <div className="lp-trust">
                 <b>Photo carousels are free</b>, forever, no card.
-                {cheapest && <> The rest from {money(cheapest.price, cheapest.currency)}/month. Cancel anytime.</>}
+                {cheapest && <> Blink AI and the rest from {money(cheapest.price, cheapest.currency)}/month. Cancel anytime.</>}
               </div>
               {isLocalSupabase && <DevSignIn />}
             </div>
@@ -255,46 +255,144 @@ export default function Landing() {
             )}
           </div>
 
-          {/* A carousel either side of a hook clip. The clip sits in the middle
-              because it is the one that moves, and the two slides are the half
-              of the product the page never used to show at all.
-
-              The two are deliberately not the same kind of carousel: an
-              animated slide on the left, a photo one on the right. All three
-              things Blink exports, in the order the page then explains them. */}
-          <div className="lp-mixwall" aria-label="Carousel slides and a hook video made with Blink">
-            <SlidePreview
-              slide={heroAnimated?.slides[0]}
-              alt={`An animated carousel slide for ${heroAnimated?.name}`}
-            />
-            <HookPreview
-              hook={heroClip?.hooks[0]}
-              fallbackImg={heroClip?.img}
-              alt={`${heroClip?.name} — ${heroClip?.vibe}`}
-              eager
-            />
-            <SlidePreview
-              slide={heroCards[1]}
-              style={{ '--pill-accent': heroCards[1]?.accent }}
-              alt={`A carousel slide for ${heroCards[1]?.name}`}
-            />
+          {/* Real Blink AI generations, not premade creator hooks — see
+              blinkTemplates.js. Deliberately not captioned as three scenes of
+              one reel: they are unrelated clips, and the thing this page is
+              selling is that a real reel holds one person across its scenes.
+              Faking that in the hero would be selling the exact claim with the
+              exact evidence that does not support it. */}
+          <div className="lp-wall narrow" aria-label="Videos generated with Blink AI">
+            {BLINK_TEMPLATES.map((t) => (
+              <HookPreview key={t.id} hook={t} alt={`Blink AI — ${t.name}`} eager={t === BLINK_TEMPLATES[1]} />
+            ))}
           </div>
         </header>
       </div>
 
       <div className="lp-wrap">
         <div className="lp-strip">
+          <span><b>up to 48s</b> finished videos</span>
+          <span><b>6</b> scenes per video</span>
+          <span><b>6</b> narrator voices</span>
           <span><b>{CREATORS.length}</b> AI creators</span>
-          <span><b>{CREATORS.reduce((n, c) => n + c.hooks.length, 0)}</b> hook reactions</span>
           <span><b>{photoSets.length * 10}</b> photo backgrounds</span>
           <span><b>{CHARACTERS.length}</b> 3D characters</span>
-          <span><b>{angleCount}</b> copy angles</span>
           <span>1080 × 1920 &amp; 1080 × 1350 exports</span>
         </div>
       </div>
 
+      {/* ── Blink AI: the reason to buy ── */}
+      <section className="lp-section" id="blink">
+        <div className="lp-wrap">
+          <div className="lp-sec-head center">
+            <div className="lp-kicker">Blink AI</div>
+            <h2>
+              Eight seconds is a shot. <em>This</em> is the ad.
+            </h2>
+            <p style={{ marginLeft: 'auto', marginRight: 'auto' }}>
+              Every AI video model stops at a few seconds, and a few seconds is not something you can
+              post. Blink AI plans your idea into scenes, films each one, and hands back one video —
+              consistent, narrated, captioned and ready to go up.
+            </p>
+          </div>
+
+          <div
+            className="card"
+            style={{
+              borderColor: 'rgba(168, 120, 255, 0.28)',
+              background: 'linear-gradient(150deg, rgba(160, 90, 240, 0.12), var(--ink-2) 60%)',
+              padding: 'clamp(26px, 4vw, 48px)',
+            }}
+          >
+            <div className="lp-split">
+              <div>
+                <h3 style={{ fontSize: 'clamp(21px, 2.4vw, 27px)', lineHeight: 1.2, marginBottom: 14 }}>
+                  The same person. The same room. Your actual product.
+                </h3>
+                <p className="muted" style={{ fontSize: 15.5 }}>
+                  The hard part of AI video is not making a clip — it is making the second clip look
+                  like it belongs with the first. Blink AI draws the opening frame of every scene from
+                  the one before it, so the face, the clothes and the light survive the whole video.
+                </p>
+                <ul className="lp-bullets">
+                  <li>
+                    <span className="tickmark">✓</span>
+                    <span><b>Up to six scenes, up to 48 seconds</b> — a whole ad, not a fragment.</span>
+                  </li>
+                  <li>
+                    <span className="tickmark">✓</span>
+                    <span><b>Upload your product once</b> and it is held identical in every single frame — same shape, same colour, same label.</span>
+                  </li>
+                  <li>
+                    <span className="tickmark">✓</span>
+                    <span><b>One voice over the whole thing.</b> Six narrators, written for you or rewritten by you, re-read in seconds.</span>
+                  </li>
+                  <li>
+                    <span className="tickmark">✓</span>
+                    <span><b>Subtitles burned in</b>, timed to the words actually spoken — not guessed from the runtime.</span>
+                  </li>
+                  <li>
+                    <span className="tickmark">✓</span>
+                    <span><b>See every frame before you pay to film it.</b> Redraw any you don't like, or tell it what to change.</span>
+                  </li>
+                  <li>
+                    <span className="tickmark">✓</span>
+                    <span><b>Every version kept</b> — the silent cut, the narrated one, the subtitled one. Nothing overwrites anything.</span>
+                  </li>
+                  <li>
+                    <span className="tickmark">✓</span>
+                    <span><b>Renders in the background.</b> Close the tab, come back, pick it up where it got to.</span>
+                  </li>
+                </ul>
+                <div className="row mt-6" style={{ gap: 10, flexWrap: 'wrap' }}>
+                  <SignInButton label="Make one free to watch" className="btn primary" />
+                  <span className="small muted">Photo carousels are free forever. Blink AI is on Growth.</span>
+                </div>
+              </div>
+
+              <div>
+                {/* Real generations. See the note in the hero: these are not
+                    presented as scenes of a single reel, because they are not. */}
+                <div className="lp-wall narrow">
+                  {BLINK_TEMPLATES.map((t) => (
+                    <HookPreview key={t.id} hook={t} alt={`Blink AI — ${t.name}`} />
+                  ))}
+                </div>
+                <div className="small muted" style={{ textAlign: 'center', marginTop: 16 }}>
+                  Generated with Blink AI. Hover to play.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* The pipeline, in the order someone actually drives it. */}
+          <div className="lp-steps mt-6">
+            <div className="lp-step">
+              <div className="lp-step-n">01 · WRITE</div>
+              <h3>Describe the video</h3>
+              <p>One sentence, and a photo of the product if it has one. Blink AI plans it into scenes and writes the script.</p>
+            </div>
+            <div className="lp-step">
+              <div className="lp-step-n">02 · CHECK</div>
+              <h3>Approve the frames</h3>
+              <p>Every scene's opening frame arrives first, in about a minute. Redraw anything that is wrong before a second of video is paid for.</p>
+            </div>
+            <div className="lp-step">
+              <div className="lp-step-n">03 · FILM</div>
+              <h3>Shoot every scene</h3>
+              <p>Each frame becomes a filmed shot, holding the person, the place and your product across all of them.</p>
+            </div>
+            <div className="lp-step">
+              <div className="lp-step-n">04 · FINISH</div>
+              <h3>Narrate, caption, cut</h3>
+              <p>Pick a voice, trim each scene, burn in subtitles, and export the finished video. Every version is kept.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── AI creators ── */}
-      <section className="lp-section" id="creators">
+      <section className="lp-section" id="creators" style={{ paddingTop: 0 }}>
         <div className="lp-wrap">
           <div className="lp-sec-head">
             <div className="lp-kicker">AI creators</div>
@@ -564,42 +662,6 @@ export default function Landing() {
       </section>
 
       {/* ── Blink AI ── */}
-      <section className="lp-section" id="blink" style={{ paddingTop: 0 }}>
-        <div className="lp-wrap">
-          <div className="card" style={{ borderColor: 'rgba(168, 120, 255, 0.28)', background: 'linear-gradient(150deg, rgba(160, 90, 240, 0.1), var(--ink-2) 60%)', padding: 'clamp(26px, 4vw, 48px)' }}>
-            <div className="lp-split">
-              <div>
-                <div className="lp-kicker">Blink AI</div>
-                <h2 style={{ fontSize: 'clamp(26px, 3.2vw, 38px)', lineHeight: 1.1 }}>
-                  Describe the shot. Get the <em>video</em>.
-                </h2>
-                <p className="muted" style={{ marginTop: 14, fontSize: 15.5 }}>
-                  When no premade hook fits, write the scene instead. Add a photo of your product, pick
-                  a creator to appear in it, and Blink generates the clip.
-                </p>
-                <ul className="lp-bullets">
-                  <li><span className="tickmark">✓</span><span><b>4–8 second clips</b> at 720p or 1080p, <b>with generated audio</b>.</span></li>
-                  <li><span className="tickmark">✓</span><span><b>9:16 or 16:9</b> — vertical for Reels, wide for a landing page.</span></li>
-                  <li><span className="tickmark">✓</span><span><b>Reference your product photo</b> so the generated scene holds your actual packaging.</span></li>
-                  <li><span className="tickmark">✓</span><span><b>Renders in the background</b> — close the tab, it lands in your library.</span></li>
-                </ul>
-                <div className="row mt-6" style={{ gap: 10 }}>
-                  <span className="chip accent">Growth plan</span>
-                  <span className="small muted">25 videos a month on Growth — the one thing that isn't on Starter.</span>
-                </div>
-              </div>
-              {/* Actual Veo generations, not creator hooks — this section is
-                  the only one selling something the premade clips cannot show. */}
-              <div className="lp-wall narrow">
-                {BLINK_TEMPLATES.map((t) => (
-                  <HookPreview key={t.id} hook={t} alt={`Blink AI — ${t.name}`} />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ── How it works ── */}
       <section className="lp-section" style={{ paddingTop: 0 }}>
         <div className="lp-wrap">
@@ -622,8 +684,8 @@ export default function Landing() {
               <div className="lp-step-n">STEP 02</div>
               <h3>Generate, then art-direct</h3>
               <p>
-                Mint a carousel or a hook video in one click, then make it yours: reshuffle
-                backgrounds, drag text, restyle, re-roll the hook, swap the creator.
+                Describe a Blink AI video, or mint a carousel or hook video in one click — then make it
+                yours: redraw a scene, reshuffle backgrounds, drag text, swap the creator.
               </p>
             </div>
             <div className="lp-step">
@@ -631,7 +693,7 @@ export default function Landing() {
               <h3>Export and post</h3>
               <p>
                 Slides at 1080 × 1350 for Instagram, video at 1080 × 1920 for Reels, TikTok and
-                Shorts. Everything you make stays in your library.
+                Shorts. Everything you make is saved and waiting when you come back.
               </p>
             </div>
           </div>
