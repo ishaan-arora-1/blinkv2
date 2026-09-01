@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth.jsx'
 import { fetchPlans, subscribeToPlan, CheckoutDismissed } from '../lib/razorpay.js'
 import { money, perMonth } from '../lib/money.js'
 import { isPaying } from '../lib/tiers.js'
+import { enquiryHref } from '../lib/contact.js'
 import { go } from '../lib/router.js'
 
 export default function Pricing() {
@@ -47,11 +48,10 @@ export default function Pricing() {
     else if (periods.length && !periods.includes(period)) setPeriod(periods[0])
   }, [currentPlanId, plans.length])
 
-  // One card per tier, always. If a tier has no plan for the selected period —
-  // Agency has no annual while Razorpay's transaction limit blocks the $1,290
-  // charge — it falls back to its monthly plan rather than vanishing from the
-  // page the moment someone flips to Yearly, which reads as the page being
-  // broken rather than as the plan being monthly-only.
+  // One card per tier, always. A tier with no plan for the selected period —
+  // Agency has no annual — keeps its place using its monthly row for the name
+  // and the feature list, and is rendered as an enquiry rather than a purchase.
+  // Letting it vanish when someone flips to Yearly reads as a broken page.
   const shownPlans = [...new Set(plans.map((p) => p.tier))]
     .map(
       (t) =>
@@ -157,6 +157,11 @@ export default function Pricing() {
             // Compare against the same tier billed monthly, which is the number
             // a yearly price only means anything next to.
             const monthlyTwin = plans.find((p) => p.tier === plan.tier && p.period === 'monthly')
+            // Shown on the annual view for a tier that has no annual plan. It
+            // is an enquiry, not a purchase: there is nothing to check out
+            // against, and a bigger customer wanting a year up front is a
+            // conversation worth having rather than a gap on the page.
+            const enquiry = period === 'yearly' && plan.period === 'monthly'
             const saving =
               plan.period === 'yearly' && monthlyTwin
                 ? Math.round((1 - plan.price / (monthlyTwin.price * 12)) * 100)
@@ -169,13 +174,17 @@ export default function Pricing() {
                   <h3 style={{ fontSize: 20 }}>{plan.name}</h3>
                   {isCurrent && <span className="chip brand">current</span>}
                 </div>
-                <div className="plan-price">
-                  {money(plan.price, plan.currency)}
-                  <span className="small muted"> /{plan.period === 'yearly' ? 'year' : 'month'}</span>
-                </div>
-                {period === 'yearly' && plan.period === 'monthly' && (
-                  <div className="small muted" style={{ marginTop: -2 }}>
-                    Billed monthly — annual coming soon
+                {enquiry ? (
+                  <>
+                    <div className="plan-price">Let's talk</div>
+                    <div className="small muted" style={{ marginTop: -2 }}>
+                      Annual and custom plans, billed to suit you
+                    </div>
+                  </>
+                ) : (
+                  <div className="plan-price">
+                    {money(plan.price, plan.currency)}
+                    <span className="small muted"> /{plan.period === 'yearly' ? 'year' : 'month'}</span>
                   </div>
                 )}
                 {plan.period === 'yearly' && monthlyTwin && (
@@ -184,7 +193,11 @@ export default function Pricing() {
                     {saving > 0 && <> — <b style={{ color: 'var(--brand)' }}>save {saving}%</b></>}
                   </div>
                 )}
-                <p className="small muted" style={{ minHeight: 38, marginTop: 8 }}>{plan.blurb}</p>
+                <p className="small muted" style={{ minHeight: 38, marginTop: 8 }}>
+                  {enquiry
+                    ? 'Everything in Agency, on an annual invoice — plus custom allowances if you need more than six minutes a month.'
+                    : plan.blurb}
+                </p>
 
                 <ul className="plan-features">
                   {plan.features.map((f) => (
@@ -192,6 +205,15 @@ export default function Pricing() {
                   ))}
                 </ul>
 
+                {enquiry ? (
+                  <a
+                    className="btn"
+                    style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
+                    href={enquiryHref(plan.name)}
+                  >
+                    Contact us
+                  </a>
+                ) : (
                 <button
                   className={`btn ${plan.tier === 'studio' ? 'primary' : ''}`}
                   style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
@@ -210,6 +232,7 @@ export default function Pricing() {
                           ? `Switch to ${plan.name}`
                           : `Choose ${plan.name}`}
                 </button>
+                )}
               </div>
             )
           })}

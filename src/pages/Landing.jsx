@@ -9,6 +9,7 @@ import { SHOWCASE, ANIMATED_SHOWCASE, heroSlides } from '../lib/showcase.js'
 import { CHARACTERS, getCharacter } from '../lib/characters.js'
 import { supabase, isLocalSupabase } from '../lib/supabase.js'
 import { BLINK_TEMPLATES } from '../lib/blinkTemplates.js'
+import { enquiryHref, CONTACT_EMAIL } from '../lib/contact.js'
 import Logo from '../components/Logo.jsx'
 import HookPreview from '../components/HookPreview.jsx'
 import SlidePreview from '../components/SlidePreview.jsx'
@@ -770,6 +771,8 @@ export default function Landing() {
 
               {shownPlans.map((plan) => {
                 const twin = plans.find((p) => p.tier === plan.tier && p.period === 'monthly')
+                // No annual for this tier — an enquiry, not a purchase.
+                const enquiry = period === 'yearly' && plan.period === 'monthly'
                 const saving =
                   plan.period === 'yearly' && twin
                     ? Math.round((1 - plan.price / (twin.price * 12)) * 100)
@@ -778,13 +781,17 @@ export default function Landing() {
                   <div key={plan.id} className={`card plan ${plan.tier === 'studio' ? 'featured' : ''}`}>
                     {plan.tier === 'studio' && <span className="plan-flag">Most popular</span>}
                     <h3 style={{ fontSize: 20 }}>{plan.name}</h3>
-                    <div className="plan-price">
-                      {money(plan.price, plan.currency)}
-                      <span className="small muted"> /{plan.period === 'yearly' ? 'year' : 'month'}</span>
-                    </div>
-                    {period === 'yearly' && plan.period === 'monthly' && (
-                      <div className="small muted" style={{ marginTop: -2 }}>
-                        Billed monthly — annual coming soon
+                    {enquiry ? (
+                      <>
+                        <div className="plan-price">Let's talk</div>
+                        <div className="small muted" style={{ marginTop: -2 }}>
+                          Annual and custom plans, billed to suit you
+                        </div>
+                      </>
+                    ) : (
+                      <div className="plan-price">
+                        {money(plan.price, plan.currency)}
+                        <span className="small muted"> /{plan.period === 'yearly' ? 'year' : 'month'}</span>
                       </div>
                     )}
                     {plan.period === 'yearly' && twin && (
@@ -793,17 +800,27 @@ export default function Landing() {
                         {saving > 0 && <> — <b style={{ color: 'var(--brand)' }}>save {saving}%</b></>}
                       </div>
                     )}
-                    <p className="small muted" style={{ minHeight: 38, marginTop: 8 }}>{plan.blurb}</p>
+                    <p className="small muted" style={{ minHeight: 38, marginTop: 8 }}>
+                      {enquiry
+                        ? 'Everything in Agency, on an annual invoice — plus custom allowances if you need more than six minutes a month.'
+                        : plan.blurb}
+                    </p>
                     <ul className="plan-features">
                       {(plan.features || []).map((f) => (
                         <li key={f}><span className="tickmark">✓</span>{f}</li>
                       ))}
                     </ul>
                     <div style={{ marginTop: 18 }}>
-                      <SignInButton
-                        label={`Get ${plan.name}`}
-                        className={`btn ${plan.tier === 'studio' ? 'primary' : ''}`}
-                      />
+                      {enquiry ? (
+                        <a className="btn" style={{ width: '100%', justifyContent: 'center' }} href={enquiryHref(plan.name)}>
+                          Contact us
+                        </a>
+                      ) : (
+                        <SignInButton
+                          label={`Get ${plan.name}`}
+                          className={`btn ${plan.tier === 'studio' ? 'primary' : ''}`}
+                        />
+                      )}
                     </div>
                   </div>
                 )
@@ -837,6 +854,12 @@ export default function Landing() {
             <div className="lp-kicker">Questions</div>
             <h2>Before you <em>start</em>.</h2>
           </div>
+          <div className="small muted" style={{ textAlign: 'center', marginTop: 22 }}>
+            Need more than six minutes a month, an annual invoice, or something shaped differently?{' '}
+            <a href={enquiryHref('a custom plan')} style={{ color: 'var(--brand)' }}>Talk to us</a> —
+            we'll build a plan around it.
+          </div>
+
           <div className="lp-faq">
             <details>
               <summary>Does this only work for apps?</summary>
@@ -916,6 +939,7 @@ export default function Landing() {
         <footer className="lp-footer">
           <Logo size={22} />
           <span>© {new Date().getFullYear()} Blink UGC. Made for people who ship.</span>
+          <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'inherit' }}>{CONTACT_EMAIL}</a>
         </footer>
       </div>
     </div>

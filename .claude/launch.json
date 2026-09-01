@@ -23,6 +23,17 @@
       ],
       "cwd": "/Users/ashish/reelmint/server",
       "port": 8080
+    },
+    {
+      "name": "deck-qa",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5391"
+      ],
+      "cwd": "dist/deckqa",
+      "port": 5391
     }
   ]
 }
