@@ -164,8 +164,12 @@ export async function saveCut(id, { kind, blob, durationSeconds }) {
   const userId = data?.user?.id
   if (!userId) throw new Error('You are signed out — sign in again to save this cut.')
 
-  const storagePath = `${userId}/multiframe/${id}/${kind}.webm`
-  await uploadFile(UPLOADS, storagePath, new File([blob], `${kind}.webm`, { type: blob.type || 'video/webm' }), {
+  // Named for what it actually is. The recorder produces mp4 wherever the
+  // browser can, and a file stored as .webm that is really mp4 downloads with
+  // the wrong extension and gets rejected by everything it is uploaded to.
+  const ext = (blob.type || '').includes('mp4') ? 'mp4' : 'webm'
+  const storagePath = `${userId}/multiframe/${id}/${kind}.${ext}`
+  await uploadFile(UPLOADS, storagePath, new File([blob], `${kind}.${ext}`, { type: blob.type || 'video/webm' }), {
     upsert: true,
   })
 

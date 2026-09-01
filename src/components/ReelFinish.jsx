@@ -304,7 +304,7 @@ export default function ReelFinish({ reel, voices, onRefresh }) {
 
           <div className="row between mt-6" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
             <span className="small muted">
-              Recorded in real time — about {Math.ceil(total)}s, with this tab in front.
+              Recorded in real time — about {Math.ceil(total)}s, with this tab in front. Saves as MP4.
             </span>
             <button className="btn primary" disabled={!ready || !!recording} onClick={record}>
               {recording ? `⏺ Recording… ${recording.pct}%` : `⏺ Render “${CUT_LABEL[kind]}”`}
@@ -339,7 +339,7 @@ export default function ReelFinish({ reel, voices, onRefresh }) {
                     <DownloadButton
                       className="btn xs mt-2"
                       url={cut.url}
-                      filename={`${slug(reel.name || 'reel')}-${k}.webm`}
+                      filename={`${slug(reel.name || 'reel')}-${k}.${extFromUrl(cut.url)}`}
                     />
                   </>
                 ) : (
@@ -370,3 +370,15 @@ const DEFAULT_VOICES = [
   { id: 'Liam', name: 'Liam', blurb: 'casual young male' },
   { id: 'Will', name: 'Will', blurb: 'easy, upbeat male' },
 ]
+
+/**
+ * The extension the stored cut actually has.
+ *
+ * Read off the path rather than assumed: a reel recorded in Chrome is mp4 and
+ * one recorded in Firefox is webm, and the download has to be named for the
+ * bytes rather than for whichever the code was written on.
+ */
+function extFromUrl(url) {
+  const m = /\.(mp4|webm)(\?|$)/i.exec(String(url || ''))
+  return m ? m[1].toLowerCase() : 'mp4'
+}

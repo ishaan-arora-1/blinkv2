@@ -216,6 +216,45 @@ function sync(video, local, playing, active) {
  * @param onTick  called with the current time each frame
  * @param onEnd   called when playback reaches the end
  */
+
+/**
+ * The container to record in, best first.
+ *
+ * MP4 leads because it is the only one anywhere will take. Instagram, TikTok
+ * and Shorts all reject webm on upload, and every phone plays mp4 while almost
+ * nothing outside a browser plays webm — so a reel exported as webm is a file
+ * somebody has to go and convert before they can post it, which is the whole
+ * job the product is supposed to have done.
+ *
+ * H.264 and AAC specifically, rather than bare "video/mp4": browsers accept the
+ * generic string and then choose, and a codec no phone decodes inside a
+ * container everything opens is a worse failure than an honest webm.
+ *
+ * webm remains the fallback for browsers whose MediaRecorder cannot do MP4 —
+ * Firefox, and Chrome before 126. Better a file that plays somewhere than no
+ * export at all, and exportReel reports which one it produced so the download
+ * can be named accordingly.
+ */
+const MIME_PREFERENCE = [
+  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+  'video/mp4;codecs=avc1,mp4a.40.2',
+  'video/mp4;codecs=avc1',
+  'video/mp4',
+  'video/webm;codecs=vp9,opus',
+  'video/webm;codecs=vp8,opus',
+  'video/webm',
+]
+
+function pickMime() {
+  if (typeof MediaRecorder === 'undefined') return ''
+  return MIME_PREFERENCE.find((m) => MediaRecorder.isTypeSupported(m)) || ''
+}
+
+/** The file extension for whatever the recorder actually produced. */
+export function extensionFor(mime) {
+  return String(mime || '').includes('mp4') ? 'mp4' : 'webm'
+}
+
 export function createCompositor({ canvas, clips, voice = null, cues = null, onTick, onEnd }) {
   const ctx = canvas.getContext('2d')
 
@@ -397,10 +436,7 @@ export function createCompositor({ canvas, clips, voice = null, cues = null, onT
       mix.connect(dest)
       for (const track of dest.stream.getAudioTracks()) stream.addTrack(track)
 
-      const mime =
-        ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find(
-          (m) => MediaRecorder.isTypeSupported(m)
-        ) || ''
+      const mime = pickMime()
 
       const rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 6_000_000 } : undefined)
       const chunks = []
@@ -436,7 +472,11 @@ export function createCompositor({ canvas, clips, voice = null, cues = null, onT
 
       mix.disconnect(dest)
       onProgress?.(100)
-      return new Blob(chunks, { type: mime || 'video/webm' })
+
+      // The blob's type decides what the OS thinks the file is, so it has to be
+      // what was actually recorded rather than a guess.
+      const type = rec.mimeType || mime || 'video/webm'
+      return new Blob(chunks, { type })
     },
 
     destroy() {
