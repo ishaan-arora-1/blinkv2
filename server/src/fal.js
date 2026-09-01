@@ -50,6 +50,13 @@ async function call(model, input, { timeoutMs = 90_000 } = {}) {
     // the raw payload is not something to hand a customer either. Map the two
     // cases that actually matter and keep the rest generic.
     if (res.status === 401 || res.status === 403) {
+      if (isOutOfCredit(data)) {
+        throw new ApiError(
+          503,
+          'generation_out_of_credit',
+          'Image generation is paused because our generation account is out of credit. This is on us — it is not your plan or your card.'
+        )
+      }
       throw new ApiError(502, 'generation_auth_failed', 'The image generator rejected our credentials.')
     }
     if (res.status === 402 || res.status === 429) {
@@ -74,6 +81,18 @@ async function call(model, input, { timeoutMs = 90_000 } = {}) {
   }
 
   return data
+}
+
+
+/**
+ * fal answers 403 both for a bad key and for an account that has run out of
+ * credit — the latter as {"detail":"User is locked. Reason: TOP_UP."}. Mapping
+ * both to "rejected our credentials" sent a real outage off to look at the key,
+ * which was fine; the balance was not.
+ */
+function isOutOfCredit(data) {
+  const detail = typeof data?.detail === 'string' ? data.detail : ''
+  return /locked/i.test(detail) || /top_?up/i.test(detail)
 }
 
 /**
