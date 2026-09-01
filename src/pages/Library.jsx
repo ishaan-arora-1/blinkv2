@@ -3,6 +3,7 @@ import { useStore } from '../lib/store.jsx'
 import { resolveImage } from '../lib/useImages.js'
 import { hookPoster } from '../lib/creators.js'
 import { GENERATIONS, signedUrl } from '../lib/storage.js'
+import DownloadButton from '../components/DownloadButton.jsx'
 
 const FILTERS = [
   { id: 'all', label: 'Everything', noun: 'anything' },
@@ -98,10 +99,7 @@ function LibCard({ item, thumb }) {
           <span className="tile-sub">{new Date(item.createdAt).toLocaleDateString()}</span>
           <div className="row" style={{ gap: 6 }}>
             {item.download && thumb && (
-              <a
-                className="btn xs" href={thumb} download={item.download}
-                onClick={(e) => e.stopPropagation()}
-              >⬇ Download</a>
+              <DownloadButton url={thumb} filename={item.download} />
             )}
             <button
               className="btn xs danger"

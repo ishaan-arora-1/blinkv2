@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
+import { slug } from '../lib/multiframe.js'
 import ReelFinish from './ReelFinish.jsx'
+import DownloadButton from './DownloadButton.jsx'
 
 /**
  * A finished reel: its clips, and the studio that turns them into a video.
@@ -47,7 +49,12 @@ export default function ReelPlayer({ reel, voices, onRefresh }) {
             <div className="tile-body" style={{ padding: '8px 10px' }}>
               <div className="row between">
                 <span className="small muted">Scene {s.idx + 1}</span>
-                <a className="btn xs" href={s.videoUrl} download={`${slug(reel.name || 'scene')}-${s.idx + 1}.mp4`}>⬇</a>
+                <DownloadButton
+                  url={s.videoUrl}
+                  filename={`${slug(reel.name || 'scene')}-${s.idx + 1}.mp4`}
+                  label="⬇"
+                  title={`Download scene ${s.idx + 1}`}
+                />
               </div>
             </div>
           </div>
@@ -68,4 +75,3 @@ export default function ReelPlayer({ reel, voices, onRefresh }) {
   )
 }
 
-const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'multiframe'

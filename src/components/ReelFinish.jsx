@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createCompositor, buildCues, REEL_W, REEL_H } from '../lib/reelCompositor.js'
-import { saveScript, generateVoiceover, saveTiming, saveCut, CUT_LABEL } from '../lib/multiframe.js'
+import { saveScript, generateVoiceover, saveTiming, saveCut, CUT_LABEL, slug } from '../lib/multiframe.js'
+import DownloadButton from './DownloadButton.jsx'
 
 /**
  * The finishing studio: preview the cut, narrate it, caption it, keep every
@@ -335,7 +336,11 @@ export default function ReelFinish({ reel, voices, onRefresh }) {
                   <>
                     <video src={cut.url} controls preload="metadata"
                       style={{ width: '100%', borderRadius: 8, marginTop: 8, background: '#000' }} />
-                    <a className="btn xs mt-2" href={cut.url} download={`${k}.webm`}>⬇ Download</a>
+                    <DownloadButton
+                      className="btn xs mt-2"
+                      url={cut.url}
+                      filename={`${slug(reel.name || 'reel')}-${k}.webm`}
+                    />
                   </>
                 ) : (
                   <div className="small muted mt-2">

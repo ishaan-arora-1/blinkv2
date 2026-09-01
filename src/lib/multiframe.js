@@ -239,3 +239,7 @@ export function fmtSeconds(seconds) {
   const r = s % 60
   return r ? `${m}m ${r}s` : `${m} min`
 }
+
+/** A reel's name as a filename. */
+export const slug = (s) =>
+  String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'blink-ai'
