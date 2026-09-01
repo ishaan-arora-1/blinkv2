@@ -22,19 +22,27 @@ const SYNC = 'https://fal.run'
 export const MAX_SCRIPT = 3000
 
 /**
- * The voices offered, and what they are for.
+ * The voices offered.
  *
- * A short list rather than the whole ElevenLabs roster: this is an ad for a
- * product, the choice that matters is roughly "who is talking", and a hundred
- * names is a worse question than six.
+ * Every name here was verified against the model by generating a word with it —
+ * the first version of this list was written from memory and four of its six
+ * did not exist, so choosing anything but the default answered 422 "Voice not
+ * found" and the feature looked broken for every voice but one.
+ *
+ * A short list rather than the whole ElevenLabs library: this is an ad for a
+ * product, the choice that matters is roughly who is talking, and forty names
+ * is a worse question than eight. Descriptions say what the voice is for, since
+ * nobody can pick a narrator from a first name alone.
  */
 export const VOICES = [
-  { id: 'Rachel',  name: 'Rachel',  blurb: 'warm, conversational — the default UGC read' },
-  { id: 'Adam',    name: 'Adam',    blurb: 'low, steady, male' },
-  { id: 'Domi',    name: 'Domi',    blurb: 'bright and energetic' },
-  { id: 'Antoni',  name: 'Antoni',  blurb: 'friendly, mid-range male' },
-  { id: 'Elli',    name: 'Elli',    blurb: 'young, upbeat' },
-  { id: 'Josh',    name: 'Josh',    blurb: 'casual young male' },
+  { id: 'Rachel',    name: 'Rachel',    blurb: 'warm, conversational — the default UGC read' },
+  { id: 'Sarah',     name: 'Sarah',     blurb: 'soft and friendly, younger' },
+  { id: 'Aria',      name: 'Aria',      blurb: 'bright and expressive' },
+  { id: 'Charlotte', name: 'Charlotte', blurb: 'calm, measured, a little posh' },
+  { id: 'Adam',      name: 'Adam',      blurb: 'low, steady, male' },
+  { id: 'Brian',     name: 'Brian',     blurb: 'deep and reassuring, male' },
+  { id: 'Liam',      name: 'Liam',      blurb: 'casual young male' },
+  { id: 'Will',      name: 'Will',      blurb: 'easy, upbeat male' },
 ]
 
 export const DEFAULT_VOICE = 'Rachel'
@@ -124,22 +132,68 @@ export async function synthesize({ script, voice }) {
 }
 
 /**
- * Flatten whatever shape the timings came back in.
+ * Turn the model's timings into words.
  *
- * The field names differ between ElevenLabs model versions — some return
- * `{word,start,end}`, some `{text,start_time,end_time}`, some nest the list
- * under `characters`. Anything unrecognised becomes an empty list, which the
- * caller treats as "no timings" rather than as an error.
+ * eleven-v3 returns them per CHARACTER, in chunks:
+ *
+ *   [{ characters: ['S','o','m','e',' ',...],
+ *      character_start_times_seconds: [0, 0.04, ...],
+ *      character_end_times_seconds:   [0.04, 0.08, ...] }, ...]
+ *
+ * The first version of this looked for {word,start,end} and, finding nothing,
+ * returned an empty list — which is why subtitles were quietly unavailable on
+ * every reel: the switch stayed disabled and nothing said why.
+ *
+ * Characters are accumulated into words, a word starting at its first
+ * character and ending at its last. Whitespace closes the current word rather
+ * than joining it, so punctuation stays attached — buildCues breaks lines on
+ * sentence endings, and it can only see them if the full stop is on the word.
+ *
+ * Still tolerant of the word-level shape, in case a future model or a different
+ * FAL_VOICE_MODEL returns one.
  */
 function normaliseTimestamps(raw) {
-  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.words) ? raw.words : []
-  return list
-    .map((t) => ({
-      word: String(t?.word ?? t?.text ?? '').trim(),
-      start: Number(t?.start ?? t?.start_time ?? t?.startTime),
-      end: Number(t?.end ?? t?.end_time ?? t?.endTime),
-    }))
-    .filter((t) => t.word && Number.isFinite(t.start) && Number.isFinite(t.end))
+  const chunks = Array.isArray(raw) ? raw : Array.isArray(raw?.words) ? raw.words : []
+  if (!chunks.length) return []
+
+  // Word-level already.
+  if (chunks[0]?.word || chunks[0]?.text) {
+    return chunks
+      .map((t) => ({
+        word: String(t?.word ?? t?.text ?? '').trim(),
+        start: Number(t?.start ?? t?.start_time ?? t?.startTime),
+        end: Number(t?.end ?? t?.end_time ?? t?.endTime),
+      }))
+      .filter((t) => t.word && Number.isFinite(t.start) && Number.isFinite(t.end))
+  }
+
+  const words = []
+  let cur = null
+
+  for (const chunk of chunks) {
+    const chars = chunk?.characters
+    const starts = chunk?.character_start_times_seconds
+    const ends = chunk?.character_end_times_seconds
+    if (!Array.isArray(chars) || !Array.isArray(starts)) continue
+
+    for (let i = 0; i < chars.length; i++) {
+      const ch = chars[i]
+      const start = Number(starts[i])
+      const end = Number(ends?.[i] ?? starts[i + 1] ?? starts[i])
+
+      if (/\s/.test(ch)) {
+        if (cur) { words.push(cur); cur = null }
+        continue
+      }
+      if (!Number.isFinite(start)) continue
+
+      if (!cur) cur = { word: ch, start, end }
+      else { cur.word += ch; cur.end = Number.isFinite(end) ? end : cur.end }
+    }
+  }
+  if (cur) words.push(cur)
+
+  return words.filter((w) => w.word && Number.isFinite(w.start) && Number.isFinite(w.end))
 }
 
 /** Pull the finished audio off fal's temporary URL so it can be archived. */

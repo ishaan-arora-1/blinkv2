@@ -85,12 +85,18 @@ export default function ReelFinish({ reel, voices, onRefresh }) {
       compRef.current?.destroy()
       compRef.current = null
     }
-    // Deliberately not re-run for trims, the voice switch or the captions:
-    // every one of those is applied to the live compositor below. Rebuilding
-    // would make a new AudioContext, and the narration element cannot be bound
-    // to a second one — the reel would lose its voice on the first slider drag.
+    // Deliberately not re-run for trims, the voice switch, the captions, or a
+    // regenerated narration. Every one of those is applied to the live
+    // compositor below.
+    //
+    // Rebuilding makes a new AudioContext, and an element can only ever be
+    // bound to one — createMediaElementSource throws the second time. That is
+    // exactly what regenerating the voiceover used to do: the url changed, this
+    // effect tore the compositor down, the next export built a fresh context,
+    // binding threw, the throw was swallowed, and the reel exported silently.
+    // The element's src changes on its own; the audio node follows it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reel.multiframeId, clips.length, reel.voiceoverUrl])
+  }, [reel.multiframeId, clips.length])
 
   useEffect(() => { compRef.current?.setDurations(trims) }, [trims])
   useEffect(() => { compRef.current?.setVoiceEnabled(voiceOn) }, [voiceOn])
@@ -136,6 +142,9 @@ export default function ReelFinish({ reel, voices, onRefresh }) {
       await generateVoiceover(reel.multiframeId, { script: script.trim(), voice })
       await onRefresh?.()
       setVoiceOn(true)
+      // The element is about to be handed a different file; rewind it and the
+      // reel together so the new read starts where the picture does.
+      compRef.current?.seek(0)
     } catch (err) { setError(err.message) } finally { setNarrating(false) }
   }
 
@@ -215,9 +224,19 @@ export default function ReelFinish({ reel, voices, onRefresh }) {
             <video key={s.idx} ref={(el) => { videoRefs.current[i] = el }} src={s.videoUrl}
               crossOrigin="anonymous" playsInline preload="auto" style={{ display: 'none' }} />
           ))}
-          {reel.voiceoverUrl && (
-            <audio ref={voiceRef} src={reel.voiceoverUrl} crossOrigin="anonymous" preload="auto" hidden />
-          )}
+          {/* Always mounted, with or without a narration to play.
+              A MediaElementAudioSourceNode binds to the ELEMENT, once, for the
+              life of an AudioContext — so the element has to exist before the
+              compositor is built and must survive every regeneration. Mounting
+              it conditionally meant the compositor was built with no audio node
+              at all until a voice existed, and then rebuilt when one arrived. */}
+          <audio
+            ref={voiceRef}
+            src={reel.voiceoverUrl || undefined}
+            crossOrigin="anonymous"
+            preload="auto"
+            hidden
+          />
 
           <canvas ref={canvasRef} width={REEL_W} height={REEL_H} onClick={toggle}
             style={{ width: 260, borderRadius: 14, display: 'block', border: '1px solid var(--line)',
@@ -334,12 +353,15 @@ export default function ReelFinish({ reel, voices, onRefresh }) {
   )
 }
 
-// Fallback if /options has not been read yet; the server is the real list.
+// Fallback if /options has not been read yet; the server is the real list, and
+// every name in it was verified against the model rather than remembered.
 const DEFAULT_VOICES = [
   { id: 'Rachel', name: 'Rachel', blurb: 'warm, conversational' },
+  { id: 'Sarah', name: 'Sarah', blurb: 'soft and friendly' },
+  { id: 'Aria', name: 'Aria', blurb: 'bright and expressive' },
+  { id: 'Charlotte', name: 'Charlotte', blurb: 'calm and measured' },
   { id: 'Adam', name: 'Adam', blurb: 'low, steady, male' },
-  { id: 'Domi', name: 'Domi', blurb: 'bright and energetic' },
-  { id: 'Antoni', name: 'Antoni', blurb: 'friendly male' },
-  { id: 'Elli', name: 'Elli', blurb: 'young, upbeat' },
-  { id: 'Josh', name: 'Josh', blurb: 'casual young male' },
+  { id: 'Brian', name: 'Brian', blurb: 'deep and reassuring' },
+  { id: 'Liam', name: 'Liam', blurb: 'casual young male' },
+  { id: 'Will', name: 'Will', blurb: 'easy, upbeat male' },
 ]
