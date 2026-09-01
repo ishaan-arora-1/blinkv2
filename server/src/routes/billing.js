@@ -49,13 +49,18 @@ const LIVE_STATUSES = ['active', 'authenticated', 'pending']
 
 /** Reuse one Razorpay customer per user across every subscription they create. */
 async function ensureCustomer(userId) {
+  // A customer exists in one mode only. Reusing a live id against test keys
+  // fails with "The id provided does not exist", which is true and unreadable
+  // at a payment screen — so each mode gets its own column, exactly as plans do.
+  const column = razorpayMode === 'test' ? 'razorpay_customer_id_test' : 'razorpay_customer_id'
+
   const { data: profile } = await admin
     .from('profiles')
-    .select('razorpay_customer_id, email, full_name')
+    .select(`${column}, email, full_name`)
     .eq('id', userId)
     .maybeSingle()
 
-  if (profile?.razorpay_customer_id) return profile.razorpay_customer_id
+  if (profile?.[column]) return profile[column]
 
   let customer
   try {
@@ -69,7 +74,7 @@ async function ensureCustomer(userId) {
     throw new ApiError(502, 'razorpay_customer_failed', razorpayMessage(err, 'Could not set up billing.'))
   }
 
-  await admin.from('profiles').update({ razorpay_customer_id: customer.id }).eq('id', userId)
+  await admin.from('profiles').update({ [column]: customer.id }).eq('id', userId)
   return customer.id
 }
 
