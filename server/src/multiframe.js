@@ -385,31 +385,48 @@ export async function redrawFrame({
 }) {
   const edit = String(instruction || '').trim()
 
-  const refs = edit
-    ? [currentUrl, productUrl].filter(Boolean)
-    : [establishingUrl, productUrl].filter(Boolean)
+  // Both paths lead with the frame as it stands right now, which is the fix for
+  // two separate complaints. An edit after a redraw was landing on the original
+  // because a redraw is a new file and only the newest one is the thing on
+  // screen; and a redraw used to condition on the establishing frame alone,
+  // throwing away everything the scene had accumulated since. Whatever you are
+  // looking at is what gets changed.
+  //
+  // Deduped because scene 0 is its own establishing frame, and handing the same
+  // image twice tells the model nothing and costs a reference slot.
+  const refs = [...new Set([currentUrl, establishingUrl, productUrl].filter(Boolean))]
 
   const body = edit
-    ? `Change this photograph as follows: ${edit}\n\n` +
-      `Keep everything else identical — the same person with the same face and clothes, the same room, ` +
-      `the same light, the same framing. Change only what was asked for.` +
-      (productUrl ? `\n\n${productClause(2)}` : '') +
+    ? // Deliberately permissive. The previous wording — "keep the framing, change
+      // only what was asked for" — meant asking for a different camera angle got
+      // the same photograph back, because the instruction and the constraint
+      // contradicted each other and the constraint won. What must survive an
+      // edit is identity: the person, the product, the place. Everything else is
+      // fair game, and the change is what was asked for.
+      `Apply this change to the photograph: ${edit}\n\n` +
+      `Go as far as the change requires. You may move the camera, change the angle, the distance, ` +
+      `the crop, the pose, what the person is doing, and what is in shot.\n\n` +
+      `Three things must not change unless the instruction explicitly asks: it is the SAME person ` +
+      `— identical face, hair and clothing; it is the same location; and it keeps the same ordinary ` +
+      `phone-camera look.` +
+      (productUrl ? `\n\n${productClause(refs.indexOf(productUrl) + 1)}` : '') +
       `\n\n${STYLE}\n\n${AVOID}`
-    : (productUrl
-        ? `Reference image 1 fixes the person and the place: keep the EXACT same person — identical face, ` +
-          `identical hair, identical clothing — in the same room, with the same light and the same ordinary ` +
-          `phone-camera look.\n\n${productClause(2)}\n\nNow: ${scene.frame_prompt}`
-        : `Keep the EXACT same person from the reference image — identical face, identical hair, identical ` +
-          `clothing — and the same location, lighting and photographic style.\n\nNow: ${scene.frame_prompt}`) +
-      `\n\n${STYLE}\n\n${AVOID}`
+    : // A re-roll: the same moment, drawn again. Reference 1 is the frame being
+      // replaced, so the scene keeps the look it has arrived at rather than
+      // snapping back to how it began.
+      `Draw this scene again, differently. Reference image 1 is the version being replaced: keep the ` +
+      `SAME person — identical face, hair and clothing — the same location, the same light and the ` +
+      `same ordinary phone-camera look. Change the framing, the angle and the pose.` +
+      (productUrl ? `\n\n${productClause(refs.indexOf(productUrl) + 1)}` : '') +
+      `\n\nThe scene: ${scene.frame_prompt}\n\n${STYLE}\n\n${AVOID}`
 
-  // Same fallback as renderFrames: two references is the better result and the
+  // Same fallback as renderFrames: more references is the better result and the
   // less certain call, and a refusal must not cost someone their frame.
   try {
     return await generateSlideFrom(refs, body, { aspectRatio })
   } catch (err) {
     if (refs.length < 2) throw err
-    console.warn('[multiframe] redraw: two-reference edit failed, retrying with one —', err?.message || err)
+    console.warn('[multiframe] redraw: multi-reference edit failed, retrying with one —', err?.message || err)
     return generateSlideFrom(refs[0], body, { aspectRatio })
   }
 }

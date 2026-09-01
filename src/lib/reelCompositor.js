@@ -136,19 +136,46 @@ export function locate(clips, t) {
 
 export const totalDuration = (clips) => clips.reduce((n, c) => n + c.duration, 0)
 
-function drawFrame(ctx, video) {
+/**
+ * Draw the current clip, or hold the last good frame.
+ *
+ * The black flash at every cut came from here. Switching clips seeks the next
+ * element to 0, a seek briefly drops readyState below 2, and this used to paint
+ * black and return — so every join showed one or two black frames, which in a
+ * 30fps recording is exactly the flicker you see.
+ *
+ * Holding the previous frame instead means a cut shows the outgoing shot for
+ * the millisecond the incoming one needs, which reads as an instant cut rather
+ * than a blink. Black is now only ever drawn when there is nothing at all to
+ * show — the very first frame before anything has loaded.
+ *
+ * Returns whatever it actually drew, so the caller can pass it back as the
+ * fallback next time.
+ */
+function drawFrame(ctx, video, fallback) {
+  const ready = (v) => v && v.readyState >= 2 && v.videoWidth && v.videoHeight
+  const target = ready(video) ? video : ready(fallback) ? fallback : null
+
+  if (!target) {
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, REEL_W, REEL_H)
+    return null
+  }
+  return paint(ctx, target)
+}
+
+function paint(ctx, video) {
   ctx.fillStyle = '#000'
   ctx.fillRect(0, 0, REEL_W, REEL_H)
-  if (!video || video.readyState < 2) return
   const vw = video.videoWidth
   const vh = video.videoHeight
-  if (!vw || !vh) return
   // Cover, matching drawVideoFrame in VideoEditor: a clip whose ratio differs
   // from the canvas is filled rather than letterboxed.
   const scale = Math.max(REEL_W / vw, REEL_H / vh)
   const dw = vw * scale
   const dh = vh * scale
   ctx.drawImage(video, (REEL_W - dw) / 2, (REEL_H - dh) / 2, dw, dh)
+  return video
 }
 
 /**
@@ -200,6 +227,10 @@ export function createCompositor({ canvas, clips, voice = null, cues = null, onT
   // heard, and the captions are just a variable the draw loop reads.
   let voiceOn = Boolean(voice)
   let activeCues = cues
+
+  // The last clip that actually rendered, held across a cut so the incoming
+  // one's seek does not show through as black.
+  let lastDrawn = null
 
   // Held separately from the clips so trimming does not rebuild anything. A
   // rebuild would mean a new AudioContext, and the narration element cannot be
@@ -260,7 +291,12 @@ export function createCompositor({ canvas, clips, voice = null, cues = null, onT
 
     const { index, local } = locate(timeline, Math.min(t, totalOf()))
     timeline.forEach((clip, i) => sync(clip.video, i === index ? local : 0, playing, i === index))
-    drawFrame(ctx, timeline[index]?.video)
+    lastDrawn = drawFrame(ctx, timeline[index]?.video, lastDrawn)
+
+    // Wake the next clip while the current one is still playing, so its first
+    // frame is decoded before the cut rather than during it.
+    const next = timeline[index + 1]?.video
+    if (next && next.readyState < 2 && next.preload !== 'auto') next.preload = 'auto'
 
     // The narration runs on the compositor clock like everything else, so
     // scrubbing moves the voice with the picture.

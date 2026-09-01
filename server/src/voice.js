@@ -88,6 +88,18 @@ export async function synthesize({ script, voice }) {
     // rather than returned.
     console.warn(`[voice] ${res.status} from ${env.fal.voiceModel} — ${body.slice(0, 300)}`)
     if (res.status === 401 || res.status === 403) {
+      // fal answers 403 both for a bad key and for an account out of balance,
+      // the latter as {"detail":"User is locked. Reason: TOP_UP."}. Reporting
+      // the second as a credentials failure sends whoever reads it to check a
+      // key that is fine.
+      const detail = typeof data?.detail === 'string' ? data.detail : ''
+      if (/locked/i.test(detail) || /top_?up/i.test(detail)) {
+        throw new ApiError(
+          503,
+          'voice_out_of_credit',
+          'Voiceover is paused because our generation account is out of credit. This is on us — it is not your plan or your card.'
+        )
+      }
       throw new ApiError(502, 'voice_auth_failed', 'The voice generator rejected our credentials.')
     }
     if (res.status === 402 || res.status === 429) {
