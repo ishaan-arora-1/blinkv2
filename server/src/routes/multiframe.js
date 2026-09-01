@@ -23,7 +23,7 @@ import {
   motionPrompt,
 } from '../multiframe.js'
 import { CREDIT_KIND, usedThisMonth, usage } from '../blinkCredits.js'
-import { allowanceFor } from '../entitlements.js'
+import { allowanceFor, resolveEntitlement } from '../entitlements.js'
 import { VOICES, DEFAULT_VOICE, MAX_SCRIPT, voiceById, synthesize, downloadAudio } from '../voice.js'
 
 // requireAuth is applied where this router is mounted, so every route below can
@@ -37,9 +37,10 @@ const SIGNED_URL_TTL = 60 * 60 // 1 hour
 // single account, which is both a vendor rate-limit problem and a bill.
 const MAX_IN_FLIGHT = 1
 
-// Redraws per frame. Frames are cheap beside clips but they are not free, and a
-// button that costs money every time it is pressed needs a number on it.
-const MAX_FRAME_REVISIONS = 6
+// Redraws per frame come from the tier — see ALLOWANCE. This was a flat 6 for
+// everyone while the plans page promised Studio 3, which is the drift 0017
+// warns about: a number that is a limit in one place and a promise in another
+// has to be read from one source.
 
 // What counts as "in flight" for the one-reel-at-a-time cap: vendor work is
 // actually running. 'frames_ready' is deliberately absent — a reel resting
@@ -403,11 +404,12 @@ multiframeRouter.post(
     const scene = scenes.find((sc) => sc.idx === idx)
     if (!scene) throw notFound('That scene does not exist.')
 
-    if (scene.frame_revisions >= MAX_FRAME_REVISIONS) {
+    const maxRevisions = allowanceFor(req.entitlement.paidTier).frameRevisions
+    if (scene.frame_revisions >= maxRevisions) {
       throw new ApiError(
         429,
         'too_many_revisions',
-        `You have redrawn this frame ${MAX_FRAME_REVISIONS} times. Start a new reel if it still is not right.`
+        `You have redrawn this frame ${maxRevisions} times, which is the limit on your plan.`
       )
     }
 
@@ -695,6 +697,15 @@ multiframeRouter.get(
 
     const settled = await settle(reel, fresh || [])
 
+    // Only while the reel is resting on its frames, which is the one state
+    // where redrawing is possible. /status is polled every few seconds during a
+    // render, and resolving an entitlement costs two RPCs — not a price worth
+    // paying on every poll to populate a number nothing can act on yet.
+    const maxRevisions =
+      settled.status === 'frames_ready'
+        ? allowanceFor((await resolveEntitlement(req.user.id)).paidTier).frameRevisions
+        : 0
+
     const { data: renders } = await admin
       .from('multiframe_renders')
       .select('kind, storage_path, duration_seconds, updated_at')
@@ -713,7 +724,7 @@ multiframeRouter.get(
       framesReady: (fresh || []).filter((s) => s.frame_path).length,
       total: reel.scene_count,
       hasProduct: Boolean(reel.product_path),
-      maxFrameRevisions: MAX_FRAME_REVISIONS,
+      maxFrameRevisions: maxRevisions,
 
       // The narration, if it has been read yet. Words are sent in full because
       // subtitles are cut from them in the browser, at the moment the subtitled

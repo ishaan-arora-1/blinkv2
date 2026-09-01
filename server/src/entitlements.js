@@ -80,11 +80,17 @@ export const FEATURE_LABEL = {
  * thousand characters — about $0.11 an all-in second.
  */
 export const ALLOWANCE = {
-  free:    { videoSeconds: 0,   animatedSlides: 0 },
-  creator: { videoSeconds: 0,   animatedSlides: 60 },
-  studio:  { videoSeconds: 120, animatedSlides: 120 },
-  agency:  { videoSeconds: 360, animatedSlides: 300 },
+  free:    { videoSeconds: 0,   animatedSlides: 0,   frameRevisions: 0 },
+  creator: { videoSeconds: 0,   animatedSlides: 60,  frameRevisions: 0 },
+  studio:  { videoSeconds: 120, animatedSlides: 120, frameRevisions: 3 },
+  agency:  { videoSeconds: 360, animatedSlides: 300, frameRevisions: 6 },
 }
+
+// Redraws are the one cost that is not in the seconds allowance. A frame is
+// $0.039 and a scene may be redrawn several times, so six redraws across six
+// scenes is another $1.40 on a reel whose video cost is $4.80 — nearly a third
+// again. The plans already say 3 on Studio and 6 on Agency; this is what makes
+// that true rather than decorative.
 
 /** What this tier gets, falling back to nothing for an unknown one. */
 export function allowanceFor(tier) {
