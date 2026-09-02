@@ -6,6 +6,7 @@ Allow: /
 # until vercel.json existed, sent max-age=0 on every asset.
 Disallow: /hooks/
 Disallow: /blink/
+Disallow: /story/
 Disallow: /sets/
 Disallow: /showcase/
 Disallow: /characters/

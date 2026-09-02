@@ -4,14 +4,14 @@ import { fetchPlans } from '../lib/razorpay.js'
 import { money, perMonth } from '../lib/money.js'
 import { CREATORS, getCreator } from '../lib/creators.js'
 import { builtinSets, isGradientRef } from '../lib/library.js'
-import { presetOptions } from '../lib/copygen.js'
-import { SHOWCASE, ANIMATED_SHOWCASE, heroSlides } from '../lib/showcase.js'
-import { CHARACTERS, getCharacter } from '../lib/characters.js'
+import { SHOWCASE, ANIMATED_SHOWCASE } from '../lib/showcase.js'
+import { CHARACTERS } from '../lib/characters.js'
 import { supabase, isLocalSupabase } from '../lib/supabase.js'
 import { BLINK_TEMPLATES } from '../lib/blinkTemplates.js'
 import { enquiryHref, CONTACT_EMAIL } from '../lib/contact.js'
 import Logo from '../components/Logo.jsx'
 import HookPreview from '../components/HookPreview.jsx'
+import ReelGraph from '../components/ReelGraph.jsx'
 import SlidePreview from '../components/SlidePreview.jsx'
 
 function GoogleMark() {
@@ -25,55 +25,18 @@ function GoogleMark() {
   )
 }
 
-/**
- * The copy angles are rendered from the real generator rather than written out
- * by hand, so the examples on the page are literally what a new account gets.
- * If the presets change, this section changes with them.
- */
-const DEMO_BRAND = {
-  appName: 'Aurelia',
-  category: 'skincare',
-  verb: 'stick to a routine',
-  tagline: 'The three-step routine you will actually finish.',
-}
-
 /*
  * Five of the ten, chosen to look like a roster rather than a type: two men,
- * three women, and an age range. Showing all ten here made the page's first
- * three screens one long parade of the same 9:16 face card.
+ * three women, and an age range. Five is a strip you read in one glance; ten is
+ * a grid, and this is not the feature that earns a grid.
  */
 const ROSTER = ['cr_tech_girl', 'cr_gym_guy', 'cr_older_woman', 'cr_casual_guy', 'cr_business_woman']
-
-// The hero shows both things Blink exports — a hook clip and finished carousel
-// slides — rather than five faces, leaving the carousels, which are half the
-// product, to be described in prose further down and never actually shown.
-const HERO_CLIP = 'cr_gym_guy'
 
 // The creator whose reaction fronts the hook-video breakdown, and the frame
 // standing in for the footage cut in behind it. A different face from the
 // hero's, so the two are not the same clip twice.
 const ANATOMY_CREATOR = 'cr_tech_girl'
 const ANATOMY_SHOT = '/sets/thumbs/girl/04.jpg'
-
-/*
- * Five of the ten characters, on the same reasoning as ROSTER above. The first
- * two are the athlete and the robot, who are the ones actually acting in the
- * two animated carousels shown directly above them — the roster and the output
- * should visibly be the same cast. The rest cover the range that matters when
- * someone is deciding whether their own category is served: a person, a trade,
- * and something with no human likeness at all.
- */
-const CAST = ['ch_athlete', 'ch_robot', 'ch_everyday_woman', 'ch_chef', 'ch_blob']
-
-// The animated carousel whose opening slide leads the hero. The robot's is the
-// one that reads at hero size: a pale backdrop against the page's near-black,
-// and a character who survives being shown a third of the width he was drawn at.
-const HERO_ANIMATED = 'blink'
-
-// The landing page shows the 360×450 thumbnails, not the full-resolution set
-// images those paths normally point at. Ten 450 KB photographs per set is the
-// right weight for an export and the wrong weight for a first visit.
-const thumbOf = (path) => path.replace('/sets/', '/sets/thumbs/')
 
 /**
  * Scrolls to a section without touching the URL hash.
@@ -206,18 +169,9 @@ export default function Landing() {
       })
   )
 
-  const sets = builtinSets()
-  const photoSets = sets.filter((s) => !s.images.some(isGradientRef))
-  // Nine, not ten: three full rows rather than two and an orphan. The prose
-  // still names the real total, which is what the product actually ships.
-  const angles = presetOptions(DEMO_BRAND).slice(0, 9)
-  const angleCount = presetOptions(DEMO_BRAND).length
+  const photoSets = builtinSets().filter((s) => !s.images.some(isGradientRef))
 
   const roster = ROSTER.map(getCreator).filter(Boolean)
-  const cast = CAST.map(getCharacter).filter(Boolean)
-  const heroClip = getCreator(HERO_CLIP)
-  const heroCards = heroSlides()
-  const heroAnimated = ANIMATED_SHOWCASE.find((c) => c.id === HERO_ANIMATED)
   const anatomyCreator = getCreator(ANATOMY_CREATOR)
 
   return (
@@ -227,9 +181,8 @@ export default function Landing() {
           <Logo size={25} />
           <div className="lp-nav-links">
             <SectionLink to="blink">Blink AI</SectionLink>
-            <SectionLink to="creators">AI creators</SectionLink>
+            <SectionLink to="creators">Hook videos</SectionLink>
             <SectionLink to="carousels">Carousels</SectionLink>
-            <SectionLink to="animated">Animated</SectionLink>
             <SectionLink to="pricing">Pricing</SectionLink>
           </div>
           <div className="spacer" />
@@ -241,15 +194,14 @@ export default function Landing() {
         {/* ── Hero ── */}
         <header className="lp-hero">
           <div>
-            <span className="chip brand">AI video that doesn't stop at eight seconds</span>
+            <span className="chip brand">one prompt in, a finished ad out</span>
             <h1>
-              One idea in. A <em>finished ad</em> out.
+              One prompt. <em>A&nbsp;whole&nbsp;ad.</em>
             </h1>
             <p className="lp-lede">
-              Most AI video hands you an eight-second clip and leaves the rest to you. Blink AI writes
-              your idea into scenes, films every one of them holding the same person, the same room and
-              your actual product, then cuts them together with one voice over the top and subtitles
-              burned in. Up to forty-eight seconds of finished ad, from a sentence.
+              Upload your product, write one line. Blink AI plans the scenes, draws every frame, films
+              each one, writes the script, reads it aloud and burns in the subtitles — up to 48 seconds
+              of finished ad, ready to post. You do neither the storyboard nor the edit.
             </p>
             <div className="lp-cta">
               <SignInButton />
@@ -286,7 +238,7 @@ export default function Landing() {
         <div className="lp-strip">
           <span><b>up to 48s</b> finished videos</span>
           <span><b>6</b> scenes per video</span>
-          <span><b>6</b> narrator voices</span>
+          <span><b>8</b> narrator voices</span>
           <span><b>{CREATORS.length}</b> AI creators</span>
           <span><b>{photoSets.length * 10}</b> photo backgrounds</span>
           <span><b>{CHARACTERS.length}</b> 3D characters</span>
@@ -300,163 +252,83 @@ export default function Landing() {
           <div className="lp-sec-head center">
             <div className="lp-kicker">Blink AI</div>
             <h2>
-              Eight seconds is a shot. <em>This</em> is the ad.
+              One prompt, <em>start to finish</em>.
             </h2>
             <p style={{ marginLeft: 'auto', marginRight: 'auto' }}>
-              Every AI video model stops at a few seconds, and a few seconds is not something you can
-              post. Blink AI plans your idea into scenes, films each one, and hands back one video —
-              consistent, narrated, captioned and ready to go up.
+              Upload your product, write one line. That is your half of it.
             </p>
           </div>
 
-          <div
-            className="card"
-            style={{
-              borderColor: 'rgba(168, 120, 255, 0.28)',
-              background: 'linear-gradient(150deg, rgba(160, 90, 240, 0.12), var(--ink-2) 60%)',
-              padding: 'clamp(26px, 4vw, 48px)',
-            }}
-          >
-            <div className="lp-split">
-              <div>
-                <h3 style={{ fontSize: 'clamp(21px, 2.4vw, 27px)', lineHeight: 1.2, marginBottom: 14 }}>
-                  The same person. The same room. Your actual product.
-                </h3>
-                <p className="muted" style={{ fontSize: 15.5 }}>
-                  The hard part of AI video is not making a clip — it is making the second clip look
-                  like it belongs with the first. Blink AI draws the opening frame of every scene from
-                  the one before it, so the face, the clothes and the light survive the whole video.
-                </p>
-                <ul className="lp-bullets">
-                  <li>
-                    <span className="tickmark">✓</span>
-                    <span><b>Up to six scenes, up to 48 seconds</b> — a whole ad, not a fragment.</span>
-                  </li>
-                  <li>
-                    <span className="tickmark">✓</span>
-                    <span><b>Upload your product once</b> and it is held identical in every single frame — same shape, same colour, same label.</span>
-                  </li>
-                  <li>
-                    <span className="tickmark">✓</span>
-                    <span><b>One voice over the whole thing.</b> Six narrators, written for you or rewritten by you, re-read in seconds.</span>
-                  </li>
-                  <li>
-                    <span className="tickmark">✓</span>
-                    <span><b>Subtitles burned in</b>, timed to the words actually spoken — not guessed from the runtime.</span>
-                  </li>
-                  <li>
-                    <span className="tickmark">✓</span>
-                    <span><b>See every frame before you pay to film it.</b> Redraw any you don't like, or tell it what to change.</span>
-                  </li>
-                  <li>
-                    <span className="tickmark">✓</span>
-                    <span><b>Every version kept</b> — the silent cut, the narrated one, the subtitled one. Nothing overwrites anything.</span>
-                  </li>
-                  <li>
-                    <span className="tickmark">✓</span>
-                    <span><b>Renders in the background.</b> Close the tab, come back, pick it up where it got to.</span>
-                  </li>
-                </ul>
-                <div className="row mt-6" style={{ gap: 10, flexWrap: 'wrap' }}>
-                  <SignInButton label="Make one free to watch" className="btn primary" />
-                  <span className="small muted">Photo carousels are free forever. Blink AI starts on Studio.</span>
-                </div>
-              </div>
+          {/* The deal, stated before the graph proves it: two things in, seven
+              out. The list is short on purpose — every item is a job somebody
+              would otherwise be paying a person to do. */}
+          <div className="lp-deal">
+            <div className="lp-deal-you">
+              <span className="lp-deal-k">you bring</span>
+              <b>A photo of your product</b>
+              <b>One sentence about the video</b>
+            </div>
 
-              <div>
-                {/* Real generations. See the note in the hero: these are not
-                    presented as scenes of a single reel, because they are not. */}
-                <div className="lp-wall narrow">
-                  {BLINK_TEMPLATES.map((t) => (
-                    <HookPreview key={t.id} hook={t} alt={`Blink AI — ${t.name}`} />
-                  ))}
-                </div>
-                <div className="small muted" style={{ textAlign: 'center', marginTop: 16 }}>
-                  Generated with Blink AI. Hover to play.
-                </div>
-              </div>
+            <span className="lp-deal-arrow" aria-hidden="true">→</span>
+
+            <div className="lp-deal-it">
+              <span className="lp-deal-k">Blink AI does the rest, on its own</span>
+              <ul>
+                <li>Splits it into scenes</li>
+                <li>Draws every frame</li>
+                <li>Films each frame</li>
+                <li>Cuts them together</li>
+                <li>Writes the script</li>
+                <li>Reads it aloud</li>
+                <li>Burns in the subtitles</li>
+              </ul>
             </div>
           </div>
 
-          {/* The pipeline, in the order someone actually drives it. */}
-          <div className="lp-steps mt-6">
-            <div className="lp-step">
-              <div className="lp-step-n">01 · WRITE</div>
-              <h3>Describe the video</h3>
-              <p>One sentence, and a photo of the product if it has one. Blink AI plans it into scenes and writes the script.</p>
-            </div>
-            <div className="lp-step">
-              <div className="lp-step-n">02 · CHECK</div>
-              <h3>Approve the frames</h3>
-              <p>Every scene's opening frame arrives first, in about a minute. Redraw anything that is wrong before a second of video is paid for.</p>
-            </div>
-            <div className="lp-step">
-              <div className="lp-step-n">03 · FILM</div>
-              <h3>Shoot every scene</h3>
-              <p>Each frame becomes a filmed shot, holding the person, the place and your product across all of them.</p>
-            </div>
-            <div className="lp-step">
-              <div className="lp-step-n">04 · FINISH</div>
-              <h3>Narrate, caption, cut</h3>
-              <p>Pick a voice, trim each scene, burn in subtitles, and export the finished video. Every version is kept.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+          <ReelGraph />
 
-      {/* ── AI creators ── */}
-      <section className="lp-section" id="creators" style={{ paddingTop: 0 }}>
-        <div className="lp-wrap">
-          <div className="lp-sec-head">
-            <div className="lp-kicker">AI creators</div>
-            <h2>
-              Real faces. <em>Your</em> first three seconds.
-            </h2>
-            <p>
-              A cast of {CREATORS.length}, each with two premade reactions — a gasp, a head-shake, a
-              slow approving nod. They open the video, your product takes over, and the scroll stops.
-              Here are five of them; hover any one to watch.
-            </p>
-          </div>
-
-          <div className="lp-creators">
-            {roster.map((c) => (
-              <div className="lp-creator" key={c.id}>
-                <HookPreview hook={c.hooks[0]} fallbackImg={c.img} alt={`${c.name} — ${c.vibe}`} />
-                <div className="lp-creator-body">
-                  <b>{c.name}</b>
-                  <span>{c.vibe}</span>
-                </div>
-              </div>
-            ))}
+          <div className="rg-foot">
+            <span className="chip brand">one real generation</span>
+            <span>
+              Every frame, clip and word above came out of that one prompt. Play the ad.
+            </span>
+            <SignInButton label="Make one of your own" className="btn primary sm" />
           </div>
         </div>
       </section>
 
       {/* ── Hook videos ── */}
-      <section className="lp-section" style={{ paddingTop: 0 }}>
+      {/* The creator roster and the anatomy of a cut used to be two sections
+          between them running most of a screen each. They are one feature and a
+          smaller one than Blink AI, so they are one section, and the kicker
+          says out loud that this is a different tool rather than more of the
+          last one. */}
+      <section className="lp-section" id="creators" style={{ paddingTop: 0 }}>
         <div className="lp-wrap">
           <div className="lp-split">
             <div>
-              <div className="lp-kicker">Hook videos</div>
-              <h2 style={{ fontSize: 'clamp(26px, 3.2vw, 38px)', lineHeight: 1.1 }}>
-                Their reaction, then <em>your</em> product.
+              <div className="lp-kicker">A second, smaller feature · Hook videos</div>
+              <h2 style={{ fontSize: 'clamp(24px, 3vw, 34px)', lineHeight: 1.1 }}>
+                Or open on a face, and cut to <em>your own demo</em>.
               </h2>
-              <p className="muted" style={{ marginTop: 14, fontSize: 15.5 }}>
-                The format that actually converts: three seconds of a real face reacting, cut straight
-                into your own footage. Record your screen, film the product on a table — whatever you
-                have.
+              <p className="muted" style={{ marginTop: 14, fontSize: 15 }}>
+                Nothing is generated here. Pick a premade reaction, upload the clip you already
+                have — a screen recording, the product on a table — and Blink joins them, writes
+                the captions and exports at 1080 × 1920.
               </p>
-              <ul className="lp-bullets">
-                <li><span className="tickmark">✓</span><span><b>Pick a creator and a reaction</b> — 20 hooks to choose from, all shot vertical.</span></li>
-                <li><span className="tickmark">✓</span><span><b>Drop in your footage</b> and trim it on a timeline against the hook.</span></li>
-                <li><span className="tickmark">✓</span><span><b>Captions written for you</b> from your product name, editable on the frame.</span></li>
-                <li><span className="tickmark">✓</span><span><b>Music, overlays and export</b> at 1080 × 1920 — ready for Reels, TikTok and Shorts.</span></li>
-              </ul>
+
+              <div className="lp-mini-roster">
+                {roster.map((c) => (
+                  <img key={c.id} src={c.img} alt={c.name} loading="lazy" />
+                ))}
+                <span>
+                  <b>{CREATORS.length} creators</b>, two reactions each
+                </span>
+              </div>
             </div>
-            {/* The cut itself, rather than three more faces: this section is
-                about the shape of the format, and the shape is the thing the
-                copy beside it is describing. */}
+
+            {/* The shape of the format, which is the whole thing worth saying
+                about it. */}
             <div className="lp-anatomy">
               <div className="lp-anatomy-cards">
                 <figure>
@@ -475,21 +347,19 @@ export default function Landing() {
                     className="lp-anatomy-shot"
                     style={{ backgroundImage: `url("${ANATOMY_SHOT}")` }}
                     role="img"
-                    aria-label="Your own product footage"
+                    aria-label="Your own demo footage"
                   />
-                  <figcaption><b>0:03</b> your product</figcaption>
+                  <figcaption><b>0:03</b> your demo</figcaption>
                 </figure>
               </div>
 
               <div className="lp-track" aria-hidden="true">
                 <div className="lp-track-row">
                   <span className="lp-seg hook">hook · 3s</span>
-                  <span className="lp-seg yours">your footage</span>
+                  <span className="lp-seg yours">your demo</span>
                 </div>
                 <div className="lp-track-row">
                   <span className="lp-seg text">captions</span>
-                </div>
-                <div className="lp-track-row">
                   <span className="lp-seg music">♪ music</span>
                 </div>
               </div>
@@ -499,83 +369,22 @@ export default function Landing() {
       </section>
 
       {/* ── Carousels ── */}
+      {/* Three sections became one. The copy-angle wall, the character roster
+          and the custom-set panel were all depth on the smallest of the three
+          features, and they pushed Blink AI's evidence a screen and a half
+          further up the page than it deserved to be. Animated leads, because it
+          is the one nobody else does; photo follows as the free one. */}
       <section className="lp-section" id="carousels" style={{ paddingTop: 0 }}>
         <div className="lp-wrap">
           <div className="lp-sec-head">
-            <div className="lp-kicker">Photo carousels</div>
+            <div className="lp-kicker">A third, smaller feature · Carousels</div>
             <h2>
-              Pick a look. Pick an angle. Get a <em>whole</em> carousel.
+              Slides that are <em>drawn</em>, not stocked.
             </h2>
             <p>
-              Choose one of {photoSets.length} photo sets, choose the angle you want to take, and Blink
-              writes the full sequence — hook slide, three body slides, closing CTA — over the
-              photography. Every word, every position and every background stays editable. Two made
-              earlier, for two very different products:
-            </p>
-          </div>
-
-          <div className="lp-showcase">
-            {SHOWCASE.map((c) => (
-              <figure className="lp-show" key={c.id}>
-                <div className="lp-show-slides">
-                  {c.slides.map((s, i) => (
-                    <SlidePreview
-                      key={i}
-                      slide={s}
-                      style={{ '--pill-accent': c.accent }}
-                      alt={`${c.name} — slide ${i + 1}`}
-                    />
-                  ))}
-                </div>
-                <figcaption className="lp-show-body">
-                  <div className="row between">
-                    <b style={{ fontSize: 13.5 }}>{c.name}</b>
-                    <span className="chip">{c.category}</span>
-                  </div>
-                  <div className="small muted mt-2">
-                    “{c.angle}” angle · {c.slideCount} slides · 1080 × 1350
-                  </div>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-
-          <div className="mt-6" style={{ marginTop: 42 }}>
-            <div className="lp-kicker">Copy angles</div>
-            <p className="muted" style={{ marginBottom: 20, maxWidth: '58ch' }}>
-              {angleCount} angles, each writing a different carousel. These are the real hooks
-              Blink would open with for a skincare brand called <b style={{ color: 'var(--paper)' }}>Aurelia</b> —
-              swap in your own product and they rewrite themselves.
-            </p>
-            <div className="lp-angles">
-              {angles.map((a) => (
-                <div className="lp-angle" key={a.id}>
-                  <q>{a.hook}</q>
-                  <span className="chip">{a.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Animated carousels ── */}
-      {/* Directly after the photo ones, because the two are a pair: same
-          editor, same export, and the only real question a visitor has is
-          which of the two they want. */}
-      <section className="lp-section" id="animated" style={{ paddingTop: 0 }}>
-        <div className="lp-wrap">
-          <div className="lp-sec-head">
-            <div className="lp-kicker">Animated carousels</div>
-            <h2>
-              One character. Every slide. <em>Acting out</em> your words.
-            </h2>
-            <p>
-              The other kind of carousel, with nothing photographed at all. Pick one of{' '}
-              {CHARACTERS.length} 3D characters, say what the carousel should be about, and Blink
+              Say what the carousel is about and pick one of {CHARACTERS.length} characters. Blink
               writes the copy and draws every slide around it — the same character throughout, doing
-              something different on each one, matched to the sentence it sits under. Three to eight
-              slides. Two made earlier:
+              something different on each one. Three to eight slides, 1080 × 1350.
             </p>
           </div>
 
@@ -590,85 +399,40 @@ export default function Landing() {
                 <figcaption className="lp-show-body">
                   <div className="row between">
                     <b style={{ fontSize: 13.5 }}>{c.name}</b>
-                    <span className="chip">{c.category}</span>
-                  </div>
-                  <div className="small muted mt-2">
-                    {c.character} · {c.slideCount} slides · 1080 × 1350
+                    <span className="chip">{c.character}</span>
                   </div>
                 </figcaption>
               </figure>
             ))}
           </div>
 
-          <div style={{ marginTop: 42 }}>
-            <div className="lp-kicker">The cast</div>
-            <p className="muted" style={{ marginBottom: 20, maxWidth: '58ch' }}>
-              {CHARACTERS.length} characters in one house style — a cartoon kid, a mascot bird, a
-              chef, a robot, a friendly creature with no human likeness at all. Whoever you pick
-              holds the same face, hair and clothes across every slide in the set.
-            </p>
-            <div className="lp-cast">
-              {cast.map((c) => (
-                <div className="lp-creator" key={c.id}>
-                  <img className="lp-cast-img" src={c.img} alt={c.name} loading="lazy" />
-                  <div className="lp-creator-body">
-                    <b>{c.name}</b>
-                    <span>{c.blurb}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="row" style={{ gap: 10, marginTop: 24 }}>
-              <span className="chip accent">Creator plan</span>
-              <span className="small muted">
-                Every slide is drawn to order, so this one is on Creator rather than free.
+          {/* Photo carousels: the free tier, and the reason anyone signs up
+              without a card. Shown at half the size because they are the plain
+              version of the thing above. */}
+          <div className="lp-alt">
+            <div className="lp-alt-copy">
+              <span className="chip brand">free forever</span>
+              <b>Or lay your copy over photography.</b>
+              <span>
+                {photoSets.length} built-in collections, or upload your own product shots into a
+                named set. Unlimited, no card.
               </span>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Custom sets ── */}
-      <section className="lp-section" style={{ paddingTop: 0 }}>
-        <div className="lp-wrap">
-          <div className="lp-split flip">
-            <div className="lp-sets" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              <div className="lp-set">
-                <div className="lp-set-strip" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                  {photoSets[1]?.images.slice(0, 4).map((src) => (
-                    <img key={src} src={thumbOf(src)} alt="" loading="lazy" />
-                  ))}
-                </div>
-                <div className="lp-set-body">
-                  <div className="row between">
-                    <b style={{ fontSize: 13.5 }}>Spring drop</b>
-                    <span className="chip brand">yours</span>
+            <div className="lp-showcase compact">
+              {SHOWCASE.map((c) => (
+                <figure className="lp-show" key={c.id}>
+                  <div className="lp-show-slides">
+                    {c.slides.map((s, i) => (
+                      <SlidePreview
+                        key={i}
+                        slide={s}
+                        style={{ '--pill-accent': c.accent }}
+                        alt={`${c.name} — slide ${i + 1}`}
+                      />
+                    ))}
                   </div>
-                  <div className="small muted mt-2">Your own product photography</div>
-                </div>
-              </div>
-              <div className="lp-set" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 22, textAlign: 'center', borderStyle: 'dashed' }}>
-                <div style={{ fontSize: 28, color: 'var(--brand)' }}>＋</div>
-                <b style={{ fontSize: 13.5, marginTop: 8 }}>New custom set</b>
-                <span className="small muted" style={{ marginTop: 4 }}>Drop in your own images</span>
-              </div>
-            </div>
-            <div>
-              <div className="lp-kicker">Custom sets</div>
-              <h2 style={{ fontSize: 'clamp(26px, 3.2vw, 38px)', lineHeight: 1.1 }}>
-                Or bring <em>your own</em> photos.
-              </h2>
-              <p className="muted" style={{ marginTop: 14, fontSize: 15.5 }}>
-                Product shots, packaging, screenshots, customer photos — upload them into a named set
-                and they behave exactly like ours.
-              </p>
-              <ul className="lp-bullets">
-                <li><span className="tickmark">✓</span><span><b>Build as many sets as you like</b>, one per launch, season or campaign.</span></li>
-                <li><span className="tickmark">✓</span><span><b>Private storage</b> — your uploads are served over signed URLs, never public.</span></li>
-                <li><span className="tickmark">✓</span><span><b>Mix and match per slide</b>: shuffle any background from any set while editing.</span></li>
-                <li><span className="tickmark">✓</span><span><b>Start blank</b> and write the copy yourself when you already know the words.</span></li>
-              </ul>
+                </figure>
+              ))}
             </div>
           </div>
         </div>

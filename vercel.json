@@ -11,7 +11,7 @@
       ]
     },
     {
-      "source": "/(hooks|blink|sets|characters|creators|showcase|brand)/(.*)",
+      "source": "/(hooks|blink|story|sets|characters|creators|showcase|brand)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
