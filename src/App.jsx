@@ -1,6 +1,7 @@
 import React from 'react'
 import { useHashRoute, go } from './lib/router.js'
 import { useAuth } from './lib/auth.jsx'
+import { useAnalytics } from './lib/analytics.js'
 import { useStore } from './lib/store.jsx'
 import { isApiConfigured } from './lib/api.js'
 import { isConfigured as isSupabaseConfigured } from './lib/supabase.js'
@@ -65,6 +66,10 @@ function missingConfig() {
 export default function App() {
   const route = useHashRoute()
   const auth = useAuth()
+
+  // Before every early return below, because hooks cannot be conditional — and
+  // because the screens those returns render are themselves worth counting.
+  useAnalytics({ route, authStatus: auth.authStatus, user: auth.user })
 
   // ── config ──
   const missing = missingConfig()
