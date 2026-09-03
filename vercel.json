@@ -19,5 +19,15 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/go",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/ad",
+      "destination": "/index.html"
+    }
   ]
 }
