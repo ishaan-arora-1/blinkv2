@@ -1678,3 +1678,55 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 @media (max-width: 820px) {
   .go-plan { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ─── A locked feature: the reason, and the plan that lifts it ───────────────
+ *
+ * Two columns rather than a card with a button in it. The pitch answers "why
+ * can't I use this", the card answers "what do I do about it", and putting the
+ * second one here rather than behind a link to /pricing is the whole point —
+ * the decision and the purchase happen in the same place.
+ */
+.upsell-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 340px);
+  gap: 18px;
+  align-items: start;
+  max-width: 860px;
+}
+.upsell-split .upsell { height: 100%; }
+/* The button that used to be the only way out of here is now the quiet one. */
+.upsell-split .btn.ghost { align-self: flex-start; }
+
+@media (max-width: 780px) {
+  .upsell-split { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ─── The one screen between signing up and paying ───────────────────────────
+ *
+ * Deliberately narrow and deliberately short. Everything that is not the
+ * transaction has been taken off it, so what is left is centred and given room
+ * rather than arranged — there is nothing here to lay out against.
+ */
+.start {
+  min-height: 100vh;
+  display: grid; place-items: center;
+  padding: 6vh 5vw;
+  background:
+    radial-gradient(820px 560px at 78% -10%, rgba(160, 90, 240, 0.2), transparent 66%),
+    radial-gradient(700px 520px at 10% 70%, rgba(224, 110, 210, 0.12), transparent 66%),
+    var(--ink);
+}
+.start-inner { width: min(420px, 100%); display: grid; gap: 22px; }
+
+.start-head { display: grid; gap: 14px; justify-items: start; }
+.start-head h1 {
+  font-family: var(--display);
+  font-size: clamp(26px, 4.4vw, 36px); line-height: 1.1; letter-spacing: -0.03em;
+}
+.start-head h1 em {
+  font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--brand);
+}
+.start-head p { color: var(--muted); font-size: 14.5px; line-height: 1.55; }
+
+.start-foot { display: grid; gap: 10px; justify-items: start; }
+.start-foot .small { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }

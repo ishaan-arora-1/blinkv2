@@ -6,7 +6,7 @@ import { useStore } from './lib/store.jsx'
 import { isApiConfigured } from './lib/api.js'
 import { isConfigured as isSupabaseConfigured } from './lib/supabase.js'
 import { planFor, isPaying } from './lib/tiers.js'
-import { consumeAdEntry } from './lib/entry.js'
+import { consumeAdEntry, pendingIntent, clearIntent } from './lib/entry.js'
 
 import Dashboard from './pages/Dashboard.jsx'
 import Brand from './pages/Brand.jsx'
@@ -21,6 +21,7 @@ import Onboarding from './pages/Onboarding.jsx'
 import Landing from './pages/Landing.jsx'
 import AdGraph from './pages/AdGraph.jsx'
 import AdLanding from './pages/AdLanding.jsx'
+import StartCheckout from './pages/StartCheckout.jsx'
 import Pricing from './pages/Pricing.jsx'
 import Account from './pages/Account.jsx'
 import { Splash, ErrorScreen, SetupNeeded } from './components/Screens.jsx'
@@ -70,6 +71,14 @@ export default function App() {
   const route = useHashRoute()
   const auth = useAuth()
 
+  // The tier this visit came to buy, held in state because storage changing is
+  // not something React re-renders for.
+  const [intent, setIntent] = React.useState(pendingIntent)
+  const dismissIntent = React.useCallback(() => {
+    clearIntent()
+    setIntent(null)
+  }, [])
+
   // Before every early return below, because hooks cannot be conditional — and
   // because the screens those returns render are themselves worth counting.
   useAnalytics({ route, authStatus: auth.authStatus, user: auth.user })
@@ -112,6 +121,15 @@ export default function App() {
         onSignOut={auth.signOut}
       />
     )
+  }
+
+  // ── arrived from an ad, on a button with a price on it ──
+  // Shown before onboarding rather than after, because the brand form is setup
+  // for something you own and this is the thing you came to buy. Skipped the
+  // moment the entitlement says they already have it, which is what makes the
+  // screen disappear on its own the instant the payment clears.
+  if (intent && !isPaying(auth.entitlement)) {
+    return <StartCheckout tier={intent} onDone={dismissIntent} />
   }
 
   // There is no paywall in front of the studio any more. Every signed-in

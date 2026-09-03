@@ -35,7 +35,9 @@ export default function AdLanding() {
   // click, because OAuth reloads the document and anything held in memory at
   // click time is gone by the time it would be needed.
   useEffect(() => {
-    markAdEntry()
+    // 'studio' is what every button on this page is selling — the tier that
+    // unlocks Blink AI, which is the only thing this page is about.
+    markAdEntry('studio')
     track('ad_landing_viewed', { page: 'go' }, { meta: 'ViewContent' })
   }, [])
 
