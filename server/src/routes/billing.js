@@ -48,7 +48,22 @@ const LIVE_STATUSES = ['active', 'authenticated', 'pending']
  */
 
 /** Reuse one Razorpay customer per user across every subscription they create. */
-async function ensureCustomer(userId) {
+/**
+ * Does this failure mean an id we sent does not exist in this Razorpay mode?
+ *
+ * Razorpay answers the same sentence for a missing plan and a missing customer,
+ * so the field is what separates them when it is given. Without a field the
+ * description is all there is — and retrying with a fresh customer is safe
+ * either way, because a plan id we cannot fix is checked before we get here.
+ */
+function isUnknownIdError(err) {
+  const e = err?.error || err
+  const description = String(e?.description || '')
+  if (!/id provided does not exist|id provided is invalid/i.test(description)) return false
+  return !e?.field || e.field === 'customer_id'
+}
+
+async function ensureCustomer(userId, { forceNew = false } = {}) {
   // A customer exists in one mode only. Reusing a live id against test keys
   // fails with "The id provided does not exist", which is true and unreadable
   // at a payment screen — so each mode gets its own column, exactly as plans do.
@@ -60,7 +75,10 @@ async function ensureCustomer(userId) {
     .eq('id', userId)
     .maybeSingle()
 
-  if (profile?.[column]) return profile[column]
+  // `forceNew` is the recovery path: the stored id was rejected by Razorpay, so
+  // whatever it is, it is not a customer this key can see. Mint a fresh one and
+  // overwrite it rather than making the person wait for someone to notice.
+  if (!forceNew && profile?.[column]) return profile[column]
 
   let customer
   try {
@@ -127,13 +145,10 @@ billingRouter.post(
     }
     const replaces = live[0]?.razorpay_subscription_id || null
 
-    const customerId = await ensureCustomer(req.user.id)
-
-    let sub
-    try {
+    const create = (customerId) =>
       // No start_at: the first cycle begins on authorisation, so Razorpay
       // collects the full plan amount as the authorisation payment.
-      sub = await razorpay.subscriptions.create({
+      razorpay.subscriptions.create({
         plan_id: razorpayPlanId,
         customer_id: customerId,
         total_count: cyclesFor(plan.period),
@@ -145,12 +160,33 @@ billingRouter.post(
           ...(replaces ? { replaces } : {}),
         },
       })
+
+    let sub
+    try {
+      sub = await create(await ensureCustomer(req.user.id))
     } catch (err) {
-      throw new ApiError(
-        502,
-        'razorpay_subscription_failed',
-        razorpayMessage(err, 'Could not start the subscription.')
-      )
+      // A stored customer id Razorpay cannot see. It belongs to the other mode
+      // or to a different account — which is what happens to every row written
+      // before customers were split per mode, and to everyone's row if the keys
+      // are ever pointed at a new account.
+      //
+      // Recovering costs one extra call and happens in the half second before
+      // the checkout window opens. Not recovering means a customer who wants to
+      // pay is told "The id provided does not exist" and there is nothing they
+      // can do about it, because the broken value is on our side.
+      if (!isUnknownIdError(err)) {
+        throw new ApiError(502, 'razorpay_subscription_failed', razorpayMessage(err, 'Could not start the subscription.'))
+      }
+
+      try {
+        sub = await create(await ensureCustomer(req.user.id, { forceNew: true }))
+      } catch (retryErr) {
+        throw new ApiError(
+          502,
+          'razorpay_subscription_failed',
+          razorpayMessage(retryErr, 'Could not start the subscription.')
+        )
+      }
     }
 
     await syncSubscription(sub, { userId: req.user.id })
