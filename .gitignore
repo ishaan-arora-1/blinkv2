@@ -8,3 +8,4 @@ dist
 
 # Written by `supabase link` — holds the linked project ref and pooler details.
 supabase/.temp
+.vercel

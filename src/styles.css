@@ -1433,3 +1433,248 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
   border-top: 1px solid var(--line-soft);
   color: var(--muted); font-size: 13.5px;
 }
+
+/* ─── The ad page: the pipeline, built for a screen recorder ─────────────────
+ *
+ * Reached at #/ad. Deliberately not part of the landing page's vocabulary: the
+ * nodes are bigger, the type is bigger, and nothing on it is clickable, because
+ * everything here is going to be watched at whatever size a Meta ad ends up
+ * being played at rather than read on a laptop.
+ *
+ * Sized in vh so the stages stay in proportion to the viewport being recorded
+ * rather than to a design width nobody is capturing at.
+ */
+.ad {
+  min-height: 100vh;
+  padding: 8vh 5vw 20vh;
+  background:
+    radial-gradient(900px 620px at 78% -8%, rgba(160, 90, 240, 0.2), transparent 68%),
+    radial-gradient(760px 560px at 12% 62%, rgba(224, 110, 210, 0.13), transparent 66%),
+    var(--ink);
+}
+
+.ad-graph {
+  position: relative;
+  width: min(940px, 92vw);
+  margin: 0 auto;
+  display: grid;
+  gap: clamp(26px, 4.5vh, 52px);
+}
+
+.ad-edges { position: absolute; inset: 0; z-index: 0; overflow: visible; pointer-events: none; }
+.ad-edge {
+  fill: none;
+  stroke: rgba(168, 120, 255, 0.5);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  /* `pathLength` normalises every path to 1, so a short hop and a long sweep
+     draw themselves in over the same beat instead of one crawling. */
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+.ad-edge.on { transition: stroke-dashoffset 0.9s ease; stroke-dashoffset: 0; }
+
+/* ── a stage ── */
+.ad-stage {
+  position: relative; z-index: 1;
+  display: grid; gap: 10px; justify-items: center;
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.ad-stage.on { opacity: 1; transform: none; }
+
+.ad-label {
+  width: max-content;
+  padding: 5px 13px; border-radius: 999px;
+  background: rgba(8, 7, 12, 0.82);
+  backdrop-filter: blur(5px);
+  font-family: var(--mono); font-size: clamp(10px, 1.3vh, 12px);
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--brand);
+}
+
+.ad-node {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--ink-2);
+}
+
+/* ── the prompt ── */
+.ad-prompt {
+  width: min(400px, 80vw);
+  padding: clamp(15px, 2.2vh, 22px) clamp(17px, 2.4vh, 24px);
+  border-color: rgba(168, 120, 255, 0.45);
+  background: linear-gradient(150deg, rgba(160, 90, 240, 0.2), var(--ink-2) 62%);
+}
+.ad-prompt p { font-size: clamp(14px, 2vh, 17px); line-height: 1.5; color: var(--paper); }
+.ad-prompt-foot {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--muted);
+}
+.ad-prompt-foot img {
+  width: 34px; height: 34px; border-radius: 8px; object-fit: contain;
+  background: #fff; padding: 2px;
+}
+
+/* ── the two rows of five ── */
+.ad-row { display: flex; justify-content: center; gap: clamp(9px, 1.4vw, 15px); }
+.ad-tile { display: grid; gap: 7px; justify-items: center; }
+
+.ad-shot {
+  position: relative;
+  width: clamp(78px, 13vh, 128px); aspect-ratio: 9 / 16;
+  border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--line); background: var(--ink-3);
+}
+.ad-shot img, .ad-shot video {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.ad-tile figcaption { font-size: clamp(10px, 1.4vh, 12.5px); color: var(--muted); }
+
+.ad-secs {
+  position: absolute; right: 6px; bottom: 6px;
+  font-family: var(--mono); font-size: 9.5px;
+  padding: 3px 6px; border-radius: 5px;
+  background: rgba(8, 7, 12, 0.78); color: var(--paper);
+}
+
+/* Each tile in a row arrives just behind the one before it, so a row of five
+ * reads as five things rather than one wide thing. */
+.ad-stage .ad-tile {
+  opacity: 0; transform: translateY(14px);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  transition-delay: calc(var(--i) * 0.09s);
+}
+.ad-stage.on .ad-tile { opacity: 1; transform: none; }
+
+/* ── script and voice ── */
+.ad-script {
+  width: min(620px, 90vw);
+  padding: clamp(16px, 2.4vh, 24px) clamp(18px, 2.6vh, 26px);
+}
+.ad-script q {
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: clamp(13px, 1.9vh, 16px); line-height: 1.55; color: var(--paper);
+}
+
+.ad-voice {
+  width: min(430px, 90vw);
+  display: flex; align-items: center; gap: 16px;
+  padding: clamp(13px, 1.9vh, 18px) clamp(16px, 2.2vh, 22px);
+}
+.ad-voice b { font-size: clamp(14px, 2vh, 17px); flex-shrink: 0; }
+.ad-wave { display: flex; align-items: center; gap: 2px; height: clamp(26px, 4vh, 40px); flex: 1; }
+.ad-wave i {
+  flex: 1; border-radius: 2px; transform-origin: center;
+  background: linear-gradient(180deg, var(--brand), var(--brand-mid));
+  transform: scaleY(0.08);
+  transition: transform 0.4s ease;
+  transition-delay: calc(var(--i) * 0.014s);
+}
+.ad-stage.on .ad-wave i { transform: none; }
+
+/* ── the finished ad ── */
+.ad-final {
+  width: clamp(150px, 26vh, 240px);
+  padding: 0; overflow: hidden;
+  border-color: rgba(168, 120, 255, 0.55);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6), 0 0 0 6px rgba(160, 90, 240, 0.1);
+}
+.ad-final video { width: 100%; aspect-ratio: 9 / 16; display: block; object-fit: cover; background: #0d0f0e; }
+.ad-final-tag {
+  position: absolute; top: 9px; left: 9px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.06em;
+  padding: 4px 8px; border-radius: 6px;
+  background: var(--brand-gradient); color: #fff;
+}
+
+/* Only ever on screen once the take has finished. */
+.ad-replay {
+  position: fixed; left: 18px; bottom: 18px; z-index: 5;
+  padding: 9px 15px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--ink-2); color: var(--muted);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+}
+.ad-replay:hover { color: var(--paper); border-color: var(--brand); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-stage, .ad-tile, .ad-wave i, .ad-edge { transition: none; }
+}
+
+/* ─── The ad landing page ────────────────────────────────────────────────────
+ *
+ * Borrows the main page's vocabulary — same deal band, same graph, same section
+ * heads — and adds only what a single-offer page needs that a tour does not: a
+ * hero with one CTA in it, and a price stated once, large, where it cannot be
+ * missed. Everything else it does by leaving things out.
+ */
+.go-nav {
+  display: flex; align-items: center; gap: 14px;
+  width: min(1120px, 92vw); margin: 0 auto;
+  padding: 22px 0 0;
+}
+
+.go-hero { padding: clamp(40px, 7vw, 84px) 0 clamp(28px, 4vw, 44px); max-width: 760px; }
+.go-hero h1 {
+  font-family: var(--display);
+  font-size: clamp(34px, 6vw, 62px); line-height: 1.02; letter-spacing: -0.03em;
+}
+.go-hero h1 em {
+  font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--brand);
+}
+.go-hero p {
+  color: var(--muted); font-size: clamp(15px, 1.6vw, 17.5px);
+  margin-top: 20px; max-width: 60ch;
+}
+
+.go-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 30px; }
+/* The price sits next to the button rather than under a heading of its own. A
+ * visitor from an ad decides whether this is for them on the number, and the
+ * number should not need scrolling to. */
+.go-price { color: var(--muted); font-size: 13.5px; }
+.go-price b { color: var(--paper); font-weight: 600; }
+
+.go-deal { margin-bottom: 0; }
+
+/* ── the one plan ── */
+.go-plan {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(22px, 4vw, 52px);
+  padding: clamp(24px, 4vw, 44px);
+  border: 1px solid rgba(168, 120, 255, 0.34); border-radius: 22px;
+  background: linear-gradient(150deg, rgba(160, 90, 240, 0.15), var(--ink-2) 62%);
+}
+.go-plan-price {
+  font-family: var(--display); font-size: clamp(38px, 6vw, 58px);
+  font-weight: 600; letter-spacing: -0.03em; margin: 6px 0 4px;
+}
+.go-plan-price span { font-family: var(--body); font-size: 15px; font-weight: 400; color: var(--muted); }
+.go-plan p { color: var(--muted); font-size: 14.5px; margin-bottom: 20px; max-width: 34ch; }
+
+.go-plan-list { list-style: none; display: grid; gap: 11px; align-content: center; }
+.go-plan-list li {
+  display: flex; gap: 11px; align-items: flex-start;
+  font-size: 14.5px; color: var(--muted); line-height: 1.45;
+}
+.go-plan-list .tickmark { color: var(--brand); font-weight: 700; flex-shrink: 0; }
+
+.go-faq { display: grid; gap: 10px; max-width: 780px; margin: clamp(30px, 5vw, 52px) auto 0; }
+.go-faq details {
+  border: 1px solid var(--line-soft); border-radius: 13px;
+  padding: 15px 18px; background: var(--ink-2);
+}
+.go-faq summary {
+  cursor: pointer; list-style: none; font-weight: 600; font-size: 14.5px;
+  display: flex; justify-content: space-between; gap: 14px; align-items: center;
+}
+.go-faq summary::-webkit-details-marker { display: none; }
+.go-faq summary::after { content: '+'; color: var(--brand); font-size: 18px; line-height: 1; flex-shrink: 0; }
+.go-faq details[open] summary::after { content: '−'; }
+.go-faq p { color: var(--muted); font-size: 14px; margin-top: 11px; line-height: 1.55; }
+
+@media (max-width: 820px) {
+  .go-plan { grid-template-columns: minmax(0, 1fr); }
+}

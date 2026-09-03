@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useGraphEdges } from '../lib/graphEdges.js'
 import {
   BRAND,
   BRIEF,
@@ -13,6 +14,10 @@ import {
   clock,
 } from '../lib/reelStory.js'
 
+// Read once, not rebuilt per render: passing a fresh array would remeasure the
+// whole graph on every commit.
+const AXIS_ANCHORS = ['prompt', 'final']
+
 /**
  * One real generation, drawn as the graph it actually is.
  *
@@ -22,9 +27,9 @@ import {
  * script and a voice into one video. Drawing it that way says the same thing in
  * a glance and leaves the pictures to do the selling.
  *
- * The edges are measured, not authored. Every node registers its box, and the
- * curves are recomputed from those boxes whenever the layout changes — which is
- * what lets the same markup be a left-to-right graph on a desktop and a
+ * The edges are measured, not authored — see lib/graphEdges.js. Every node
+ * registers its box and the curves are recomputed from those, which is what
+ * lets the same markup be a left-to-right graph on a desktop and a
  * top-to-bottom one on a phone with no second set of paths.
  *
  * Scenes that were redrawn show every look at once, dealt out like a hand of
@@ -33,66 +38,24 @@ import {
  */
 export default function ReelGraph() {
   const reduced = useReducedMotion()
-  const wrapRef = useRef(null)
-  const nodes = useRef({})
-  const [edges, setEdges] = useState([])
-  const [size, setSize] = useState({ w: 0, h: 0 })
 
-  const register = useCallback((key) => (el) => {
-    if (el) nodes.current[key] = el
-    else delete nodes.current[key]
-  }, [])
-
-  const measure = useCallback(() => {
-    const wrap = wrapRef.current
-    if (!wrap) return
-    const base = wrap.getBoundingClientRect()
-    const box = (key) => {
-      const el = nodes.current[key]
-      if (!el) return null
-      const r = el.getBoundingClientRect()
-      return { x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height }
-    }
-
-    // Which way the graph runs. On a phone the columns become rows and every
-    // node ends up on the same centre line, so the axis is read off the layout
-    // once rather than guessed per edge — a pair-by-pair guess sends the two
-    // outermost frames' edges out sideways while the other three go down.
-    const first = box('prompt')
-    const last = box('final')
-    const vertical = !first || !last || Math.abs(centre(last).x - centre(first).x) < 48
-
-    const links = []
-    const add = (from, to) => {
-      const a = box(from)
-      const b = box(to)
-      if (a && b) links.push({ key: `${from}>${to}`, d: curve(a, b, vertical) })
-    }
-
+  // The pipeline, named by node key. The axis anchors are the two ends of it:
+  // on a phone the columns become rows and both land on the same centre line,
+  // which is what tells the edges to run down the page instead of across it.
+  const declare = useCallback((link) => {
     SCENES.forEach((s) => {
-      add('prompt', `frame-${s.id}`)
-      add(`frame-${s.id}`, `clip-${s.id}`)
-      add(`clip-${s.id}`, 'cut')
+      link('prompt', `frame-${s.id}`)
+      link(`frame-${s.id}`, `clip-${s.id}`)
+      link(`clip-${s.id}`, 'cut')
     })
-    add('script', 'cut')
-    add('voice', 'cut')
-    add('cut', 'final')
-
-    setEdges(links)
-    setSize({ w: base.width, h: base.height })
+    link('script', 'cut')
+    link('voice', 'cut')
+    link('cut', 'final')
   }, [])
 
-  // Edges are drawn from measured boxes, so they have to be measured after
-  // layout and again whenever it changes — a font swapping in, a column
-  // wrapping, the window resizing.
-  useLayoutEffect(() => {
-    measure()
-    const ro = new ResizeObserver(measure)
-    if (wrapRef.current) ro.observe(wrapRef.current)
-    Object.values(nodes.current).forEach((el) => ro.observe(el))
-    document.fonts?.ready.then(measure).catch(() => {})
-    return () => ro.disconnect()
-  }, [measure])
+  const { wrapRef, register, edges, size } = useGraphEdges(declare, {
+    axisAnchors: AXIS_ANCHORS,
+  })
 
   return (
     <div className="rg-graph" ref={wrapRef}>
@@ -135,35 +98,6 @@ export default function ReelGraph() {
       </Column>
     </div>
   )
-}
-
-const centre = (b) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 })
-
-/**
- * A cubic between two boxes, leaving one and entering the other along the axis
- * the graph runs on.
- *
- * Passing the axis in rather than deriving it per pair is what lets the same
- * markup be a left-to-right graph on a desktop and a top-to-bottom one on a
- * phone: one flag, one set of paths, no second layout to keep in step.
- */
-function curve(a, b, vertical) {
-  const ac = centre(a)
-  const bc = centre(b)
-
-  if (!vertical) {
-    const x1 = ac.x < bc.x ? a.x + a.w : a.x
-    const x2 = ac.x < bc.x ? b.x : b.x + b.w
-    const bend = Math.max(20, Math.abs(x2 - x1) * 0.55)
-    const dir = ac.x < bc.x ? 1 : -1
-    return `M${x1},${ac.y} C${x1 + bend * dir},${ac.y} ${x2 - bend * dir},${bc.y} ${x2},${bc.y}`
-  }
-
-  const y1 = ac.y < bc.y ? a.y + a.h : a.y
-  const y2 = ac.y < bc.y ? b.y : b.y + b.h
-  const bend = Math.max(16, Math.abs(y2 - y1) * 0.55)
-  const dir = ac.y < bc.y ? 1 : -1
-  return `M${ac.x},${y1} C${ac.x},${y1 + bend * dir} ${bc.x},${y2 - bend * dir} ${bc.x},${y2}`
 }
 
 /**

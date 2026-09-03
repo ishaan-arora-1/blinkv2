@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { metaPageView, metaTrack } from './meta.js'
 
 // PostHog. Answers "who came to the site, and which pages did they look at",
 // and — because it can tie a session to a Supabase user id — "which of them
@@ -78,6 +79,7 @@ export function capturePageview(route) {
   const path = normalise(route)
   const props = { $current_url: window.location.href, $pathname: path, route: path }
   send(ph => ph.capture('$pageview', props))
+  metaPageView()
 }
 
 /**
@@ -100,9 +102,33 @@ export function resetUser() {
   send(ph => ph.reset())
 }
 
-/** Custom events: `track('checkout_started', { tier: 'pro' })`. */
-export function track(event, props) {
+/**
+ * A custom event, and optionally the Meta standard event it corresponds to.
+ *
+ * Two names for one thing because the two tools want different things from it.
+ * PostHog wants a name you can read in a funnel a year from now
+ * (`checkout_started`); Meta wants one of its own dozen standard names, because
+ * those are the only events Ads Manager will optimise delivery toward. Raising
+ * both from one call is what stops the two from drifting apart.
+ *
+ *   track('checkout_started', { tier: 'studio' }, { meta: 'InitiateCheckout' })
+ */
+export function track(event, props, { meta, metaParams } = {}) {
   send(ph => ph.capture(event, props))
+  if (meta) metaTrack(meta, metaParams ?? props)
+}
+
+// Supabase hands back the same user object on a fresh sign-up and on the
+// thousandth sign-in, so "is this a new account" has to be read off how old it
+// is. A few minutes is wide enough to survive a slow OAuth round trip and
+// narrow enough that signing in tomorrow is not counted as signing up again.
+const NEW_ACCOUNT_MS = 5 * 60 * 1000
+
+function isNewAccount(user) {
+  const created = user?.created_at || user?.createdAt
+  if (!created) return false
+  const ms = typeof created === 'number' ? created : Date.parse(created)
+  return Number.isFinite(ms) && Date.now() - ms < NEW_ACCOUNT_MS
 }
 
 /**
@@ -115,9 +141,13 @@ export function track(event, props) {
  * studio, and the landing page would appear to get no traffic at all.
  */
 export function useAnalytics({ route, authStatus, user }) {
+  // Both of these render for signed-out visitors, so without naming them here
+  // they would be filed as '/landing' and the ad page's traffic would be
+  // indistinguishable from the main page's — which is the one number the ad
+  // spend exists to produce.
   const screen =
-    route === '/ad'
-      ? '/ad'
+    route === '/ad' || route === '/go'
+      ? route
       : // 'loading' is the half-second before Supabase says whether a stored
         // session exists. Sending nothing until it resolves is what stops every
         // signed-in refresh from also counting as a landing page view.
@@ -138,6 +168,14 @@ export function useAnalytics({ route, authStatus, user }) {
     if (userId && identified.current !== userId) {
       identified.current = userId
       identifyUser(user)
+
+      // The conversion an ad is actually buying. Raised here rather than in the
+      // sign-in handler because OAuth leaves and re-enters the app: the redirect
+      // back from Google is a fresh page load, and any event fired before it
+      // would be fired in a document that no longer exists by the time it lands.
+      if (isNewAccount(user)) {
+        track('signed_up', { method: 'google' }, { meta: 'CompleteRegistration' })
+      }
     } else if (!userId && identified.current) {
       // Only on an actual sign-out. Resetting on the initial null would throw
       // away the anonymous id that links this visit back to the ad or search

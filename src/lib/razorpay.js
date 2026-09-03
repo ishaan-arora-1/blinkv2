@@ -1,4 +1,5 @@
 import { api } from './api.js'
+import { track } from './analytics.js'
 import { money } from './money.js'
 
 const CHECKOUT_SRC = 'https://checkout.razorpay.com/v1/checkout.js'
@@ -76,6 +77,22 @@ export async function subscribeToPlan(planId, { user } = {}) {
               razorpay_signature: response.razorpay_signature,
             },
           })
+          // Only after the server has checked the signature. The modal closing
+          // is not a sale, and reporting it as one teaches Meta to find people
+          // who open checkout and leave.
+          track(
+            'subscription_started',
+            { tier: created.plan.tier, plan: created.plan.name },
+            {
+              meta: 'Purchase',
+              metaParams: {
+                value: created.plan.price,
+                currency: created.plan.currency,
+                content_name: created.plan.name,
+                content_type: 'subscription',
+              },
+            }
+          )
           resolve(verified)
         } catch (err) {
           reject(err)
@@ -94,6 +111,19 @@ export async function subscribeToPlan(planId, { user } = {}) {
       settled = true
       reject(new Error(resp?.error?.description || 'The payment failed. Nothing was charged.'))
     })
+
+    track(
+      'checkout_started',
+      { tier: created.plan.tier, plan: created.plan.name },
+      {
+        meta: 'InitiateCheckout',
+        metaParams: {
+          value: created.plan.price,
+          currency: created.plan.currency,
+          content_name: created.plan.name,
+        },
+      }
+    )
 
     rzp.open()
   })

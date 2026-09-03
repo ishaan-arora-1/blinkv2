@@ -6,6 +6,7 @@ import { useStore } from './lib/store.jsx'
 import { isApiConfigured } from './lib/api.js'
 import { isConfigured as isSupabaseConfigured } from './lib/supabase.js'
 import { planFor, isPaying } from './lib/tiers.js'
+import { consumeAdEntry } from './lib/entry.js'
 
 import Dashboard from './pages/Dashboard.jsx'
 import Brand from './pages/Brand.jsx'
@@ -18,6 +19,8 @@ import BlinkAI from './pages/BlinkAI.jsx'
 import Library from './pages/Library.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Landing from './pages/Landing.jsx'
+import AdGraph from './pages/AdGraph.jsx'
+import AdLanding from './pages/AdLanding.jsx'
 import Pricing from './pages/Pricing.jsx'
 import Account from './pages/Account.jsx'
 import { Splash, ErrorScreen, SetupNeeded } from './components/Screens.jsx'
@@ -71,6 +74,19 @@ export default function App() {
   // because the screens those returns render are themselves worth counting.
   useAnalytics({ route, authStatus: auth.authStatus, user: auth.user })
 
+  // ── paid traffic ──
+  // Answered before the session check so it renders for a logged-out visitor
+  // without a splash in front of it, and after analytics is wired so the pixel
+  // still sees the view. It reads the plans table and nothing else.
+  if (route === '/go') return <AdLanding />
+
+  // ── the ad page ──
+  // Answered before config and session, on purpose. It is a thing to point a
+  // screen recorder at: it reads nothing but static files, so it must render in
+  // a browser with no session, and it must not be able to show a splash, a
+  // setup screen or a sign-in prompt in the middle of a take.
+  if (route === '/ad') return <AdGraph />
+
   // ── config ──
   const missing = missingConfig()
   if (missing.length) return <SetupNeeded missing={missing} />
@@ -112,6 +128,15 @@ export default function App() {
 /** Everything past the paywall needs the store loaded. */
 function Routed({ route, auth }) {
   const store = useStore()
+
+  // Someone who clicked an ad about Blink AI should land on Blink AI. Without
+  // this they arrive in the studio, which is a sidebar of the features they did
+  // not click for with the one they did behind a lock nobody warned them about.
+  // Consumed, so it steers the first screen after signing up and never again.
+  const onboarded = store.state.brand?.onboarded
+  React.useEffect(() => {
+    if (onboarded && consumeAdEntry()) go('/blink')
+  }, [onboarded])
 
   if (BILLING_ROUTES.includes(route)) {
     return route === '/account' ? <Account /> : <Pricing />
