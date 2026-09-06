@@ -170,7 +170,7 @@ export default function Landing() {
           {/* A way back in, not a second pitch: the hero below is already
               making the offer, and this corner is where someone who has an
               account expects to find the door. */}
-          <SignInButton label="Log in" className="btn primary sm" mark={false} />
+          <SignInButton label="Log in" className="btn primary sm" />
         </div>
       </nav>
 
