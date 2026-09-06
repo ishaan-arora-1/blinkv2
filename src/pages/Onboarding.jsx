@@ -4,43 +4,31 @@ import { useAuth } from '../lib/auth.jsx'
 import { isPaying } from '../lib/tiers.js'
 import BrandForm from '../components/BrandForm.jsx'
 
+/**
+ * The one form between signing up and the studio.
+ *
+ * There used to be a pitch in front of it — a hero headline about deserving
+ * louder marketing, over a button that did nothing but reveal this form. It was
+ * shown to people who had just read the landing page and signed up off it, so
+ * it sold the product to someone who had already bought the argument, and cost
+ * a click to dismiss. Anyone arriving here has decided; this asks the one thing
+ * the generator cannot run without and gets out of the way.
+ */
 export default function Onboarding() {
   const store = useStore()
   const { entitlement } = useAuth()
 
-  // Someone who has already paid does not need to be sold to on the way in.
-  // The interstitial below pitches the product; they bought it two screens ago,
-  // and putting a pitch between their money and the thing they bought reads as
-  // a second ask. They go straight to the one form that is actually setup.
+  // Changes the copy, not the path: someone who has already paid is being told
+  // their plan is live, everyone else is being told what this is for.
   const paid = isPaying(entitlement)
-  const [step, setStep] = useState(paid ? 1 : 0)
   const [draft, setDraft] = useState(store.state.brand)
   const [saving, setSaving] = useState(false)
-
-  if (step === 0) {
-    return (
-      <div className="hero">
-        <div className="chip brand" style={{ marginBottom: 22 }}>Blink UGC — beta</div>
-        <h1>Your product deserves <em>louder</em> marketing.</h1>
-        <p>
-          Mint scroll-stopping carousels and creator-led hook videos for your product —
-          designed, written and exported in minutes, not weekends.
-        </p>
-        <div className="cta-row">
-          <button className="btn primary" onClick={() => setStep(1)}>Set up my brand →</button>
-        </div>
-        <div className="mono small muted" style={{ marginTop: 40, zIndex: 1, letterSpacing: '0.1em' }}>
-          CAROUSELS ✕ HOOK VIDEOS ✕ AI CREATORS ✕ PHOTO SETS
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="hero" style={{ justifyContent: 'center' }}>
       <div className="card" style={{ width: 'min(640px, 94vw)', textAlign: 'left', zIndex: 1, padding: 28 }}>
         <div className="page-kicker">
-          {paid ? 'Last step — tell us what to make ads about' : 'Step 1 of 1 — brand intel'}
+          {paid ? 'Last step — tell us what to make ads about' : 'One step — brand intel'}
         </div>
         <h2 style={{ marginBottom: 6 }}>Tell us about your product</h2>
         <p className="muted small" style={{ marginBottom: 20 }}>

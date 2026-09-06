@@ -4,8 +4,17 @@ import { PLAN_NAME } from '../lib/tiers.js'
 import Logo from '../components/Logo.jsx'
 import PlanCard from '../components/PlanCard.jsx'
 
+// What each plan actually buys, in one clause. Named per tier because the
+// screen is the last thing between a decision and a charge, and a line that
+// describes the wrong plan there is the most expensive sentence on the site.
+const PITCH = {
+  creator: 'unlocks hook videos, animated carousels and your own image sets',
+  studio: 'unlocks Blink AI — multi-scene video with the script, the voiceover and the subtitles written for you',
+  agency: 'unlocks Blink AI at six minutes of finished video a month, with everything on Creator and Studio',
+}
+
 /**
- * The one screen between signing up from an ad and paying.
+ * The one screen between signing up and paying.
  *
  * Someone who pressed a button with a price on it has already decided. What
  * used to happen next was an onboarding hero, a six-field form about their
@@ -13,6 +22,10 @@ import PlanCard from '../components/PlanCard.jsx'
  * which invited them to reconsider and offered a cheaper tier that does not
  * include the thing they came for. This is that path with everything removed
  * except the transaction.
+ *
+ * Reached from both landing pages now, so the pitch is read off the tier rather
+ * than assumed: this used to promise Blink AI to everyone who arrived, which is
+ * a promise the Creator plan does not keep.
  *
  * Nothing is asked for here. The brand form still has to happen, but it happens
  * after the money, where it is setup for something they own rather than a toll
@@ -28,6 +41,7 @@ import PlanCard from '../components/PlanCard.jsx'
 export default function StartCheckout({ tier, onDone }) {
   const { user, signOut } = useAuth()
   const name = PLAN_NAME[tier] || 'this plan'
+  const pitch = PITCH[tier] || 'unlocks the paid features'
   const firstName = (user?.fullName || user?.user_metadata?.full_name || '').split(' ')[0]
 
   return (
@@ -39,9 +53,7 @@ export default function StartCheckout({ tier, onDone }) {
             {firstName ? `You're in, ${firstName}.` : "You're in."} <em>One step left.</em>
           </h1>
           <p>
-            Your account is ready. {name} is what unlocks Blink AI — multi-scene video with the
-            script, the voiceover and the subtitles written for you. We'll set your product up
-            straight after.
+            Your account is ready. {name} {pitch}. We'll set your product up straight after.
           </p>
         </header>
 

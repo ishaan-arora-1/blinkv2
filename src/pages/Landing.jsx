@@ -540,6 +540,10 @@ export default function Landing() {
                         <SignInButton
                           label={`Get ${plan.name}`}
                           className={`btn ${plan.tier === 'studio' ? 'primary' : ''}`}
+                          // Pressing a price is a decision. Carrying the tier
+                          // through the redirect is what puts the checkout on
+                          // the other side of it instead of a brand form.
+                          intent={plan.tier}
                         />
                       )}
                     </div>

@@ -2,12 +2,16 @@
  * Where this visit came from and what it came to buy, remembered across the
  * OAuth round trip.
  *
- * Someone who clicked a $49 button on the ad page used to sign in and land in
- * onboarding, then a studio, then a lock, then a page of four plans. Four
- * screens between deciding to pay and being able to. But by the time any of
- * those screens render, the ad page is three redirects ago and everything it
- * knew is gone — Google's redirect reloads the document. So the ad page leaves
- * a note, and the screens after it read it.
+ * Someone who clicked a priced button used to sign in and land in onboarding,
+ * then a studio, then a lock, then a page of four plans. Four screens between
+ * deciding to pay and being able to. But by the time any of those screens
+ * render, the page they decided on is three redirects ago and everything it
+ * knew is gone — Google's redirect reloads the document. So the button leaves a
+ * note, and the screens after it read it.
+ *
+ * Written by both landing pages now. /go leaves it on arrival, because every
+ * button there sells the same tier; / leaves it on the click, because the plan
+ * grid sells three and only the pressed one is a decision.
  *
  * localStorage rather than a variable for exactly that reason, and rather than
  * sessionStorage because the OAuth round trip can land in a different tab.
@@ -22,26 +26,54 @@ const KEY = 'blink.entry'
 const TTL_MS = 24 * 60 * 60 * 1000
 
 /**
- * Called by the ad landing page.
- *
- * `intent` is the tier the button they pressed was selling, or null for a
- * visit that has not committed to anything.
+ * `tier` is what this visit came to buy; `intent` is the same tier while it is
+ * still unspent. They are separate fields because they end at different
+ * moments — the intent is spent at the checkout, the tier is still needed a
+ * screen later to decide where to land — and clearing one must not erase the
+ * other.
  */
-export function markAdEntry(intent = null) {
+function write(source, tier) {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ source: 'ad', intent, at: Date.now() }))
+    localStorage.setItem(KEY, JSON.stringify({ source, tier, intent: tier, at: Date.now() }))
   } catch {
     // Private mode, or storage disabled. They still get the product; they just
     // walk the same path as everyone else.
   }
 }
 
+/**
+ * Called by the ad landing page on arrival.
+ *
+ * `intent` is the tier every button there is selling, or null for a visit that
+ * has not committed to anything.
+ */
+export function markAdEntry(intent = null) {
+  write('ad', intent)
+}
+
+/**
+ * Called by a plan button on the main landing page, at the moment it is pressed.
+ *
+ * Not on arrival, unlike the ad page: / sells three tiers and a free one, so
+ * until somebody presses a button this visit has decided nothing, and writing a
+ * note on page view would put a checkout in front of someone who came to read.
+ */
+export function markPlanIntent(tier) {
+  if (tier) write('plan', tier)
+}
+
+// The sources that may write a note. Checked on read so an unrecognised or
+// half-written value is ignored rather than trusted — and listed rather than
+// waved through, so a note from a future version of this file cannot drive a
+// checkout this one does not understand.
+const SOURCES = new Set(['ad', 'plan'])
+
 function read() {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
     const note = JSON.parse(raw)
-    if (!note || note.source !== 'ad') return null
+    if (!note || !SOURCES.has(note.source)) return null
     if (Date.now() - (note.at || 0) > TTL_MS) {
       localStorage.removeItem(KEY)
       return null
@@ -90,16 +122,28 @@ export function clearIntent() {
   }
 }
 
+/** Where a given tier's buyer should land: the feature they paid for. */
+function routeForTier(tier) {
+  if (tier === 'studio' || tier === 'agency') return '/blink'
+  if (tier === 'creator') return '/videos'
+  return null
+}
+
 /**
- * Whether this visit should land on Blink AI rather than the studio, consumed
- * so it steers one screen and never again.
+ * The route this visit should land on instead of the studio, consumed so it
+ * steers one screen and never again.
  *
- * Separate from the intent because the two end at different moments: the intent
- * is spent at the checkout, this is spent at the first screen after onboarding.
+ * Read off the tier rather than the intent, because the intent has already been
+ * spent at the checkout by the time this is asked. Someone who bought Creator
+ * lands on hook videos; someone who bought Studio lands on Blink AI. Sending
+ * both to Blink AI would drop the Creator customer straight onto a lock.
+ *
+ * An ad visit with no tier still lands on Blink AI — that is what the ad was
+ * about, whether or not they bought it on the way in.
  */
-export function consumeAdEntry() {
+export function consumeEntryRoute() {
   const note = read()
-  if (!note) return false
+  if (!note) return null
   clear()
-  return true
+  return routeForTier(note.tier) || (note.source === 'ad' ? '/blink' : null)
 }

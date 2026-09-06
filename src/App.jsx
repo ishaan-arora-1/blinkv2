@@ -6,7 +6,7 @@ import { useStore } from './lib/store.jsx'
 import { isApiConfigured } from './lib/api.js'
 import { isConfigured as isSupabaseConfigured } from './lib/supabase.js'
 import { planFor, isPaying } from './lib/tiers.js'
-import { consumeAdEntry, pendingIntent, clearIntent } from './lib/entry.js'
+import { consumeEntryRoute, pendingIntent, clearIntent } from './lib/entry.js'
 
 import Dashboard from './pages/Dashboard.jsx'
 import Brand from './pages/Brand.jsx'
@@ -147,13 +147,16 @@ export default function App() {
 function Routed({ route, auth }) {
   const store = useStore()
 
-  // Someone who clicked an ad about Blink AI should land on Blink AI. Without
-  // this they arrive in the studio, which is a sidebar of the features they did
-  // not click for with the one they did behind a lock nobody warned them about.
-  // Consumed, so it steers the first screen after signing up and never again.
+  // Someone who clicked a plan should land on what that plan bought them.
+  // Without this they arrive in the studio, which is a sidebar of the features
+  // they did not click for with the one they did behind a lock nobody warned
+  // them about. Consumed, so it steers the first screen after signing up and
+  // never again.
   const onboarded = store.state.brand?.onboarded
   React.useEffect(() => {
-    if (onboarded && consumeAdEntry()) go('/blink')
+    if (!onboarded) return
+    const dest = consumeEntryRoute()
+    if (dest) go(dest)
   }, [onboarded])
 
   if (BILLING_ROUTES.includes(route)) {

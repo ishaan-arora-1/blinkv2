@@ -1,5 +1,6 @@
 import React from 'react'
 import { useAuth } from '../lib/auth.jsx'
+import { markPlanIntent } from '../lib/entry.js'
 
 /**
  * The only way into the product, and now the CTA on two pages.
@@ -7,6 +8,11 @@ import { useAuth } from '../lib/auth.jsx'
  * Lifted out of Landing so the ad landing page can use the same button rather
  * than a copy of it — a second copy is a second thing to remember when the
  * sign-in flow changes.
+ *
+ * `intent` is the tier this particular button is selling. Given one, the button
+ * writes down what was bought before handing off to Google, which is what lets
+ * the screen after the redirect be the checkout rather than an onboarding form.
+ * Left off — the hero, the free tier — it is an ordinary sign-up.
  */
 function GoogleMark() {
   return (
@@ -19,10 +25,18 @@ function GoogleMark() {
   )
 }
 
-export default function SignInButton({ label = 'Continue with Google', className = 'btn google' }) {
+export default function SignInButton({ label = 'Continue with Google', className = 'btn google', intent = null }) {
   const { signInWithGoogle, signingIn } = useAuth()
+
+  // Written before the redirect, not after: OAuth reloads the document, so
+  // anything held in memory at click time is gone by the time it is needed.
+  const start = () => {
+    if (intent) markPlanIntent(intent)
+    signInWithGoogle()
+  }
+
   return (
-    <button className={className} onClick={signInWithGoogle} disabled={signingIn}>
+    <button className={className} onClick={start} disabled={signingIn}>
       <GoogleMark />
       {signingIn ? 'Opening Google…' : label}
     </button>
