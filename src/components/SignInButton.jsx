@@ -13,6 +13,13 @@ import { markPlanIntent } from '../lib/entry.js'
  * writes down what was bought before handing off to Google, which is what lets
  * the screen after the redirect be the checkout rather than an onboarding form.
  * Left off — the hero, the free tier — it is an ordinary sign-up.
+ *
+ * `mark` draws the Google logo. On by default, because on a button that is
+ * making the offer — "Continue with Google" — the logo is half the sentence and
+ * tells someone no password is coming. The nav turns it off: a small "Log in"
+ * in the corner is a way back for someone who already has an account, not a
+ * pitch, and a vendor logo at that size reads as clutter rather than as
+ * reassurance.
  */
 function GoogleMark() {
   return (
@@ -25,7 +32,12 @@ function GoogleMark() {
   )
 }
 
-export default function SignInButton({ label = 'Continue with Google', className = 'btn google', intent = null }) {
+export default function SignInButton({
+  label = 'Continue with Google',
+  className = 'btn google',
+  intent = null,
+  mark = true,
+}) {
   const { signInWithGoogle, signingIn } = useAuth()
 
   // Written before the redirect, not after: OAuth reloads the document, so
@@ -37,7 +49,7 @@ export default function SignInButton({ label = 'Continue with Google', className
 
   return (
     <button className={className} onClick={start} disabled={signingIn}>
-      <GoogleMark />
+      {mark && <GoogleMark />}
       {signingIn ? 'Opening Google…' : label}
     </button>
   )
