@@ -502,7 +502,15 @@ export default function Landing() {
                     </p>
                     <ul className="plan-features">
                       {(plan.features || []).map((f) => (
-                        <li key={f}><span className="tickmark">✓</span>{f}</li>
+                        // Blink AI is the line Studio and Agency are actually
+                        // bought for, and on Creator it is absent rather than
+                        // dimmed — so the plans that include it should not make
+                        // the reader find it among six other ticks. Matched on
+                        // the feature text because the plans table is the one
+                        // place that decides which tiers carry it.
+                        <li key={f} className={/blink ai/i.test(f) ? 'key' : undefined}>
+                          <span className="tickmark">✓</span>{f}
+                        </li>
                       ))}
                     </ul>
                     {/* auto, not a fixed gap: the cards are equal height now,

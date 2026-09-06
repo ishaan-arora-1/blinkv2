@@ -895,6 +895,29 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 .plan-features li { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--muted); line-height: 1.45; }
 .plan-features .tickmark { color: var(--brand); flex-shrink: 0; font-weight: 700; }
 
+/* The one feature a plan is bought for.
+ *
+ * Brightened to --paper rather than tinted: the list is already --muted, so
+ * simply being full-strength text is most of the emphasis, and the glow is a
+ * lift on top rather than the whole effect. The row keeps the same left edge as
+ * its neighbours — the padding is negative-margined back — so the ticks stay in
+ * one column and the highlight reads as a band behind the line, not as an
+ * indent that knocks it out of the list. */
+.plan-features li.key {
+  color: var(--paper);
+  font-weight: 600;
+  margin: 1px -10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--brand-soft), rgba(168, 120, 255, 0));
+  box-shadow: inset 2px 0 0 var(--brand);
+  text-shadow: 0 0 16px rgba(168, 120, 255, 0.5);
+}
+.plan-features li.key .tickmark {
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(243, 164, 230, 0.85);
+}
+
 .upsell { border-color: rgba(243, 164, 230, 0.35); background: linear-gradient(180deg, rgba(243, 164, 230,0.06), var(--ink-2) 60%); }
 
 /* Sidebar plan status */
