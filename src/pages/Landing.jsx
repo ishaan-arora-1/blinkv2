@@ -189,10 +189,6 @@ export default function Landing() {
             </p>
             <div className="lp-cta">
               <SignInButton />
-              <div className="lp-trust">
-                <b>Photo carousels are free</b>, forever, no card.
-                {cheapest && <> Blink AI and the rest from {money(cheapest.price, cheapest.currency)}/month. Cancel anytime.</>}
-              </div>
               {isLocalSupabase && <DevSignIn />}
             </div>
 
