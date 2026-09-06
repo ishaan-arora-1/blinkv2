@@ -1,32 +1,33 @@
 /**
- * Real Blink AI output, for the landing page.
+ * Real Blink AI output, for the landing page hero.
  *
- * The section used to illustrate prompt-to-video with three premade creator
- * hook clips — the one part of the page that was not just repetitive but
- * inaccurate, since Veo generated none of them. These are actual generations.
+ * Stills rather than clips. The three tiles are ~125px wide inside
+ * `.lp-wall.narrow`, which is too small for motion to read as anything but
+ * flicker, and the clips they replaced cost several megabytes and a hover
+ * before a first visit saw anything move at all. A frame that is legible
+ * immediately sells the output better than a video nobody hovers.
  *
- * Same shape as a creator hook, so HookPreview renders them unchanged: the
- * clips are several megabytes each and carry `preload="none"`, so nothing is
- * fetched until someone hovers one and the ~25 KB poster is all a first visit
- * pays for.
+ * One creator across three settings, on purpose: the thing this page claims is
+ * that Blink AI holds the same person from scene to scene, and three unrelated
+ * faces would be the one arrangement of these tiles that fails to show it.
  */
 export const BLINK_TEMPLATES = [
   {
-    id: 'blink_podcast_plug',
-    name: 'Podcast plug',
-    src: '/blink/podcast-plug.mp4',
-    poster: '/blink/posters/podcast-plug.jpg',
+    id: 'blink_hallway_selfie',
+    name: 'Hallway selfie',
+    img: '/blink/stills/hallway-selfie.jpg',
+    alt: 'Blink AI still — creator filming a mirror selfie in a sunlit hallway',
   },
   {
-    id: 'blink_studio_spin',
-    name: 'Studio spin',
-    src: '/blink/studio-spin.mp4',
-    poster: '/blink/posters/studio-spin.jpg',
+    id: 'blink_office_desk',
+    name: 'Office desk',
+    img: '/blink/stills/office-desk.jpg',
+    alt: 'Blink AI still — the same creator at a desk in an open-plan office',
   },
   {
-    id: 'blink_unboxing_asmr',
-    name: 'Unboxing ASMR',
-    src: '/blink/unboxing-asmr.mp4',
-    poster: '/blink/posters/unboxing-asmr.jpg',
+    id: 'blink_street_walk',
+    name: 'Street walk',
+    img: '/blink/stills/street-walk.jpg',
+    alt: 'Blink AI still — the same creator filming to camera on a suburban street',
   },
 ]

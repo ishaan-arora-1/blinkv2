@@ -13,6 +13,7 @@ import Logo from '../components/Logo.jsx'
 import SignInButton from '../components/SignInButton.jsx'
 import HookPreview from '../components/HookPreview.jsx'
 import ReelGraph from '../components/ReelGraph.jsx'
+import MultiFrameStrip from '../components/MultiFrameStrip.jsx'
 import SlidePreview from '../components/SlidePreview.jsx'
 
 /*
@@ -200,30 +201,19 @@ export default function Landing() {
             )}
           </div>
 
-          {/* Real Blink AI generations, not premade creator hooks — see
-              blinkTemplates.js. Deliberately not captioned as three scenes of
-              one reel: they are unrelated clips, and the thing this page is
-              selling is that a real reel holds one person across its scenes.
-              Faking that in the hero would be selling the exact claim with the
-              exact evidence that does not support it. */}
-          <div className="lp-wall narrow" aria-label="Videos generated with Blink AI">
-            {BLINK_TEMPLATES.map((t) => (
-              <HookPreview key={t.id} hook={t} alt={`Blink AI — ${t.name}`} eager={t === BLINK_TEMPLATES[1]} />
+          {/* Real Blink AI output — see blinkTemplates.js. Plain images rather
+              than HookPreview: there is no clip to hover here, so the video
+              element and its play-on-hover handlers would be machinery around
+              an <img>. The first tile loads eagerly because it is above the
+              fold on every viewport this wall survives. */}
+          <div className="lp-wall narrow" aria-label="Frames generated with Blink AI">
+            {BLINK_TEMPLATES.map((t, i) => (
+              <div className="thumb-9x16" key={t.id} style={{ padding: 0 }}>
+                <img src={t.img} alt={t.alt} loading={i === 0 ? 'eager' : 'lazy'} />
+              </div>
             ))}
           </div>
         </header>
-      </div>
-
-      <div className="lp-wrap">
-        <div className="lp-strip">
-          <span><b>up to 48s</b> finished videos</span>
-          <span><b>6</b> scenes per video</span>
-          <span><b>8</b> narrator voices</span>
-          <span><b>{CREATORS.length}</b> AI creators</span>
-          <span><b>{photoSets.length * 10}</b> photo backgrounds</span>
-          <span><b>{CHARACTERS.length}</b> 3D characters</span>
-          <span>1080 × 1920 &amp; 1080 × 1350 exports</span>
-        </div>
       </div>
 
       {/* ── Blink AI: the reason to buy ── */}
@@ -239,41 +229,28 @@ export default function Landing() {
             </p>
           </div>
 
-          {/* The deal, stated before the graph proves it: two things in, seven
-              out. The list is short on purpose — every item is a job somebody
-              would otherwise be paying a person to do. */}
-          <div className="lp-deal">
-            <div className="lp-deal-you">
-              <span className="lp-deal-k">you bring</span>
-              <b>A photo of your product</b>
-              <b>One sentence about the video</b>
-            </div>
-
-            <span className="lp-deal-arrow" aria-hidden="true">→</span>
-
-            <div className="lp-deal-it">
-              <span className="lp-deal-k">Blink AI does the rest, on its own</span>
-              <ul>
-                <li>Splits it into scenes</li>
-                <li>Draws every frame</li>
-                <li>Films each frame</li>
-                <li>Cuts them together</li>
-                <li>Writes the script</li>
-                <li>Reads it aloud</li>
-                <li>Burns in the subtitles</li>
-              </ul>
-            </div>
-          </div>
-
           <ReelGraph />
+        </div>
+      </section>
 
-          <div className="rg-foot">
-            <span className="chip brand">one real generation</span>
-            <span>
-              Every frame, clip and word above came out of that one prompt. Play the ad.
-            </span>
-            <SignInButton label="Make one of your own" className="btn primary sm" />
+      {/* ── Multi-frame ── */}
+      {/* The graph above proves the pipeline on a product — a bottle, drawn and
+          filmed. This proves the harder half of the same claim: one person,
+          held across five rooms, in one video. Pictures rather than prose,
+          because that is a thing you see or do not believe. */}
+      <section className="lp-section" style={{ paddingTop: 0 }}>
+        <div className="lp-wrap">
+          <div className="lp-sec-head center">
+            <div className="lp-kicker">Blink AI · multi-frame</div>
+            <h2>
+              Five frames. One person. <em>One&nbsp;video.</em>
+            </h2>
+            <p style={{ marginLeft: 'auto', marginRight: 'auto' }}>
+              A second real generation, every stage of it. Point at a scene to play it.
+            </p>
           </div>
+
+          <MultiFrameStrip />
         </div>
       </section>
 
