@@ -150,7 +150,9 @@ export default function Pricing() {
             </div>
           )}
 
-        <div className="grid cols-3 stack-sm" style={{ maxWidth: 1080, alignItems: 'start' }}>
+        {/* Not `alignItems: start` — that left the three cards at three
+            different heights, each as tall as its own feature list. */}
+        <div className="grid cols-3 stack-sm" style={{ maxWidth: 1080 }}>
           {shownPlans.map((plan) => {
             const isCurrent = plan.id === currentPlanId
             const isUpgrade = currentPlanId && plan.rank > (plans.find((p) => p.id === currentPlanId)?.rank ?? 0)
@@ -208,7 +210,7 @@ export default function Pricing() {
                 {enquiry ? (
                   <a
                     className="btn"
-                    style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
+                    style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
                     href={enquiryHref(plan.name)}
                   >
                     Contact us
@@ -216,7 +218,7 @@ export default function Pricing() {
                 ) : (
                 <button
                   className={`btn ${plan.tier === 'studio' ? 'primary' : ''}`}
-                  style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
+                  style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
                   disabled={isCurrent || busyPlan !== null || !billingEnabled}
                   onClick={() => subscribe(plan)}
                 >

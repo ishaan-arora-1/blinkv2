@@ -465,31 +465,6 @@ export default function Landing() {
 
           {plansState === 'ready' && shownPlans.length > 0 ? (
             <div className="lp-plans">
-              {/* Hardcoded, unlike the two beside it. The free tier is not a row
-                  in the plans table — nothing bills for it, nothing in Razorpay
-                  corresponds to it — so there is nothing to read it from. It is
-                  the absence of a subscription, described. */}
-              <div className="card plan">
-                <h3 style={{ fontSize: 20 }}>Free</h3>
-                <div className="plan-price">
-                  {money(0, shownPlans[0].currency)}
-                  <span className="small muted"> /forever</span>
-                </div>
-                <p className="small muted" style={{ minHeight: 38, marginTop: 8 }}>
-                  Photo carousels, unlimited, no card.
-                </p>
-                <ul className="plan-features">
-                  <li><span className="tickmark">✓</span>Unlimited photo carousels</li>
-                  <li><span className="tickmark">✓</span>Copy written from your brand and pitch</li>
-                  <li><span className="tickmark">✓</span>Five built-in photography collections</li>
-                  <li><span className="tickmark">✓</span>1080 × 1350 PNG and ZIP export</li>
-                  <li><span className="tickmark">✓</span>Cloud sync across devices</li>
-                </ul>
-                <div style={{ marginTop: 18 }}>
-                  <SignInButton label="Start free" className="btn" />
-                </div>
-              </div>
-
               {shownPlans.map((plan) => {
                 const twin = plans.find((p) => p.tier === plan.tier && p.period === 'monthly')
                 // No annual for this tier — an enquiry, not a purchase.
@@ -531,7 +506,10 @@ export default function Landing() {
                         <li key={f}><span className="tickmark">✓</span>{f}</li>
                       ))}
                     </ul>
-                    <div style={{ marginTop: 18 }}>
+                    {/* auto, not a fixed gap: the cards are equal height now,
+                        so the buttons only line up if the space above them
+                        absorbs the difference in feature-list length. */}
+                    <div style={{ marginTop: 'auto' }}>
                       {enquiry ? (
                         <a className="btn" style={{ width: '100%', justifyContent: 'center' }} href={enquiryHref(plan.name)}>
                           Contact us

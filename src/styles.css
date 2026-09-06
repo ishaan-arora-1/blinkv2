@@ -820,7 +820,21 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 /* Four cards now — Free plus three paid — where there were three. The minimum
    column drops to 240px and the row widens to 1120 so all four sit on one line
    on a desktop; auto-fit still folds them to two and then one below that. */
-.lp-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; max-width: 1120px; margin: 0 auto; align-items: start; }
+/* Three tiers, three equal columns.
+ *
+ * No `align-items: start`. That was what made the cards different heights —
+ * it stops grid items stretching, so each one ended as tall as its own feature
+ * list and the row read as three unrelated boxes. Stretching is the default;
+ * the cards are flex columns, so the button block takes `margin-top: auto` and
+ * the extra space collects above it instead of below the shortest card. */
+.lp-plans {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px; max-width: 1020px; margin: 0 auto;
+}
+@media (max-width: 880px) {
+  .lp-plans { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+}
 
 /* ── FAQ ── */
 .lp-faq { display: grid; gap: 10px; max-width: 780px; margin: 0 auto; }
@@ -873,7 +887,11 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 }
 .plan-price .small { font-family: var(--body); font-size: 13px; font-weight: 400; }
 
-.plan-features { list-style: none; margin-top: 16px; display: grid; gap: 9px; }
+/* The bottom margin is the *minimum* gap above the CTA. The CTA itself takes
+   `margin-top: auto`, which absorbs whatever height the tallest card in the
+   row forces on the others — on that tallest card the leftover is zero, so
+   without this the button would sit flush against the last feature. */
+.plan-features { list-style: none; margin: 16px 0 18px; display: grid; gap: 9px; }
 .plan-features li { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--muted); line-height: 1.45; }
 .plan-features .tickmark { color: var(--brand); flex-shrink: 0; font-weight: 700; }
 
