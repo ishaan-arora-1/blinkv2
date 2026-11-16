@@ -4,6 +4,7 @@ import { admin } from '../supabase.js'
 import { env } from '../env.js'
 import { verifyWebhookSignature } from '../razorpay.js'
 import { syncSubscription, retireReplacedSubscription } from '../subscriptionSync.js'
+import { handlePing, verifyToken } from '../gumroad.js'
 
 export const webhooksRouter = Router()
 
@@ -161,3 +162,30 @@ async function recordPayment(payment, subscriptionRow) {
 
   if (error) throw new Error(`payment upsert failed: ${error.message}`)
 }
+
+/**
+ * Gumroad Ping.
+ *
+ * Mounted with express.urlencoded because Gumroad posts a form, not JSON, and
+ * the global express.json ahead of it would leave req.body empty.
+ *
+ * Status codes are instructions here too: Gumroad retries on a non-2xx, so a
+ * delivery we cannot process yet must not 200. A delivery we understand and
+ * deliberately ignore — somebody else's product, an event we do not act on —
+ * must 200, or Gumroad retries it forever.
+ */
+webhooksRouter.post('/gumroad', express.urlencoded({ extended: true, limit: '1mb' }), async (req, res) => {
+  if (!verifyToken(req.query.token)) {
+    console.warn('[gumroad] rejected: bad or missing token')
+    return res.status(401).json({ error: 'unauthorized' })
+  }
+
+  try {
+    const outcome = await handlePing(req.body || {})
+    console.log(`[gumroad] ${outcome}`)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('[gumroad] failed:', err)
+    res.status(500).json({ error: 'processing failed' })
+  }
+})

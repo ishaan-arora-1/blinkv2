@@ -22,7 +22,7 @@ plansRouter.get(
     const { data, error } = await admin
       .from('plans')
       .select(
-        'id, name, blurb, tier, rank, price_minor, price_minor_test, razorpay_plan_id, razorpay_plan_id_test, currency, period, interval, features, sort'
+        'id, name, blurb, tier, rank, price_minor, price_minor_test, razorpay_plan_id, razorpay_plan_id_test, gumroad_permalink, currency, period, interval, features, sort'
       )
       .eq('active', true)
       .order('sort', { ascending: true })
@@ -32,7 +32,9 @@ plansRouter.get(
     res.json({
       // Lets the pricing page explain why the buttons are inert, rather than
       // letting the user click through to a 503.
-      billingEnabled: env.razorpay.configured,
+      // Gumroad needs no server key to open a checkout — the permalink is the
+      // whole integration — so billing is on when a plan has one.
+      billingEnabled: (data || []).some((p) => p.gumroad_permalink) || env.razorpay.configured,
       plans: (data || []).map((p) => {
         const { priceMinor } = planBilling(p)
         return {
@@ -49,6 +51,9 @@ plansRouter.get(
           period: p.period,
           interval: p.interval,
           features: p.features,
+          // The product this plan is bought through. Public by design: it is
+          // the URL a buyer is sent to, printed on the Gumroad page itself.
+          gumroad: p.gumroad_permalink || null,
         }
       }),
     })

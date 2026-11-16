@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
-import { fetchPlans, subscribeToPlan, CheckoutDismissed } from '../lib/razorpay.js'
+import { fetchPlans } from '../lib/razorpay.js'
+import { goToGumroad } from '../lib/gumroad.js'
 import { money } from '../lib/money.js'
 import { PLAN_NAME } from '../lib/tiers.js'
 
@@ -50,15 +51,14 @@ export default function PlanCard({ tier, onPurchased }) {
     setBusy(true)
     setError(null)
     try {
-      await subscribeToPlan(plan.id, { user })
-      // The lock and the feature are both on the page above this one, so the
-      // entitlement is the only thing that has to change for it to open.
-      await refreshAccount()
-      onPurchased?.()
+      // Gumroad is a page, not a modal: this navigates away and nothing below
+      // runs. The entitlement arrives by webhook while the buyer is on
+      // Gumroad, so there is no refreshAccount() to do here any more — the
+      // account is re-read when they land back on the app.
+      if (!goToGumroad(plan, user)) throw new Error('That plan is not connected to a checkout yet.')
+      return
     } catch (err) {
-      // Closing the checkout window is not a failure and must not be reported
-      // as one — nothing was charged and nothing went wrong.
-      if (!(err instanceof CheckoutDismissed)) setError(err.message)
+      setError(err.message)
     } finally {
       setBusy(false)
     }

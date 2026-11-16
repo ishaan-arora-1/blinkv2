@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
-import { fetchPlans, subscribeToPlan, CheckoutDismissed } from '../lib/razorpay.js'
+import { fetchPlans } from '../lib/razorpay.js'
+import { goToGumroad } from '../lib/gumroad.js'
 import { money, perMonth } from '../lib/money.js'
 import { isPaying } from '../lib/tiers.js'
 import { enquiryHref } from '../lib/contact.js'
@@ -75,11 +76,14 @@ export default function Pricing() {
     setBusyPlan(plan.id)
     setError(null)
     try {
-      await subscribeToPlan(plan.id, { user })
+      // Leaves the app. Nothing after this runs, and the entitlement is
+      // written by the Gumroad webhook rather than by anything here.
+      if (!goToGumroad(plan, user)) throw new Error('That plan is not connected to a checkout yet.')
+      return
       await refreshAccount()
       go('/dashboard')
     } catch (err) {
-      if (!(err instanceof CheckoutDismissed)) setError(err.message)
+      setError(err.message)
     } finally {
       setBusyPlan(null)
     }

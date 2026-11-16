@@ -43,6 +43,16 @@ export const env = {
   // stages — auth and the trial work on their own. A route that needs a missing
   // integration answers 503 with a clear reason rather than the server refusing
   // to start, which would take sign-in down too.
+  // Gumroad pings an unsigned form to a URL, so the URL is the secret: the
+  // token is compared in constant time on every delivery and the seller id is
+  // checked against the payload. Both are optional only so the server still
+  // boots without payments configured.
+  gumroad: {
+    webhookToken: optional('GUMROAD_WEBHOOK_TOKEN'),
+    sellerId: optional('GUMROAD_SELLER_ID'),
+    baseUrl: optional('GUMROAD_BASE_URL', 'https://ishaana.gumroad.com'),
+  },
+
   razorpay: {
     keyId: optional('RAZORPAY_KEY_ID'),
     keySecret: optional('RAZORPAY_KEY_SECRET'),
