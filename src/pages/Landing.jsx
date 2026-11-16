@@ -366,6 +366,8 @@ export default function Landing() {
         <footer className="lp-footer">
           <Logo size={22} />
           <span>© {new Date().getFullYear()} Blink UGC</span>
+          <a href="/privacy" style={{ color: 'inherit' }}>Privacy</a>
+          <a href="/terms" style={{ color: 'inherit' }}>Terms</a>
           <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: 'inherit' }}>{CONTACT_EMAIL}</a>
         </footer>
       </div>

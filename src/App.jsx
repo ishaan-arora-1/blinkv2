@@ -21,6 +21,7 @@ import Onboarding from './pages/Onboarding.jsx'
 import Landing from './pages/Landing.jsx'
 import AdGraph from './pages/AdGraph.jsx'
 import AdLanding from './pages/AdLanding.jsx'
+import { Privacy, Terms } from './pages/Legal.jsx'
 import StartCheckout from './pages/StartCheckout.jsx'
 import Pricing from './pages/Pricing.jsx'
 import Account from './pages/Account.jsx'
@@ -88,6 +89,13 @@ export default function App() {
   // without a splash in front of it, and after analytics is wired so the pixel
   // still sees the view. It reads the plans table and nothing else.
   if (route === '/go') return <AdLanding />
+
+  // ── legal ──
+  // Before config and session for the same reason /go is: a policy only a
+  // signed-in user can read is not a policy, and Meta's ad review fetches it
+  // logged out.
+  if (route === '/privacy') return <Privacy />
+  if (route === '/terms') return <Terms />
 
   // ── the ad page ──
   // Answered before config and session, on purpose. It is a thing to point a

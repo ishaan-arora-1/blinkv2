@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react'
 // creating an import cycle.
 
 /**
- * The two routes that are also real paths.
+ * The routes that are also real paths.
  *
  * Everything else in the app lives behind the hash, which is fine for a studio
  * you reach by signing in. It is not fine for the pages links point *at*:
@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react'
  * OAuth is unaffected: signInWithGoogle always returns to the origin root, so
  * the callback never lands on one of these.
  */
-const PATH_ROUTES = ['/go', '/ad']
+const PATH_ROUTES = ['/go', '/ad', '/privacy', '/terms']
 
 function readRoute() {
   const hash = window.location.hash.replace(/^#/, '')
