@@ -1869,3 +1869,208 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
 
 .start-foot { display: grid; gap: 10px; justify-items: start; }
 .start-foot .small { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+/* ─── Landing v2 ─────────────────────────────────────────────────────────────
+ *
+ * A second skin for the landing page only. Every token below is redeclared on
+ * .lp-v2 rather than on :root on purpose: the studio, the editors and the
+ * carousel renderer all read --brand and --ink, and repainting the marketing
+ * page should not repaint the product behind the login. Change these and the
+ * app is untouched.
+ *
+ * Warmer and harder than the violet it replaces — near-black, one hot accent,
+ * and no lilac haze. The work on this page is commercial film, and a page that
+ * glows purple around a jewellery ad looks like a template the ad was dropped
+ * into. */
+.lp-v2 {
+  --ink: #08080a;
+  --ink-2: #121215;
+  --paper: #fafafa;
+  --muted: #8b8b96;
+  --line: rgba(255, 255, 255, 0.10);
+  --line-soft: rgba(255, 255, 255, 0.06);
+  --brand: #ff4a1c;
+  --brand-soft: rgba(255, 74, 28, 0.12);
+  --brand-mid: #ff6a3d;
+  --accent: #ffb020;
+  --hot: #ff4a1c;
+  background: var(--ink);
+}
+.lp-v2 .chip.brand { background: var(--brand-soft); border-color: rgba(255, 74, 28, 0.32); color: var(--brand-mid); }
+
+/* ── Black Friday bar ── */
+.bf-bar {
+  position: relative; z-index: 5;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px;
+  padding: 10px 18px;
+  background: linear-gradient(90deg, #ff4a1c, #ff8a1c);
+  color: #180c05;
+  font-size: 13px; font-weight: 500;
+}
+.bf-bar b { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; }
+.bf-bar .bf-dot { opacity: 0.5; }
+.bf-bar .bf-ends { opacity: 0.75; }
+.bf-bar button {
+  background: #180c05; color: #fff; border: 0; cursor: pointer;
+  padding: 5px 12px; border-radius: 999px; font: inherit; font-weight: 600; font-size: 12.5px;
+}
+.bf-bar button:hover { background: #000; }
+@media (max-width: 620px) { .bf-bar .bf-ends, .bf-bar .bf-dot { display: none; } }
+
+/* ── Hero ── */
+.v2-hero { padding: clamp(44px, 7vw, 92px) 0 clamp(30px, 5vw, 60px); position: relative; overflow: hidden; }
+.v2-hero::before {
+  content: ''; position: absolute; inset: -30% 40% 40% -10%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 74, 28, 0.16), transparent);
+}
+.v2-hero-inner {
+  display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
+  gap: clamp(26px, 4vw, 60px); align-items: center; position: relative;
+}
+.v2-hero-copy h1 {
+  /* Capped below the column width so "Ads that look" holds one line: the
+     break is authored, and a font size that re-breaks it defeats the point. */
+  font-size: clamp(36px, 4.9vw, 62px); line-height: 1.0; letter-spacing: -0.035em;
+  margin: 18px 0 0; text-wrap: balance;
+}
+.v2-hero-copy h1 em {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  color: var(--brand); letter-spacing: -0.01em;
+}
+.v2-hero-copy > p { color: var(--muted); font-size: clamp(15px, 1.5vw, 17.5px); line-height: 1.55; margin-top: 20px; max-width: 46ch; }
+.v2-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 30px; }
+.v2-cta.center { justify-content: center; }
+.v2-cta-note { color: var(--muted); font-size: 13px; }
+.btn.lg { padding: 14px 24px; font-size: 15.5px; border-radius: 12px; }
+
+/* Three clips, overlapped into a stack rather than a row: a row of three
+   reads as a gallery, a stack reads as one piece of work with more behind it. */
+.v2-hero-reel { display: flex; gap: 12px; justify-content: center; perspective: 1400px; }
+.hv {
+  position: relative; flex: 1 1 0; min-width: 0; padding: 0; cursor: pointer;
+  aspect-ratio: 9 / 16; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--line); background: #141417;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.6);
+  transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.v2-hero-reel .hv:nth-child(1) { transform: rotate(-4deg) translateY(16px); }
+.v2-hero-reel .hv:nth-child(2) { transform: rotate(0deg) translateY(-8px) scale(1.05); z-index: 2; }
+.v2-hero-reel .hv:nth-child(3) { transform: rotate(4deg) translateY(16px); }
+.v2-hero-reel .hv:hover { transform: rotate(0deg) translateY(-14px) scale(1.08); z-index: 3; }
+.hv video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hv-tag {
+  position: absolute; left: 8px; bottom: 8px; z-index: 1;
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: rgba(8, 7, 12, 0.78); backdrop-filter: blur(4px);
+  padding: 4px 8px; border-radius: 999px; color: var(--paper);
+}
+.hv-play {
+  position: absolute; inset: 0; z-index: 1; display: grid; place-items: center;
+  font-size: 22px; color: #fff; opacity: 0; transition: opacity 0.2s;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+}
+.hv:hover .hv-play { opacity: 1; }
+
+/* ── Section heads ── */
+.v2-head { max-width: 660px; margin-bottom: clamp(24px, 3vw, 38px); }
+.v2-head.center { margin-left: auto; margin-right: auto; text-align: center; }
+.v2-head h2 { font-size: clamp(27px, 3.6vw, 44px); line-height: 1.03; letter-spacing: -0.03em; }
+.v2-head h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--brand); }
+.v2-head p { color: var(--muted); margin-top: 12px; font-size: 15.5px; }
+.v2-head.center p { margin-left: auto; margin-right: auto; max-width: 54ch; }
+.v2-kicker {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--brand); margin-bottom: 12px;
+}
+
+/* ── The output wall ──
+ *
+ * Full-bleed and scrolling sideways: the point of the section is how MUCH
+ * there is, and a grid that fits the column makes two dozen clips look like a
+ * tidy nine. Running off both edges says the wall continues. */
+.v2-work { padding-bottom: clamp(40px, 6vw, 72px); }
+.ow { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.ow::-webkit-scrollbar { display: none; }
+.ow-track {
+  display: grid; grid-auto-flow: column;
+  grid-auto-columns: clamp(132px, 13vw, 186px);
+  grid-template-rows: repeat(2, auto);
+  gap: 12px; padding: 4px clamp(16px, 4vw, 48px);
+  width: max-content;
+}
+.ow-tile {
+  position: relative; margin: 0; aspect-ratio: 9 / 16;
+  border-radius: 13px; overflow: hidden;
+  border: 1px solid var(--line); background: #141417;
+}
+.ow-tile video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.ow-tile figcaption {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 1;
+  padding: 16px 8px 7px;
+  background: linear-gradient(to top, rgba(8, 7, 12, 0.88), transparent);
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--paper);
+}
+
+/* The two finished cuts, bigger and with sound. */
+.v2-finished {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: clamp(16px, 2.5vw, 28px); max-width: 740px;
+  margin: clamp(30px, 4vw, 52px) auto 0;
+}
+.v2-fin { margin: 0; }
+.v2-fin video {
+  width: 100%; aspect-ratio: 9 / 16; object-fit: cover; display: block;
+  border-radius: 16px; border: 1px solid var(--line); background: #141417;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55);
+}
+.v2-fin figcaption { margin-top: 12px; }
+.v2-fin figcaption b { display: block; font-size: 14.5px; }
+.v2-fin figcaption span { display: block; color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+
+/* ── Pricing ── */
+.v2-pricing { padding-top: clamp(34px, 5vw, 64px); }
+.plan-price s {
+  display: block; font-family: var(--body); font-size: 16px; font-weight: 400;
+  color: var(--muted); text-decoration-color: var(--brand); margin-bottom: 2px;
+}
+.plan-save {
+  display: inline-block; margin-top: 4px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #180c05; background: linear-gradient(90deg, #ff4a1c, #ff8a1c);
+  padding: 4px 9px; border-radius: 999px; font-weight: 700;
+}
+.plan-blurb { min-height: 38px; margin-top: 10px; }
+.v2-price-foot { text-align: center; color: var(--muted); font-size: 13.5px; margin-top: 24px; }
+.v2-price-foot a { color: var(--brand); }
+
+/* ── Steps ── */
+.v2-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: clamp(16px, 2.4vw, 28px); }
+.v2-steps > div { border-top: 2px solid var(--brand); padding-top: 16px; }
+.v2-steps span { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; color: var(--brand); }
+.v2-steps b { display: block; margin: 10px 0 7px; font-size: 17px; letter-spacing: -0.01em; }
+.v2-steps p { color: var(--muted); font-size: 14px; line-height: 1.55; }
+
+/* ── Closing ── */
+.v2-final { text-align: center; padding: clamp(48px, 7vw, 92px) 0; border-top: 1px solid var(--line-soft); }
+.v2-final h2 { font-size: clamp(28px, 4.2vw, 50px); line-height: 1.04; letter-spacing: -0.03em; }
+.v2-final h2 em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--brand); }
+
+/* ── Sound-on player ── */
+.v2-modal {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+  background: rgba(4, 4, 6, 0.92); padding: 24px; backdrop-filter: blur(6px);
+}
+.v2-modal video { max-height: 86vh; max-width: min(420px, 92vw); border-radius: 16px; border: 1px solid var(--line); }
+.v2-modal-x {
+  position: absolute; top: 18px; right: 20px;
+  background: rgba(255, 255, 255, 0.1); color: #fff; border: 0; cursor: pointer;
+  width: 38px; height: 38px; border-radius: 50%; font-size: 15px;
+}
+.v2-modal-x:hover { background: rgba(255, 255, 255, 0.2); }
+
+@media (max-width: 860px) {
+  .v2-hero-inner { grid-template-columns: minmax(0, 1fr); }
+  .v2-hero-reel { max-width: 420px; margin: 0 auto; }
+  .ow-track { grid-auto-columns: 128px; }
+}
