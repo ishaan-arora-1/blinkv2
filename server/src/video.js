@@ -249,6 +249,63 @@ export async function startGeneration({ prompt, creatorImage, productImage, opti
 }
 
 /**
+ * MiniMax takes a resolution enum with a capital P, and has no 720 — 768P is
+ * the nearest native size and is slightly larger, so nothing is downscaled.
+ */
+const MINIMAX_RESOLUTION = { '720p': '768P', '1080p': '1080P' }
+
+/**
+ * The scene payload, in whichever dialect the configured model speaks.
+ *
+ * fal is a gateway, not a standard: two image-to-video endpoints behind the
+ * same API take different field names, different types for the same idea and
+ * different enums. Veo wants `duration: "8s"` and MiniMax wants `duration: 8`;
+ * send one the other's payload and it 422s. So the model is chosen by env var
+ * and the payload is built to match, rather than one object hopefully covering
+ * both.
+ *
+ * Silence is the invariant across all of them, and this is the one place it is
+ * decided. Veo generates audio in the same pass, which is right for a single
+ * clip and wrong for a reel: each scene is an independent generation with no
+ * shared voice identity, so four scenes came back in four different voices and
+ * no sentence could carry across a cut. The reel gets one narration track laid
+ * over the whole thing instead — see voice.js — and dialogue baked into the
+ * picture would fight it. Veo needs telling; MiniMax is silent unless handed a
+ * `target_audio_url`, so there the invariant is kept by passing nothing.
+ */
+function sceneInputFor(model, { prompt, imageUrl, options }) {
+  if (model.startsWith('minimax/')) {
+    return {
+      prompt,
+      image_url: imageUrl,
+      // A number of seconds, not an enum string. Accepts 0.92–15, so every
+      // duration the product offers maps straight through.
+      duration: options.duration,
+      resolution: MINIMAX_RESOLUTION[options.resolution] || '768P',
+      // 'quality' spends up to ~30s rewriting the prompt before it starts. Our
+      // prompts are already written by the planner from the scene description,
+      // so that is 30s of latency per scene to re-edit prose that was authored
+      // for this exact shot.
+      prompt_expansion_mode: 'balanced',
+      // No aspect_ratio field: the output follows the still, which is what the
+      // reel wants anyway — the frame was rendered at the reel's ratio already.
+      // No negative_prompt field either, so options.negativePrompt is dropped
+      // here rather than silently rejected by the endpoint.
+    }
+  }
+
+  return {
+    prompt,
+    resolution: options.resolution,
+    duration: `${options.duration}s`,
+    generate_audio: false,
+    image_url: imageUrl,
+    aspect_ratio: 'auto',
+    ...(options.negativePrompt ? { negative_prompt: options.negativePrompt } : {}),
+  }
+}
+
+/**
  * Kick off one Multiframe scene: a clip driven from a still we generated.
  *
  * Separate from startGeneration rather than a third image source inside it. The
@@ -264,24 +321,7 @@ export async function startGeneration({ prompt, creatorImage, productImage, opti
  * at the reel's ratio already, and forcing a ratio on top of it crops the shot.
  */
 export async function startSceneGeneration({ prompt, imageUrl, options }) {
-  const input = {
-    prompt,
-    resolution: options.resolution,
-    duration: `${options.duration}s`,
-    // Silent on purpose, and this is the one place it is decided.
-    //
-    // Veo generates audio in the same pass, which is exactly right for Blink
-    // AI: one clip, one voice, done. It is wrong for a reel. Each scene is an
-    // independent generation with no shared voice identity, so four scenes came
-    // back in four different voices, and no sentence could carry across a cut
-    // because every clip's audio restarted at the join. The reel gets one
-    // narration track laid over the whole thing instead — see voice.js — and
-    // dialogue baked into the picture would fight it.
-    generate_audio: false,
-    image_url: imageUrl,
-    aspect_ratio: 'auto',
-    ...(options.negativePrompt ? { negative_prompt: options.negativePrompt } : {}),
-  }
+  const input = sceneInputFor(env.fal.videoImageModel, { prompt, imageUrl, options })
 
   const data = await callQueue(env.fal.videoImageModel, { method: 'POST', body: input })
   if (!data.status_url) {

@@ -78,8 +78,15 @@ export const env = {
     //
     // It costs materially more per second, which is what the 25-a-month cap
     // below is for.
-    videoModel: optional('FAL_VIDEO_MODEL', 'fal-ai/veo3.1/fast'),
-    videoImageModel: optional('FAL_VIDEO_IMAGE_MODEL', 'fal-ai/veo3.1/fast/image-to-video'),
+    // Veo 3.1 Fast was deprecated on fal on 2026-11-17 and cost $0.10 a second
+    // with audio off. MiniMax H3 Max is $0.03 — fal describe it as post-trained
+    // for stronger prompt adherence and better aesthetics "with no compromises
+    // on output quality", which is the reason it is the default rather than
+    // h3-max-turbo at $0.015. Turbo is one env var away once its output has
+    // been eyeballed against real reels; the payload dialect is identical, so
+    // nothing but this string has to change. See sceneInputFor in video.js.
+    videoModel: optional('FAL_VIDEO_MODEL', 'minimax/h3-max/text-to-video'),
+    videoImageModel: optional('FAL_VIDEO_IMAGE_MODEL', 'minimax/h3-max/image-to-video'),
 
     // Multiframe's narration. ElevenLabs through fal, so it bills against the
     // same key as everything else — the reason video left Google's own balance.

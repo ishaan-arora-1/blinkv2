@@ -75,9 +75,19 @@ export const FEATURE_LABEL = {
  * migration that exists because those two drifted apart, so they move together
  * or not at all.
  *
- * The costs they are set against, at fal's published rates: video is $0.10 a
- * second with audio off, a frame is $0.039, and narration is $0.10 per
- * thousand characters — about $0.11 an all-in second.
+ * The costs they are set against, at fal's published rates as of 2026-11-17:
+ * video is $0.03 a second on MiniMax H3 Max, a frame is $0.0398 on Nano
+ * Banana, and narration is $0.10 per thousand characters on ElevenLabs v3.
+ * A default reel — four scenes of eight seconds — is 32s of video at $0.96,
+ * four frames at $0.16 and roughly 450 characters of script at $0.05: about
+ * $1.17, or $0.036 an all-in second.
+ *
+ * That number was $0.11 until the Veo 3.1 Fast deprecation forced a model
+ * change, which cut it by two thirds. The allowances below have NOT been
+ * raised to match, so Studio's 120 seconds now costs about $4.35 against a $49
+ * plan where it used to cost $13. Raising them is a pricing decision, not a
+ * cleanup — but it is the cheap way to make "a new 30-second ad every week"
+ * into a bigger number, and the margin is already there to pay for it.
  */
 export const ALLOWANCE = {
   free:    { videoSeconds: 0,   animatedSlides: 0,   frameRevisions: 0 },
