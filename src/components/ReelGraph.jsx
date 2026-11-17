@@ -9,8 +9,6 @@ import {
   PEAKS,
   FINAL,
   frameSrc,
-  clipSrc,
-  chosenFrame,
   clock,
 } from '../lib/reelStory.js'
 
@@ -25,7 +23,8 @@ const AXIS_ANCHORS = ['prompt', 'final']
  * each — and the argument drowned in it. The pipeline is a graph: one prompt
  * fans out into frames, each frame becomes a clip, the clips converge with a
  * script and a voice into one video. Drawing it that way says the same thing in
- * a glance and leaves the pictures to do the selling.
+ * a glance and leaves the pictures to do the selling. (The clips column is
+ * gone — see the note where it used to render.)
  *
  * The edges are measured, not authored — see lib/graphEdges.js. Every node
  * registers its box and the curves are recomputed from those, which is what
@@ -45,8 +44,7 @@ export default function ReelGraph() {
   const declare = useCallback((link) => {
     SCENES.forEach((s) => {
       link('prompt', `frame-${s.id}`)
-      link(`frame-${s.id}`, `clip-${s.id}`)
-      link(`clip-${s.id}`, 'cut')
+      link(`frame-${s.id}`, 'cut')
     })
     link('script', 'cut')
     link('voice', 'cut')
@@ -81,11 +79,11 @@ export default function ReelGraph() {
           ))}
         </Column>
 
-        <Column label="the clips" rows={SCENES.length}>
-          {SCENES.map((s) => (
-            <ClipNode key={s.id} scene={s} reduced={reduced} innerRef={register(`clip-${s.id}`)} />
-          ))}
-        </Column>
+        {/* No "the clips" column. The five scene clips were filmed on Veo and
+            carry Gemini's watermark in the corner, which this page — an ad
+            for footage that does not look generated — cannot show. The
+            finished cut is clean, so each frame runs straight into it. The
+            files are still under /public/story/clips for the /ad page. */}
 
         <Column label="the cut">
           <ScriptNode innerRef={register('script')} />
@@ -232,28 +230,6 @@ function FrameNode({ scene, innerRef }) {
           {shown ? shown.instruction || 'as first drawn' : 'one shot, redrawn'}
         </span>
       )}
-    </div>
-  )
-}
-
-function ClipNode({ scene, reduced, innerRef }) {
-  const clip = clipSrc(chosenFrame(scene).id)
-  const video = useAutoPlay(reduced)
-
-  return (
-    <div className="rg-clip" ref={innerRef}>
-      <video
-        ref={video}
-        src={clip.src}
-        poster={clip.poster}
-        muted
-        loop
-        playsInline
-        preload="none"
-        controls={reduced}
-        aria-label={`${scene.title}, filmed`}
-      />
-      <span className="rg-secs">{Math.round(scene.seconds)}s</span>
     </div>
   )
 }

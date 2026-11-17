@@ -128,9 +128,8 @@ export default function AdLanding() {
               This is one run, <em>every step of it</em>.
             </h2>
             <p style={{ marginLeft: 'auto', marginRight: 'auto' }}>
-              The brief that was typed for a supplement brand, the frames it drew, the clips it
-              filmed, the script, the voice, and the 29-second ad that came out. Nothing here is
-              a mock-up.
+              The brief that was typed for a supplement brand, the frames it drew, the script,
+              the voice, and the 29-second ad it filmed from them. Nothing here is a mock-up.
             </p>
           </div>
 
