@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { DEMO } from '../lib/demoIdeas.js'
+import { FEATURED } from '../lib/outputs.js'
 import SignInButton from './SignInButton.jsx'
 
 /**
@@ -39,7 +40,7 @@ export function IdeasShowcase() {
           <div className="lf-chips">{DEMO.angles.map((a) => <span key={a}>{a}</span>)}</div>
         </div>
 
-        <div className="lf-ideas-out">
+        <div className="lf-ideas-out" id="ideas-ads">
           {DEMO.ads.map((ad) => (
             <div key={ad.hook} className="lf-ad">
               <div className="lf-ad-top">
@@ -62,7 +63,7 @@ export function IdeasShowcase() {
   )
 }
 
-function DemoClip({ src, poster }) {
+function DemoClip({ src, poster, tag }) {
   const ref = useRef(null)
   const [muted, setMuted] = useState(true)
   useEffect(() => {
@@ -76,7 +77,7 @@ function DemoClip({ src, poster }) {
     <div className="lf-clip">
       <video ref={ref} src={src} poster={poster} muted={muted} loop playsInline preload="metadata" />
       <button className="lf-sound" onClick={() => setMuted((m) => !m)}>{muted ? '🔈 Tap for sound' : '🔊 Sound on'}</button>
-      <span className="lf-clip-tag">AI actor · real take</span>
+      <span className="lf-clip-tag">{tag}</span>
     </div>
   )
 }
@@ -101,9 +102,13 @@ export function ActorsShowcase() {
           </ul>
           <SignInButton label="Cast your first actor" className="btn primary" intent="studio" />
         </div>
-        <DemoClip src="/actors/demo-take.mp4" poster="/actors/demo-take.jpg" />
+        {/* The centre clip of the hero, with its sound: a creator holding the
+            product and talking to camera, which is the format this section
+            sells. It is client work rather than an AI Actors take, so the tag
+            says made with Blink and does not claim more than that. */}
+        <DemoClip src={FEATURED[1].hd || FEATURED[1].src} poster={FEATURED[1].poster} tag="Made with Blink" />
       </div>
-      <div className="lf-faces">
+      <div className="lf-faces" id="actors-faces">
         {FACES.map(([f, name]) => (
           <div key={f} className="lf-face">
             <img src={`/creators/${f}.jpg`} alt={name} loading="lazy" />

@@ -4,7 +4,7 @@ import { fetchPlans } from '../lib/razorpay.js'
 import { money } from '../lib/money.js'
 import { supabase, isLocalSupabase } from '../lib/supabase.js'
 import { enquiryHref, CONTACT_EMAIL } from '../lib/contact.js'
-import { FEATURED, UGC, PRODUCT, STATICS } from '../lib/outputs.js'
+import { FEATURED, UGC, PRODUCT } from '../lib/outputs.js'
 import { BLACK_FRIDAY, savingFor } from '../lib/blackfriday.js'
 import Logo from '../components/Logo.jsx'
 import SignInButton from '../components/SignInButton.jsx'
@@ -211,9 +211,8 @@ export default function Landing() {
               the reader can watch, so the watching comes first and the claims
               come after, where they read as captions rather than promises. */}
           <div id="work" className="v3-galleries">
-            <Gallery title="UGC" note={`${UGC.length} clips`} items={UGC} onPlay={setPlaying} />
-            <Gallery title="Product film" note={`${PRODUCT.length} clips`} items={PRODUCT} onPlay={setPlaying} />
-            <Gallery title="Statics" note={`${STATICS.length} frames`} items={STATICS} kind="still" />
+            <div id="work-ugc"><Gallery title="UGC" note={`${UGC.length} clips`} items={UGC} onPlay={setPlaying} /></div>
+            <div id="work-product"><Gallery title="Product film" note={`${PRODUCT.length} clips`} items={PRODUCT} onPlay={setPlaying} /></div>
           </div>
 
           <IdeasShowcase />
@@ -294,13 +293,13 @@ export default function Landing() {
           </section>
 
           {/* ── FAQ ── */}
-          <section className="v3-section">
+          <section className="v3-section" id="faq">
             <div className="v2-head center"><h2>Before you <em>start</em>.</h2></div>
             <div className="lp-faq">
               <details>
                 <summary>Does it actually look real?</summary>
                 <p>
-                  Judge the rows above rather than take our word for it — every clip and frame on
+                  Judge the rows above rather than take our word for it — every clip on
                   this page came out of Blink. Frames are prompted against the specific things that
                   give generated footage away, and each scene is drawn from the first, so the same
                   person stays in the same room across a cut.

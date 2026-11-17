@@ -485,7 +485,9 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
  * Everything is fluid — the marketing page gets visited on a phone far more
  * often than the studio does. */
 
-.lp { position: relative; overflow-x: hidden; }
+/* clip, not hidden: hidden makes .lp a scroll container, which silently
+   breaks the side rail's position: sticky. */
+.lp { position: relative; overflow-x: clip; }
 .lp-wrap { width: min(1120px, 92vw); margin: 0 auto; }
 
 /* Two soft brand glows, fixed behind the content. */
@@ -2026,13 +2028,22 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
   color: var(--paper); opacity: 0.92; padding: 0 8px; margin-bottom: 8px;
 }
 .rail-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
-.rail-group li {
-  display: flex; align-items: center; gap: 10px;
-  padding: 7px 8px; border-radius: 9px;
+.rail-link {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 7px 8px; border-radius: 9px; border: 1px solid transparent;
+  background: transparent; font: inherit; text-align: left; cursor: pointer;
   font-size: 13.5px; color: #c9c9d2;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.rail-group li:hover { background: rgba(255, 255, 255, 0.04); color: var(--paper); }
+.rail-link:hover { background: rgba(255, 255, 255, 0.05); color: var(--paper); }
+.rail-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.rail-link.on { background: var(--brand-soft); border-color: rgba(255, 74, 28, 0.28); color: var(--paper); }
+.rail-link.on .rail-ico { background: var(--brand); color: #fff; }
+.rail-go { margin-left: auto; font-size: 11px; color: var(--muted); opacity: 0; transition: opacity 0.15s; }
+.rail-tag + .rail-go { margin-left: 6px; }
+.rail-link:hover .rail-go { opacity: 1; }
+.rail-brand { background: none; border: none; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+#ideas-ads, #actors-faces, #work-ugc, #work-product { scroll-margin-top: 90px; }
 .rail-ico {
   flex: none; width: 24px; height: 24px; display: grid; place-items: center;
   border-radius: 7px; font-size: 12px; line-height: 1;
