@@ -16,6 +16,8 @@ export const FEATURE_TIER = {
   sets: 'creator',
   blink: 'studio',
   multiframe: 'studio',
+  ideas: 'free',
+  actors: 'studio',
 }
 
 /** The plan name that unlocks a feature — 'Studio' for Blink AI. */

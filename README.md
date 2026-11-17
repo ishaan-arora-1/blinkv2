@@ -9,6 +9,22 @@ storefronts and B2B software as well as apps.
 
 ## What's in it
 
+- **Ad Ideas** (free, every tier) — paste a product link (or describe the
+  product). The server reads the page — JSON-LD, Open Graph, Shopify's
+  `/products/x.js` — and a copywriter model (`FAL_COPY_MODEL`, Claude Haiku via
+  fal any-llm) returns the buyer, personas, pain points, objections, proof and
+  six angles. **Hook Lab** then writes batches of complete ads per angle and
+  framework: hook, script timed to 15/30/45s, caption, shot, CTA and a hook
+  score. Every ad has one-tap hand-offs to AI Actors and Blink AI. Capped per
+  day by tier in `server/src/routes/ideas.js`. Page fetching is SSRF-guarded.
+- **AI Actors** (Studio+) — one of the ten creators, or the customer's own
+  selfie ("clone yourself", consent required), reads a script to camera,
+  lip-synced: ElevenLabs narration → optional nano-banana composite that puts
+  the real product photo in their hand → Kling AI Avatar v2
+  (`FAL_AVATAR_MODEL`, $0.056/s). Spends seconds from the same monthly
+  allowance as Blink AI. Rows live in `actor_videos`
+  (`0035_ai_actors_and_ad_ideas.sql`), polled via `/api/actors/:id`.
+
 - **Carousels** — pick a photo set and a copy angle, get a full hook → body → CTA
   carousel. Every text layer is draggable and restyleable. Exports 1080 × 1350
   PNGs, one at a time or the whole set as a ZIP.

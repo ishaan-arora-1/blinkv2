@@ -12,6 +12,8 @@ import { webhooksRouter } from './routes/webhooks.js'
 import { veoRouter } from './routes/veo.js'
 import { animatedRouter } from './routes/animated.js'
 import { multiframeRouter } from './routes/multiframe.js'
+import { ideasRouter } from './routes/ideas.js'
+import { actorsRouter } from './routes/actors.js'
 import { requireAuth } from './middleware/auth.js'
 import { notFoundHandler, errorHandler } from './middleware/errors.js'
 
@@ -131,6 +133,11 @@ app.use('/api/animated', requireAuth, byUser(60_000, 90, 'Too many requests. Try
 // request per scene still rendering. The budget is the same as the other two —
 // the fan-out is bounded by MAX_IN_FLIGHT of one reel, not by the caller.
 app.use('/api/multiframe', requireAuth, byUser(60_000, 90, 'Too many requests. Try again shortly.'), multiframeRouter)
+// Ad Ideas is a model call per request and nothing polls it, so the per-minute
+// budget is small; the real ceiling is the per-day count in routes/ideas.js.
+app.use('/api/ideas', requireAuth, byUser(60_000, 20, 'Slow down a little — try again in a minute.'), ideasRouter)
+// AI Actors polls like Blink AI does, a take every few seconds.
+app.use('/api/actors', requireAuth, byUser(60_000, 90, 'Too many requests. Try again shortly.'), actorsRouter)
 
 app.use(notFoundHandler)
 app.use(errorHandler)

@@ -105,6 +105,19 @@ export const env = {
     // reel: Veo cannot hold one voice across separate generations, so a
     // four-scene reel came back in four of them.
     voiceModel: optional('FAL_VOICE_MODEL', 'fal-ai/elevenlabs/tts/eleven-v3'),
+
+    // Ad Ideas: the product read, the angles, the hooks and the scripts. A
+    // separate model from textModel on purpose — slide copy is a few words and
+    // any model will do, but a hook is the whole ad and the difference between
+    // a cheap model and a good one is the difference between "Introducing X"
+    // and something that stops a thumb.
+    copyModel: optional('FAL_COPY_MODEL', 'anthropic/claude-haiku-5.5'),
+
+    // AI Actors: a still portrait and a narration track in, a lip-synced
+    // talking video out. Kling's v2 Standard avatar is $0.056 a second — about
+    // half what Blink AI scenes used to cost — so it spends from the same
+    // seconds allowance one-for-one with room to spare.
+    avatarModel: optional('FAL_AVATAR_MODEL', 'fal-ai/kling-video/ai-avatar/v2/standard'),
   },
 
   // The monthly allowances used to live here as two flat numbers. They are now

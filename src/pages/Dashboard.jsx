@@ -2,6 +2,46 @@ import React from 'react'
 import { useStore } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { planFor } from '../lib/tiers.js'
+import { queueLink } from '../lib/ideas.js'
+import { go } from '../lib/router.js'
+
+/**
+ * The first box on the first screen. A link is the cheapest thing anyone can
+ * give us and the fastest way to show the product understood theirs — thirty
+ * seconds later they are reading ads written for it.
+ */
+function LinkStart() {
+  const [url, setUrl] = React.useState('')
+  const submit = () => {
+    if (!url.trim()) return
+    queueLink(url.trim())
+    go('/ideas')
+  }
+  return (
+    <div className="card dash-link">
+      <div className="row" style={{ gap: 8 }}>
+        <span className="chip brand">Start here</span>
+        <span className="chip">free</span>
+      </div>
+      <div className="dash-link-title">Paste your product link. Get 30 ads written for it.</div>
+      <div className="ai-url mt-4">
+        <span className="ai-url-ico" aria-hidden="true">🔗</span>
+        <input
+          className="input"
+          placeholder="yourshop.com/products/your-best-seller"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+        />
+        <button className="btn primary" disabled={!url.trim()} onClick={submit}>✦ Write my ads</button>
+      </div>
+      <div className="small muted mt-2">
+        Buyer personas, pain points, six angles and ready-to-film scripts — then one tap sends any of them to an AI
+        actor or a Blink AI reel.
+      </div>
+    </div>
+  )
+}
 
 export default function Dashboard() {
   const store = useStore()
@@ -17,6 +57,35 @@ export default function Dashboard() {
         </h1>
         <p className="page-sub">{brand.tagline || 'Pick a format and start minting content.'}</p>
       </div>
+
+      <LinkStart />
+
+      <button
+        className="tile dash-actors"
+        onClick={() => go('/actors')}
+        style={{ padding: 0, width: '100%', marginBottom: 18, textAlign: 'left' }}
+      >
+        <div className="dash-actors-inner">
+          <div className="dash-actors-faces" aria-hidden="true">
+            {['casual-girl', 'tech-guy', 'older-woman', 'gym-girl', 'dad-guy'].map((f) => (
+              <img key={f} src={`/creators/${f}.jpg`} alt="" loading="lazy" />
+            ))}
+          </div>
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <div className="row" style={{ gap: 8, marginBottom: 8 }}>
+              <span className="chip accent">AI Actors</span>
+              <span className="chip">new</span>
+              {!can.actors && <span className="chip">{planFor('actors')} plan</span>}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>A real-looking creator reads your script.</div>
+            <div className="tile-sub" style={{ fontSize: 14, maxWidth: 620 }}>
+              Lip-synced, selfie-style, holding your actual product. Ten creators to choose from — or clone yourself
+              from one photo.
+            </div>
+          </div>
+          <div className="chip accent" style={{ alignSelf: 'flex-end' }}>Film a take →</div>
+        </div>
+      </button>
 
       {/* Blink AI sits above the pair and spans both, because it is the one
           that makes a finished video rather than a piece of one. The other two

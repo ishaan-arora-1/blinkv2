@@ -194,3 +194,35 @@ export function takeIdea() {
     return null
   }
 }
+
+/* ── The product link they pasted before they had an account ─────────────────
+ *
+ * Ad Ideas is free, so the landing page can offer it with no paywall: paste a
+ * link, sign in, and the first screen after onboarding is that product being
+ * read and thirty ads being written for it. The link survives the OAuth round
+ * trip the same way the idea does, in localStorage, consumed once.
+ */
+const LINK_KEY = 'blink.link'
+
+export function markLink(url) {
+  const text = String(url || '').trim().slice(0, 500)
+  if (!text) return
+  try {
+    localStorage.setItem(LINK_KEY, JSON.stringify({ text, at: Date.now() }))
+  } catch {
+    // Without storage they land on the studio and paste it again.
+  }
+}
+
+export function takeLink() {
+  try {
+    const raw = localStorage.getItem(LINK_KEY)
+    localStorage.removeItem(LINK_KEY)
+    if (!raw) return null
+    const { text, at } = JSON.parse(raw)
+    // A day old is a different visit.
+    return text && Date.now() - at < 24 * 60 * 60 * 1000 ? text : null
+  } catch {
+    return null
+  }
+}

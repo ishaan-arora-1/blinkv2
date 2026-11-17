@@ -17,21 +17,30 @@ import Logo from './Logo.jsx'
  */
 const GROUPS = [
   {
+    name: 'Plan',
+    items: [
+      { ico: '✺', label: 'Ad Ideas from a link', tag: 'Free' },
+      { ico: '◎', label: 'Buyer personas' },
+      { ico: '⟡', label: 'Six ad angles' },
+      { ico: '✍', label: 'Hook Lab scripts' },
+    ],
+  },
+  {
     name: 'Create',
     items: [
+      { ico: '◉', label: 'AI Actors', tag: 'New' },
       { ico: '✦', label: 'Blink AI reel', tag: 'Studio' },
       { ico: '▶', label: 'Hook video' },
       { ico: '❏', label: 'Instagram post' },
-      { ico: '❖', label: 'Image set' },
     ],
   },
   {
     name: 'Direct',
     items: [
+      { ico: '☺', label: 'Clone yourself' },
+      { ico: '✋', label: 'Product in hand' },
       { ico: '✎', label: 'Redraw any frame' },
-      { ico: '◉', label: 'Pick the voice', tag: '8' },
-      { ico: '✍', label: 'Rewrite the script' },
-      { ico: '⟡', label: 'Scene length' },
+      { ico: '♫', label: 'Pick the voice', tag: '8' },
     ],
   },
   {
@@ -47,13 +56,14 @@ const GROUPS = [
     name: 'Set up',
     items: [
       { ico: '✧', label: 'Brand voice' },
+      { ico: '❖', label: 'Image sets' },
       { ico: '▤', label: 'Library' },
     ],
   },
 ]
 
 /** What actually renders the frames, the film, the read and the script. */
-const MODELS = ['MiniMax H3', 'Nano Banana', 'ElevenLabs', 'Gemini']
+const MODELS = ['Kling Avatar', 'MiniMax H3', 'Nano Banana', 'ElevenLabs', 'Claude', 'Gemini']
 
 export default function SideRail() {
   return (

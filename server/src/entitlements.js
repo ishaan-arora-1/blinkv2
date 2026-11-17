@@ -31,6 +31,14 @@ export const FEATURE_TIER = {
   // Blink AI. The only feature that spends real money per second, and the
   // reason Studio exists.
   multiframe: 'studio',
+  // Ad Ideas: a product link in, a strategy and scripts out. Text only, a
+  // fraction of a cent a run, and the best thing a free account can be shown —
+  // thirty ads written for its own product, each with a button that films it.
+  // Capped per day by tier in routes/ideas.js rather than locked.
+  ideas: 'free',
+  // AI Actors: a creator reads the script to camera, lip-synced. Spends video
+  // seconds from the same allowance as Blink AI.
+  actors: 'studio',
 }
 
 /**
@@ -46,7 +54,7 @@ export const FEATURE_TIER = {
  * comp'd or promotional tier being a pricing decision and it being an
  * unmetered vendor bill nobody notices until it arrives.
  */
-export const METERED = new Set(['animated', 'blink', 'multiframe'])
+export const METERED = new Set(['animated', 'blink', 'multiframe', 'actors'])
 
 /** The plan name a user must be on to unlock a feature, for error copy. */
 export const PLAN_NAME = { creator: 'Creator', studio: 'Studio', agency: 'Agency' }
@@ -59,6 +67,8 @@ export const FEATURE_LABEL = {
   sets: 'Custom image sets',
   blink: 'Blink AI clips',
   multiframe: 'Blink AI',
+  ideas: 'Ad Ideas',
+  actors: 'AI Actors',
 }
 
 /**

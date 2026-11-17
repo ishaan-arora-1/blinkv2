@@ -12,6 +12,7 @@ import Gallery from '../components/Gallery.jsx'
 import SideRail from '../components/SideRail.jsx'
 import PromptBar from '../components/PromptBar.jsx'
 import Paywall from '../components/Paywall.jsx'
+import { IdeasShowcase, ActorsShowcase, ValueStack } from '../components/LandingFeatures.jsx'
 
 /**
  * Scrolls to a section without touching the URL hash.
@@ -166,28 +167,29 @@ export default function Landing() {
             <Logo size={23} className="v3-nav-logo" />
             <div className="spacer" />
             <SectionLink to="work" className="v3-nav-link">Work</SectionLink>
-            <SectionLink to="how" className="v3-nav-link">How it works</SectionLink>
+            <SectionLink to="ideas" className="v3-nav-link">Ad Ideas</SectionLink>
+            <SectionLink to="actors" className="v3-nav-link">AI Actors</SectionLink>
             <SectionLink to="pricing" className="v3-nav-link">Pricing</SectionLink>
             <SignInButton label="Log in" className="btn primary sm" />
           </nav>
 
           {/* ── Hero ── */}
           <header className="v3-hero">
-            <span className="chip brand">One photo in. A finished ad out.</span>
+            <span className="chip brand">Strategy, scripts, actors and edits — one tab</span>
             <h1>
               Ads that look <em>shot</em>,<br />not generated.
             </h1>
             <p>
-              Upload your product. Blink writes the script, draws every frame, films each one,
-              reads it aloud and burns in the subtitles — a finished, ready-to-post ad in minutes,
-              not a shoot.
+              Paste your product link. Blink works out who buys it and why, writes the hooks and scripts, casts an
+              AI creator to say them with your product in hand, and cuts the finished ad — subtitles, voice and all.
+              In minutes, not a shoot.
             </p>
             <PromptBar onPaywall={setAsked} />
             <div className="v2-cta center">
               <SignInButton label="Make your first ad" className="btn primary lg" />
               <SectionLink to="pricing" className="btn lg ghost">See pricing</SectionLink>
             </div>
-            <span className="v2-cta-note">Describe the ad, or start from a product photo · First ad in under 10 minutes</span>
+            <span className="v2-cta-note">Ad Ideas is free — no card · First finished ad in under 10 minutes</span>
 
             {isLocalSupabase && <DevSignIn />}
             {authError && (
@@ -213,6 +215,13 @@ export default function Landing() {
             <Gallery title="Product film" note={`${PRODUCT.length} clips`} items={PRODUCT} onPlay={setPlaying} />
             <Gallery title="Statics" note={`${STATICS.length} frames`} items={STATICS} kind="still" />
           </div>
+
+          <IdeasShowcase />
+          <ActorsShowcase />
+          <ValueStack price={(() => {
+            const studio = monthly.find((p) => p.tier === 'studio')
+            return studio ? money(studio.price, studio.currency) : null
+          })()} />
 
           {/* ── Pricing, early ──
               Up here rather than at the end: somebody who has just watched
@@ -302,6 +311,22 @@ export default function Landing() {
                 <p>
                   One photo of your product and one sentence. A better photo is reproduced more
                   exactly, and that is the only lever that really matters.
+                </p>
+              </details>
+              <details>
+                <summary>What does Ad Ideas need from me?</summary>
+                <p>
+                  A link to your product page — Shopify, WooCommerce, an app listing or a SaaS homepage all work.
+                  If a site blocks us, describe the product in a couple of sentences instead. It's free on every
+                  account, with no card.
+                </p>
+              </details>
+              <details>
+                <summary>Can the AI actor use my face?</summary>
+                <p>
+                  Yes. Upload a well-lit selfie and you become one of the actors, reading any script in your own
+                  likeness. You confirm it's you, or that you have the person's permission, before anything is
+                  filmed.
                 </p>
               </details>
               <details>

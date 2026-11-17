@@ -6,7 +6,8 @@ import { useStore } from './lib/store.jsx'
 import { isApiConfigured } from './lib/api.js'
 import { isConfigured as isSupabaseConfigured } from './lib/supabase.js'
 import { planFor, isPaying } from './lib/tiers.js'
-import { consumeEntryRoute, pendingIntent, clearIntent } from './lib/entry.js'
+import { consumeEntryRoute, pendingIntent, clearIntent, takeLink } from './lib/entry.js'
+import { queueLink } from './lib/ideas.js'
 
 import Dashboard from './pages/Dashboard.jsx'
 import Brand from './pages/Brand.jsx'
@@ -16,6 +17,8 @@ import CarouselEditor from './pages/CarouselEditor.jsx'
 import Videos from './pages/Videos.jsx'
 import VideoEditor from './pages/VideoEditor.jsx'
 import BlinkAI from './pages/BlinkAI.jsx'
+import AdIdeas from './pages/AdIdeas.jsx'
+import Actors from './pages/Actors.jsx'
 import Library from './pages/Library.jsx'
 import Onboarding from './pages/Onboarding.jsx'
 import Landing from './pages/Landing.jsx'
@@ -42,7 +45,12 @@ const NAV = [
   // gone and this is what the product means by it now — one idea, several
   // scenes, narrated and cut together. The feature key stays 'multiframe',
   // which is what the server gates and meters on.
-  { path: '/blink', label: 'Blink AI', ico: '✦', section: 'Create', feature: 'multiframe' },
+  // Ad Ideas leads, because it is where a new account should start: paste a
+  // link, see the product understood, and leave with scripts that every other
+  // maker on this list can film. It is the one creative tool on every tier.
+  { path: '/ideas', label: 'Ad Ideas', ico: '✺', section: 'Create', badge: 'new' },
+  { path: '/blink', label: 'Blink AI', ico: '✦', section: null, feature: 'multiframe' },
+  { path: '/actors', label: 'AI Actors', ico: '◉', section: null, feature: 'actors', badge: 'new' },
   { path: '/carousels', label: 'Carousels', ico: '❏', section: null },
   { path: '/videos', label: 'Videos', ico: '▶', section: null, feature: 'videos' },
   { path: '/library', label: 'Library', ico: '▤', section: null },
@@ -163,6 +171,16 @@ function Routed({ route, auth }) {
   const onboarded = store.state.brand?.onboarded
   React.useEffect(() => {
     if (!onboarded) return
+    // A product link pasted on the landing page outranks the plan route: it is
+    // the most specific thing they told us, and Ad Ideas is free, so it never
+    // lands them on a lock.
+    const link = takeLink()
+    if (link) {
+      consumeEntryRoute()
+      queueLink(link)
+      go('/ideas')
+      return
+    }
     const dest = consumeEntryRoute()
     if (dest) go(dest)
   }, [onboarded])
@@ -195,6 +213,8 @@ function Routed({ route, auth }) {
   // Where the feature used to live, kept so an open tab or a bookmark still
   // lands somewhere real.
   if (route === '/multiframe') return <BlinkAI />
+  if (route === '/ideas') return <AdIdeas />
+  if (route === '/actors') return <Actors />
   if (route === '/library') return <Library />
   if (route === '/sets') return <Sets />
   if (route === '/brand') return <Brand />
@@ -279,6 +299,7 @@ function Shell({ route, auth, children }) {
                   <span className="ico">{n.ico}</span>
                   {n.label}
                   {locked && <span className="lock">{planFor(n.feature)}</span>}
+                  {!locked && n.badge && <span className="nav-badge">{n.badge}</span>}
                 </a>
               </React.Fragment>
             )

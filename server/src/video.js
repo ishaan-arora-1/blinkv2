@@ -361,3 +361,17 @@ export async function downloadVideo(videoUri) {
 function extractVideoUri(r) {
   return r?.video?.url || r?.videos?.[0]?.url || r?.output?.video?.url || null
 }
+
+/**
+ * Submit any queued fal job and return what to poll, for models that are not
+ * the scene model — AI Actors' avatar model, today. Same error mapping and
+ * logging as every other video request, which is the reason it is here rather
+ * than a second fetch wrapper in actors.js.
+ */
+export async function submitQueued(model, input) {
+  const data = await callQueue(model, { method: 'POST', body: input })
+  if (!data.status_url) {
+    throw new ApiError(502, 'generation_no_operation', 'The generator accepted the job but returned nothing to poll.')
+  }
+  return { operationName: data.status_url }
+}
