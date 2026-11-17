@@ -147,3 +147,50 @@ export function consumeEntryRoute() {
   clear()
   return routeForTier(note.tier) || (note.source === 'ad' ? '/blink' : null)
 }
+
+/* ── The idea they typed before they had an account ──────────────────────────
+ *
+ * The landing page now has a prompt box, and a prompt box that throws away
+ * what was typed into it is a prop. Somebody who writes two sentences about
+ * their product, is told to subscribe, pays, and then arrives at an empty
+ * textarea has been asked to do the same work twice — and the second time
+ * without the enthusiasm that produced the first draft.
+ *
+ * Kept under its own key rather than inside the entry note: the note is spent
+ * at the checkout, and the idea is needed on the screen after that. One shared
+ * record would mean clearing one clears the other.
+ */
+const IDEA_KEY = 'blink.idea'
+
+/** The server caps the idea at 600 characters; there is no point storing more. */
+const IDEA_MAX = 600
+
+export function markIdea(idea) {
+  const text = String(idea || '').trim().slice(0, IDEA_MAX)
+  if (!text) return
+  try {
+    localStorage.setItem(IDEA_KEY, JSON.stringify({ text, at: Date.now() }))
+  } catch {
+    /* Private mode. They retype it; nothing else breaks. */
+  }
+}
+
+/**
+ * The idea, consumed.
+ *
+ * Read-and-clear rather than read: it prefills one textarea once. Leaving it
+ * in place would repopulate the box every time they came back to start a
+ * second reel, overwriting whatever they had begun to type.
+ */
+export function takeIdea() {
+  try {
+    const raw = localStorage.getItem(IDEA_KEY)
+    if (!raw) return null
+    localStorage.removeItem(IDEA_KEY)
+    const note = JSON.parse(raw)
+    if (!note?.text || Date.now() - (note.at || 0) > TTL_MS) return null
+    return String(note.text).slice(0, IDEA_MAX)
+  } catch {
+    return null
+  }
+}

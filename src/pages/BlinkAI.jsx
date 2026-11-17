@@ -17,6 +17,7 @@ import {
   fmtSeconds,
 } from '../lib/multiframe.js'
 import { go } from '../lib/router.js'
+import { takeIdea } from '../lib/entry.js'
 import ReelPlayer from '../components/ReelPlayer.jsx'
 import ReelHistory from '../components/ReelHistory.jsx'
 import SceneCard from '../components/SceneCard.jsx'
@@ -53,7 +54,11 @@ export default function BlinkAI({ reelId }) {
   const [loading, setLoading] = useState(false)
 
   // ── the composer, only used when nothing is open ──
-  const [idea, setIdea] = useState('')
+  // Seeded from the landing page's prompt box when they typed one there before
+  // signing up — see takeIdea in entry.js. The lazy initialiser matters: a bare
+  // takeIdea() call would run on every render and clear the note on the first
+  // one, so the value would be gone before React committed it.
+  const [idea, setIdea] = useState(() => takeIdea() || '')
   const [sceneCount, setSceneCount] = useState(SCENE_COUNT.default)
   const [duration, setDuration] = useState(8)
   const [aspect, setAspect] = useState('9:16')

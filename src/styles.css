@@ -1456,123 +1456,6 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
   .rg-wave { height: 16px; }
 }
 
-/* ─── Multi-frame: frames, scenes, the cut ───────────────────────────────────
- *
- * Three bands that share one column grid, because the alignment is the
- * argument: the third clip sits under the third frame, so the mapping needs no
- * arrows drawn between them and no captions explaining it.
- *
- * The rail is a fixed column rather than a fraction. A label that resizes with
- * the strip pulls the five tiles narrower on exactly the screens where they are
- * already smallest. */
-.mf { display: grid; gap: clamp(20px, 2.6vw, 32px); }
-.mf-band {
-  display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
-  gap: clamp(14px, 2vw, 26px);
-  align-items: center;
-}
-.mf-rail { text-align: right; }
-.mf-rail b {
-  display: block;
-  font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em;
-  text-transform: uppercase; color: var(--accent); font-weight: 600;
-}
-.mf-rail span {
-  display: block; margin-top: 5px;
-  color: var(--muted); font-size: 12.5px; line-height: 1.4;
-}
-
-.mf-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(6px, 0.9vw, 11px); }
-.mf-tile {
-  position: relative;
-  border-radius: 11px; overflow: hidden;
-  border: 1px solid var(--line);
-  background: #131019;
-  aspect-ratio: 9 / 16;
-}
-.mf-tile img,
-.mf-tile video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-/* HookPreview brings its own .thumb-9x16 box; here the tile is already that
-   shape, so the inner one only has to fill it. */
-.mf-tile .thumb-9x16 { position: absolute; inset: 0; aspect-ratio: auto; padding: 0; }
-
-.mf-tile figcaption {
-  position: absolute; left: 0; right: 0; bottom: 0; z-index: 1;
-  padding: 14px 7px 6px;
-  background: linear-gradient(to top, rgba(8, 7, 12, 0.85), transparent);
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em;
-  text-transform: uppercase; color: var(--paper); text-align: center;
-}
-
-/* Hover-to-play is invisible until you happen to hover, so the clips band says
-   so with a glyph. Pointer-events off, or it would eat the hover it advertises. */
-.mf-clip::after {
-  content: '▶';
-  position: absolute; z-index: 1; inset: auto 0 8px 0;
-  text-align: center; pointer-events: none;
-  font-size: 11px; color: rgba(255, 255, 255, 0.82);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
-  transition: opacity 0.2s;
-}
-.mf-clip:hover::after { opacity: 0; }
-
-/* The clip's length, sitting on Veo's burnt-in sparkle.
- *
- * Measured, not guessed: the mark lands at 80.6–85.8% across and 88.9–92.2%
- * down in every generated clip. The badge is anchored and sized in cqw off
- * .mf-clip so it covers that box at any tile width — a pixel badge tuned to the
- * 182px desktop tile stops covering anything on a 64px phone tile, where the
- * watermark has shrunk with the frame but a fixed badge has not.
- *
- * It does not fade on hover the way the play glyph does. The watermark is in
- * the footage, so it is still there while the clip plays. */
-.mf-clip { container-type: inline-size; }
-.mf-dur {
-  position: absolute; z-index: 2;
-  right: 5cqw; bottom: 7cqw;
-  min-width: 17cqw; min-height: 15.5cqw;
-  display: grid; place-items: center;
-  padding: 0 1.5cqw;
-  border-radius: 4cqw;
-  background: rgba(8, 7, 12, 0.88);
-  backdrop-filter: blur(6px);
-  font-family: var(--mono);
-  font-size: clamp(6px, 8.5cqw, 15px);
-  line-height: 1;
-  color: var(--paper);
-  pointer-events: none;
-}
-
-.mf-final { display: flex; justify-content: center; }
-.mf-final video {
-  width: 100%; max-width: 248px;
-  aspect-ratio: 9 / 16; object-fit: cover;
-  border-radius: 14px; border: 1px solid var(--line);
-  background: #131019;
-  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.55);
-}
-
-.mf-foot {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
-  justify-content: center; text-align: center;
-  margin-top: clamp(4px, 1vw, 10px); padding-top: 20px;
-  border-top: 1px solid var(--line-soft);
-  color: var(--muted); font-size: 13.5px;
-}
-
-/* The rail stops being a column when there is no room for one beside five
-   tiles: it becomes a line above the strip, reading left to right. */
-@media (max-width: 760px) {
-  .mf-band { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .mf-rail { text-align: left; display: flex; align-items: baseline; gap: 9px; }
-  .mf-rail span { margin-top: 0; }
-  .mf-final { justify-content: center; }
-  /* A tile is about 64px here, and "BEDROOM" at the desktop tracking is wider
-     than that. Shrink the label rather than clip a place name in half. */
-  .mf-tile figcaption { font-size: 8px; letter-spacing: 0.03em; padding: 12px 3px 5px; }
-}
-
 /* ─── The ad page: the pipeline, built for a screen recorder ─────────────────
  *
  * Reached at #/ad. Deliberately not part of the landing page's vocabulary: the
@@ -2097,3 +1980,319 @@ input[type='color'] { border: none; background: none; width: 34px; height: 34px;
   padding: 10px 0; color: var(--muted); font-size: 14px; line-height: 1.55;
   border-top: 1px solid var(--line-soft);
 }
+
+/* ─── Landing v3: the rail and the galleries ─────────────────────────────────
+ *
+ * v3 is a layout on top of the v2 palette, not a new skin — the page still
+ * carries .lp-v2, so every token, button, plan card and modal below is the one
+ * already in use. What changes is the shape: a fixed capability rail on the
+ * left, and the work broken into named rows that run off the right edge.
+ *
+ * The rail is the argument the old page made in prose. A visitor who lands on
+ * an AI video site has one question — what can this actually do — and sixteen
+ * named controls answer it before a single word of copy is read. The rows
+ * answer the second question, which is whether the output is any good.
+ *
+ * Below 1080px the rail is gone rather than collapsed. A phone has no room for
+ * a 250px column of labels, and a hamburger that opens a list of things you
+ * cannot click is a menu that lies about being a menu. */
+.lp-v3 { background: var(--ink); }
+
+/* The ambient brand glows belong to a centred one-column page; behind a rail
+   they sit under the rail's own panel and read as a smudge. */
+.lp-v3.lp::before,
+.lp-v3.lp::after { display: none; }
+
+.v3-shell {
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr);
+  align-items: start;
+}
+
+/* ── The rail ── */
+.rail {
+  position: sticky; top: 0; height: 100vh;
+  border-right: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, #0c0c0f, #09090b);
+}
+.rail-scroll {
+  height: 100%; overflow-y: auto; scrollbar-width: none;
+  padding: 26px 16px 22px;
+  display: flex; flex-direction: column; gap: 22px;
+}
+.rail-scroll::-webkit-scrollbar { display: none; }
+.rail-group-head {
+  font-family: var(--serif); font-style: italic; font-size: 15px;
+  color: var(--paper); opacity: 0.92; padding: 0 8px; margin-bottom: 8px;
+}
+.rail-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.rail-group li {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 8px; border-radius: 9px;
+  font-size: 13.5px; color: #c9c9d2;
+  transition: background 0.15s, color 0.15s;
+}
+.rail-group li:hover { background: rgba(255, 255, 255, 0.04); color: var(--paper); }
+.rail-ico {
+  flex: none; width: 24px; height: 24px; display: grid; place-items: center;
+  border-radius: 7px; font-size: 12px; line-height: 1;
+  background: var(--brand-soft); color: var(--brand-mid);
+  border: 1px solid rgba(255, 74, 28, 0.22);
+}
+.rail-label { min-width: 0; }
+.rail-tag {
+  margin-left: auto; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 2px 7px;
+}
+.rail-models { margin-top: auto; padding-top: 18px; border-top: 1px solid var(--line-soft); }
+.rail-model-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px; }
+.rail-model-chips span {
+  font-size: 11.5px; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 7px; padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── Main column ── */
+.v3-main { min-width: 0; padding-bottom: 40px; }
+.v3-nav {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 18px;
+  padding: 14px clamp(18px, 3vw, 40px);
+  background: rgba(8, 8, 10, 0.78);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line-soft);
+}
+/* The rail already carries the wordmark at the top of the page. Repeating it
+   in the bar directly to its right is the same logo twice on one line. */
+.v3-nav-logo { visibility: hidden; }
+.v3-nav .spacer { flex: 1; }
+.v3-nav-link {
+  background: none; border: 0; cursor: pointer; color: var(--muted);
+  font: inherit; font-size: 13.5px; padding: 6px 2px;
+}
+.v3-nav-link:hover { color: var(--paper); }
+.v3-section[id], .v3-galleries { scroll-margin-top: 72px; }
+
+/* ── Hero ── */
+.v3-hero {
+  text-align: center; position: relative; overflow: hidden;
+  padding: clamp(44px, 6vw, 86px) clamp(18px, 3vw, 40px) clamp(18px, 3vw, 34px);
+}
+.v3-hero::before {
+  content: ''; position: absolute; inset: -40% 20% 55% 20%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 74, 28, 0.17), transparent);
+}
+.v3-hero > * { position: relative; }
+.v3-hero h1 {
+  font-size: clamp(38px, 5.4vw, 70px); line-height: 1.0; letter-spacing: -0.035em;
+  margin: 20px 0 0; text-wrap: balance;
+}
+.v3-hero h1 em {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  color: var(--brand); letter-spacing: -0.01em;
+}
+.v3-hero > p {
+  color: var(--muted); font-size: clamp(15px, 1.4vw, 17.5px); line-height: 1.55;
+  margin: 20px auto 0; max-width: 54ch;
+}
+.v3-hero .v2-cta { justify-content: center; margin-bottom: 12px; }
+.v3-hero .card { margin-left: auto; margin-right: auto; text-align: left; }
+.lp-v3 .btn.lg.ghost { border-color: var(--line); color: var(--paper); }
+.lp-v3 .btn.lg.ghost:hover { border-color: var(--brand); color: var(--brand); }
+
+/* Three clips, overlapped into a stack rather than a row: a row of three reads
+   as a gallery, a stack reads as one piece of work with more behind it. */
+.v3-hero-reel {
+  display: flex; gap: 14px; justify-content: center; margin: clamp(34px, 5vw, 58px) auto 0;
+  width: min(620px, 100%); perspective: 1400px;
+}
+.v3-hero-reel .hv:nth-child(1) { transform: rotate(-4deg) translateY(16px); }
+.v3-hero-reel .hv:nth-child(2) { transform: translateY(-8px) scale(1.05); z-index: 2; }
+.v3-hero-reel .hv:nth-child(3) { transform: rotate(4deg) translateY(16px); }
+.v3-hero-reel .hv:hover { transform: translateY(-14px) scale(1.08); z-index: 3; }
+
+/* ── Galleries ── */
+/* minmax(0,1fr) and min-width:0 are both load-bearing: a grid item defaults to
+   min-width:auto, so without them each row refuses to shrink below the total
+   width of its clips and stretches the whole page to four thousand pixels
+   instead of scrolling inside itself. */
+.v3-galleries {
+  padding-top: clamp(26px, 4vw, 48px);
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  gap: clamp(30px, 4vw, 52px);
+}
+.gal { min-width: 0; }
+.gal-head {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 18px;
+  padding: 0 clamp(18px, 3vw, 40px) 14px;
+}
+.gal-head h2 {
+  font-family: var(--serif); font-style: italic; font-weight: 400;
+  font-size: clamp(30px, 3.4vw, 46px); line-height: 1; letter-spacing: -0.02em;
+  margin: 0; color: var(--paper);
+}
+.gal-head-right { display: flex; align-items: center; gap: 14px; flex: none; }
+.gal-note {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted);
+}
+.gal-arrows { display: flex; gap: 6px; }
+.gal-arrows button {
+  width: 34px; height: 34px; border-radius: 999px; cursor: pointer;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line);
+  color: var(--paper); font-size: 14px; line-height: 1;
+  transition: border-color 0.15s, opacity 0.15s;
+}
+.gal-arrows button:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); }
+.gal-arrows button:disabled { opacity: 0.28; cursor: default; }
+
+/* Runs off the right edge on purpose: the row continuing past the viewport is
+   the claim that there is more, made without a sentence that makes it. */
+.gal-track {
+  display: flex; gap: 12px;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x proximity; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px clamp(18px, 3vw, 40px) 4px;
+}
+.gal-track::-webkit-scrollbar { display: none; }
+.gal-card {
+  flex: none; width: clamp(146px, 15vw, 212px); margin: 0;
+  scroll-snap-align: start;
+}
+.gal-media {
+  display: block; position: relative; width: 100%; aspect-ratio: 9 / 16;
+  padding: 0; border-radius: 14px; overflow: hidden;
+  border: 1px solid var(--line); background: #141417;
+  transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.3, 1), border-color 0.2s;
+}
+button.gal-media { cursor: pointer; }
+.gal-media:hover { transform: translateY(-4px); border-color: rgba(255, 255, 255, 0.22); }
+.gal-media video,
+.gal-media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Stills are 4:5 and 9:16 in the same row; cover crops rather than letterboxes,
+   so the row keeps one rhythm instead of two. */
+.gal-track.still .gal-card { width: clamp(132px, 13vw, 184px); }
+.gal-badge {
+  position: absolute; left: 7px; top: 7px; z-index: 1;
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: rgba(8, 7, 12, 0.72); backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 74, 28, 0.4); color: var(--brand-mid);
+  padding: 3px 7px; border-radius: 999px;
+}
+.gal-play {
+  position: absolute; inset: 0; z-index: 1; display: grid; place-items: center;
+  font-size: 20px; color: #fff; opacity: 0; transition: opacity 0.2s;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+}
+.gal-media:hover .gal-play { opacity: 1; }
+.gal-card figcaption {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  padding: 9px 2px 0; font-size: 13px;
+}
+.gal-title { color: var(--paper); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gal-dur { flex: none; color: var(--muted); font-family: var(--mono); font-size: 11px; }
+
+/* ── Sections in the main column ── */
+.v3-section { padding: clamp(50px, 7vw, 92px) clamp(18px, 3vw, 40px) 0; }
+.v3-section > .lp-plans,
+.v3-section > .v2-steps,
+.v3-section > .lp-faq { width: min(1100px, 100%); margin-left: auto; margin-right: auto; }
+.lp-v3 .v2-final { padding: clamp(56px, 8vw, 100px) clamp(18px, 3vw, 40px); text-align: center; }
+.lp-v3 .lp-footer { padding: 0 clamp(18px, 3vw, 40px) 10px; }
+
+/* ── Narrow ── */
+@media (max-width: 1080px) {
+  .v3-shell { grid-template-columns: minmax(0, 1fr); }
+  .rail { display: none; }
+  .v3-nav-logo { visibility: visible; }
+}
+@media (max-width: 720px) {
+  .v3-nav { gap: 12px; }
+  .v3-nav-link { display: none; }
+}
+
+/* The wordmark lives at the top of the rail, where the product's own sidebar
+   puts it — so the page a visitor sees and the app they sign in to open with
+   the same corner. The nav bar's copy is hidden while the rail is on screen. */
+.rail-brand { padding: 0 8px 4px; }
+.rail-sub {
+  margin-top: 7px; font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted);
+}
+
+/* ── The prompt box, and the paywall behind Generate ─────────────────────────
+ *
+ * A real input: what is typed here is kept and prefills the composer after
+ * sign-up. It sits above the buttons because it is the faster of the two
+ * doors — somebody who already knows what they want can say it in one line
+ * rather than read a pricing table first. */
+.pbar {
+  display: flex; align-items: center; gap: 10px;
+  width: min(680px, 100%); margin: clamp(26px, 3.5vw, 38px) auto 0;
+  padding: 7px 7px 7px 16px;
+  border-radius: 14px; border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.035);
+  transition: border-color 0.18s, background 0.18s;
+}
+.pbar:focus-within { border-color: rgba(255, 74, 28, 0.55); background: rgba(255, 255, 255, 0.055); }
+.pbar-ico { flex: none; color: var(--brand); font-size: 14px; }
+.pbar-input {
+  flex: 1; min-width: 0; background: none; border: 0; outline: none;
+  color: var(--paper); font: inherit; font-size: 14.5px; padding: 9px 0;
+}
+.pbar-input::placeholder { color: var(--muted); }
+.pbar-go { flex: none; }
+@media (max-width: 560px) {
+  .pbar { flex-wrap: wrap; padding: 12px; }
+  .pbar-input { flex-basis: 100%; order: 2; padding: 4px 0 10px; }
+  .pbar-go { order: 3; margin-left: auto; }
+}
+
+.pw {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center;
+  padding: 20px; background: rgba(4, 4, 6, 0.82); backdrop-filter: blur(6px);
+}
+.pw-card {
+  position: relative; width: min(480px, 100%);
+  max-height: calc(100vh - 40px); overflow-y: auto;
+  padding: 26px; border-radius: 18px;
+  border: 1px solid var(--line); background: #111114;
+  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.7);
+  text-align: left;
+}
+.pw-card h3 { font-size: 25px; letter-spacing: -0.025em; margin: 0; }
+.pw-sub { color: var(--muted); font-size: 14px; line-height: 1.55; margin-top: 10px; }
+.pw-x {
+  position: absolute; top: 14px; right: 14px; width: 30px; height: 30px;
+  border-radius: 999px; cursor: pointer; font-size: 13px;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line); color: var(--paper);
+}
+.pw-x:hover { border-color: var(--brand); color: var(--brand); }
+.pw-idea {
+  margin-top: 16px; padding: 12px 14px; border-radius: 11px;
+  border: 1px dashed rgba(255, 74, 28, 0.35); background: var(--brand-soft);
+}
+.pw-idea > span {
+  display: block; font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--brand-mid); margin-bottom: 6px;
+}
+.pw-idea q { color: var(--paper); font-size: 13.5px; line-height: 1.5; }
+.pw-plans { display: grid; gap: 10px; margin-top: 18px; }
+.pw-plan {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 13px 14px; border-radius: 12px;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02);
+}
+.pw-plan.pick { border-color: rgba(255, 74, 28, 0.45); background: var(--brand-soft); }
+.pw-plan-top { display: grid; gap: 2px; }
+.pw-plan-top b { font-size: 14.5px; }
+.pw-plan-top > span { color: var(--paper); font-size: 19px; letter-spacing: -0.02em; }
+.pw-plan-top small { color: var(--muted); font-size: 12px; }
+.pw-all {
+  display: block; width: 100%; margin-top: 14px; padding: 8px;
+  background: none; border: 0; cursor: pointer;
+  color: var(--muted); font: inherit; font-size: 13px;
+}
+.pw-all:hover { color: var(--paper); }

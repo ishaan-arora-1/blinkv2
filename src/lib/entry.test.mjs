@@ -13,7 +13,7 @@ globalThis.localStorage = {
   removeItem: (k) => store.delete(k),
 }
 const m = await import('./entry.js')
-const { markAdEntry, markPlanIntent, pendingIntent, clearIntent, consumeEntryRoute } = m
+const { markAdEntry, markPlanIntent, pendingIntent, clearIntent, consumeEntryRoute, markIdea, takeIdea } = m
 
 let fails = 0
 const is = (label, got, want) => {
@@ -76,6 +76,41 @@ is('25h old      no redirect', consumeEntryRoute(), null)
 store.clear()
 markPlanIntent(null)
 is('null tier    writes nothing', store.get('blink.entry') ?? null, null)
+
+// ── the idea typed into the landing page's prompt box ──
+// The box is only worth having if what goes in comes out the other side of a
+// Google redirect, so these are the assertions that keep it from being a prop.
+store.clear()
+markIdea('  a 20s ad for my matcha tin  ')
+is('idea         trimmed on the way in', JSON.parse(store.get('blink.idea')).text, 'a 20s ad for my matcha tin')
+is('idea         comes back out', takeIdea(), 'a 20s ad for my matcha tin')
+is('idea         consumed, not reread', takeIdea(), null)
+
+store.clear()
+markIdea('   ')
+is('blank idea   writes nothing', store.get('blink.idea') ?? null, null)
+markIdea('')
+is('empty idea   writes nothing', store.get('blink.idea') ?? null, null)
+
+store.clear()
+markIdea('x'.repeat(900))
+is('long idea    capped at 600', takeIdea().length, 600)
+
+store.clear()
+markIdea('stale thought')
+const idea = JSON.parse(store.get('blink.idea'))
+idea.at = Date.now() - 25 * 60 * 60 * 1000
+store.set('blink.idea', JSON.stringify(idea))
+is('25h old idea dropped', takeIdea(), null)
+is('25h old idea cleared too', store.get('blink.idea') ?? null, null)
+
+// The idea and the plan intent are separate records: spending one at the
+// checkout must not wipe the other a screen later.
+store.clear()
+markIdea('keep me')
+markPlanIntent('studio')
+clearIntent()
+is('idea         survives the checkout', takeIdea(), 'keep me')
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed')
 process.exit(fails ? 1 : 0)
